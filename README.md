@@ -1,0 +1,2 @@
+# nacos-sync
+Synchronization component
