@@ -1,0 +1,22 @@
+.containers {
+  .layout {
+    position: absolute;
+    top: 66px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    .title {
+      text-align: center;
+      line-height: 70px;
+      font-weight: bold;
+      font-size: 14px;
+      background: #d9dee4;
+    }
+  }
+  .nav-bar {
+    background: #eaedf1;
+  }
+  .main-panel {
+    padding: 10px;
+  }
+}

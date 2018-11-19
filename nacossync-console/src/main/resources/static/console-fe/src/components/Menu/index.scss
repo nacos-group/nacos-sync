@@ -1,0 +1,18 @@
+.menu {
+  ul.next-nav.next-normal {
+    box-shadow: none;
+    border: 0;
+    background: transparent;
+    .next-menu-item {
+      line-height: 40px;
+      background: transparent;
+      &:hover {
+        color: #333;
+        background: #F4F6F8;
+      }
+      &.next-opened, &.next-selected {
+        color: #333;
+      }
+    }
+  }
+}

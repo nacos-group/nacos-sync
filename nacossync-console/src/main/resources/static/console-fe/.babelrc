@@ -1,0 +1,17 @@
+{
+  "presets": [
+    "env",
+    "react-app"
+  ],
+  "plugins": [
+    "transform-react-es6-displayname",
+    "transform-decorators-legacy",
+    [
+      "babel-plugin-import",
+      {
+        "libraryName": "@alifd/next",
+        "style": true
+      }
+    ]
+  ]
+}

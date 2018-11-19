@@ -1,0 +1,17 @@
+.function-header {
+  margin: 10px 0 20px;
+  border-left: 3px solid rgb(0, 153, 204);
+  .main-title {
+    display: inline-block;
+    font-size: 14px;
+    color: rgb(0, 0, 0);
+    line-height: 30px;
+    margin: 0 20px 0 8px;
+    font-weight: 400;
+  }
+  .subtitle {
+    color: rgb(204, 204, 204);
+    font-size: 12px;
+    line-height: 30px;
+  }
+}
