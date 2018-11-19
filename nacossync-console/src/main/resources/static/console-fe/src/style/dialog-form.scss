@@ -1,0 +1,15 @@
+.dialog-form{
+  .next-form-item {
+    display: flex;
+    width: 310px;
+    .next-form-item-label {
+      flex: 0 0 100px;
+    }
+    .next-form-item-control {
+      flex: 0 0 220px;
+      .next-input, .next-select {
+        width: 190px;
+      }
+    }
+  }
+}

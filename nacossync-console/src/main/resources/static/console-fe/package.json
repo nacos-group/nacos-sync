@@ -1,0 +1,56 @@
+{
+  "name": "console-fe",
+  "version": "1.0.0",
+  "description": "console fe",
+  "main": "index.js",
+  "scripts": {
+    "dev": "cross-env NODE_ENV=development webpack-dev-server --config build/webpack.dev.conf.js --open",
+    "build": "cross-env NODE_ENV=production webpack --config build/webpack.prod.conf.js && node build/copy-dist.js"
+  },
+  "author": "yanmin.wang@ele.me",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nacos-group/nacos-sync.git"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-core": "^6.26.3",
+    "babel-loader": "^7.1.5",
+    "babel-plugin-import": "^1.10.0",
+    "babel-plugin-transform-decorators": "^6.24.1",
+    "babel-plugin-transform-decorators-legacy": "^1.3.5",
+    "babel-plugin-transform-react-es6-displayname": "^1.0.0-beta1.4",
+    "babel-preset-env": "^1.7.0",
+    "babel-preset-react-app": "^3.1.1",
+    "babel-runtime": "^6.23.0",
+    "clean-webpack-plugin": "^0.1.19",
+    "cross-env": "^5.2.0",
+    "css-loader": "^1.0.0",
+    "file-loader": "^2.0.0",
+    "html-webpack-plugin": "^3.2.0",
+    "mini-css-extract-plugin": "^0.4.3",
+    "node-sass": "^4.9.3",
+    "optimize-css-assets-webpack-plugin": "^5.0.1",
+    "sass-loader": "^7.1.0",
+    "style-loader": "^0.23.0",
+    "uglifyjs-webpack-plugin": "^2.0.1",
+    "url-loader": "^1.1.1",
+    "webpack": "^4.20.2",
+    "webpack-cli": "^3.1.2",
+    "webpack-dev-server": "^3.1.9"
+  },
+  "dependencies": {
+    "@alifd/next": "^1.7.6",
+    "axios": "^0.18.0",
+    "moment": "^2.22.2",
+    "react": "^16.6.0",
+    "react-dom": "^16.6.0",
+    "react-redux": "^5.1.0",
+    "react-router": "^4.3.1",
+    "react-router-dom": "^4.3.1",
+    "react-router-redux": "^4.0.8",
+    "redux": "^4.0.1",
+    "redux-thunk": "^2.3.0"
+  }
+}

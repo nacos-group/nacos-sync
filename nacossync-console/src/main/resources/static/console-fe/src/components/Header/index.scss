@@ -1,0 +1,52 @@
+.header-container-primary {
+  padding: 0 40px;
+  background: #252a2f;
+  overflow: hidden;
+  .logo {
+    display: block;
+    float: left;
+    line-height: 66px;
+  }
+  .logo-img {
+    width: 96px;
+    vertical-align: sub;
+  }
+  .nav-menu {
+    float: right;
+    li {
+      float: left;
+      margin-right: 40px;
+    }
+    a {
+      color: #fff;
+      opacity: .6;
+      font-size: 14px;
+      line-height: 66px;
+      text-decoration: none;
+      &:hover {
+        opacity: 1;
+        text-decoration: underline;
+      }
+    }
+  }
+  .language-switch {
+    float: right;
+    width: 24px;
+    line-height: 24px;
+    margin-top: 21px;
+    text-align: center;
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: "PingFangSC-Medium";
+    font-size: 14px;
+    opacity: .6;
+    user-select: none;
+    &:hover {
+      opacity: 1;
+    }
+  }
+  .language-switch-primary {
+    border: 1px solid #fff;
+    color: #fff;
+  }
+}
