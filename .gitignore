@@ -1,0 +1,12 @@
+# Except this file !.gitignore 
+.classpath
+.project
+.settings
+target
+.project
+.idea
+.DS_Store
+/logs
+*.iml
+node_modules
+test/derby.log
