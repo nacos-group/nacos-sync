@@ -36,8 +36,6 @@ import com.alibaba.nacossync.pojo.FinishedTask;
 import com.alibaba.nacossync.pojo.model.ClusterDO;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
-import com.taobao.config.client.Subscriber;
-import com.taobao.config.client.SubscriberRegistration;
 
 /**
  * @author NacosSync
@@ -49,38 +47,7 @@ public class SkyWalkerCacheServices {
     @Autowired
     private ClusterAccessService clusterAccessService;
 
-    private final ReentrantLock subCacheLock = new ReentrantLock();
-
     private static Map<String, FinishedTask> finishedTaskMap = new ConcurrentHashMap<>();
-
-    private static Map<String, SubscriberRegistration> subRegistrationCache = new ConcurrentHashMap<>();
-
-    private static Map<String, Subscriber> subscriberMapCache = new ConcurrentHashMap<>();
-
-    public Subscriber getSubscriber(String key) {
-
-        return subscriberMapCache.get(key);
-
-    }
-
-    public SubscriberRegistration putIfNotSubscriberRegistration(String key, String dataId) {
-
-        subCacheLock.lock();
-        SubscriberRegistration subscriberRegistration;
-        try {
-            subscriberRegistration = subRegistrationCache.get(key);
-
-            if (null == subscriberRegistration) {
-
-                subscriberRegistration = new SubscriberRegistration(key, dataId);
-                subRegistrationCache.put(key, subscriberRegistration);
-            }
-
-        } finally {
-            subCacheLock.unlock();
-        }
-        return subscriberRegistration;
-    }
 
     public String getClusterConnectKey(String clusterId) {
 
@@ -97,7 +64,7 @@ public class SkyWalkerCacheServices {
         Random random = new Random();
         return connectKeyList.get(random.nextInt(connectKeyList.size()));
     }
-    
+
     public ClusterTypeEnum getClusterType(String clusterId) {
 
         ClusterDO clusterDOS = clusterAccessService.findByClusterId(clusterId);
@@ -126,11 +93,6 @@ public class SkyWalkerCacheServices {
 
         return finishedTaskMap.get(operationId);
 
-    }
-
-    public void addSubscriber(String taskId, Subscriber subscriber) {
-
-        subscriberMapCache.put(taskId, subscriber);
     }
 
     public Map<String, FinishedTask> getFinishedTaskMap() {

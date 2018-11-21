@@ -68,17 +68,11 @@
             <artifactId>springfox-swagger-ui</artifactId>
             <version>2.6.1</version>
         </dependency>
-        <!--config-client-->
-        <dependency>
-            <artifactId>config-client</artifactId>
-            <groupId>com.taobao.configserver</groupId>
-            <version>2.0.0</version>
-        </dependency>
         <!--nacos-->
         <dependency>
             <groupId>com.alibaba.nacos</groupId>
             <artifactId>nacos-client</artifactId>
-            <version>0.2.0-SM-SNAPSHOT</version>
+            <version>0.5.0</version>
         </dependency>
     </dependencies>
 </project>
