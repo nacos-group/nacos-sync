@@ -28,7 +28,7 @@ import lombok.Data;
  */
 @Data
 @Entity
-@Table(name = "task")
+@Table(name = "task", uniqueConstraints = {@UniqueConstraint(columnNames={"taskId"})})
 public class TaskDO implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
