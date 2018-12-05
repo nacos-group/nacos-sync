@@ -53,7 +53,7 @@ public class NacosSyncService implements SyncService, InitializingBean {
                     destNamingService.deregisterInstance(taskDO.getServiceName(), instance.getIp(), instance.getPort());
                 }
             }
-        } catch (NacosException e) {
+        } catch (Exception e) {
             log.error("delete task fail, taskId:{}", taskDO.getTaskId(), e);
             return false;
         }
@@ -86,7 +86,7 @@ public class NacosSyncService implements SyncService, InitializingBean {
                                 destNamingService.deregisterInstance(taskDO.getServiceName(), instance.getIp(), instance.getPort());
                             }
                         }
-                    } catch (NacosException e) {
+                    } catch (Exception e) {
                         log.error("event process fail, taskId:{}", taskDO.getTaskId(), e);
                     }
                 }
@@ -94,7 +94,7 @@ public class NacosSyncService implements SyncService, InitializingBean {
 
 
             sourceNamingService.subscribe(taskDO.getServiceName(), nacosListenerMap.get(taskDO.getTaskId()));
-        } catch (NacosException e) {
+        } catch (Exception e) {
             log.error("sync task fail, taskId:{}", taskDO.getTaskId(), e);
             return false;
         }
