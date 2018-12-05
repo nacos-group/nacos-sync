@@ -107,6 +107,9 @@ public class NacosSyncService implements SyncService, InitializingBean {
 
 
     private NamingService getFromCache(String clusterId, String namespace) throws NacosException {
+        if (namespace == null) {
+            namespace = "";
+        }
         String key = clusterId + "_" + namespace;
         namingServiceMapLock.lock();
         try {
