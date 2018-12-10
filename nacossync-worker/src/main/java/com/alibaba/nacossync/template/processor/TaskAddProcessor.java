@@ -63,10 +63,10 @@ public class TaskAddProcessor implements Processor<TaskAddRequest, TaskAddResult
 
         }
 
-        if (!ClusterTypeEnum.CS.getCode().equals(sourceCluster.getClusterType())
+        if (!ClusterTypeEnum.NACOS.getCode().equals(sourceCluster.getClusterType())
             || !ClusterTypeEnum.NACOS.getCode().equals(destCluster.getClusterType())) {
 
-            throw new SkyWalkerException("请检查是否支持源到目标集群类型的同步！目前只支持CS->NACOS");
+            throw new SkyWalkerException("请检查是否支持源到目标集群类型的同步！目前只支持NACOS->NACOS");
 
         }
 
