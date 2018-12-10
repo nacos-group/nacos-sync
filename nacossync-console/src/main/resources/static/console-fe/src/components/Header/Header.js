@@ -41,7 +41,7 @@ class Header extends React.Component {
         }]
         return (
             <header className="header-container-primary">
-                <a href="/" className="logo" title="Skywalker">
+                <a href="/" className="logo" title="Nacos-Sync">
                     <img src={LogoImage} className="logo-img"/>
                 </a>
                 <span

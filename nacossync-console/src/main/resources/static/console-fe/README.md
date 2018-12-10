@@ -1,6 +1,6 @@
 # Console 前端工程
 
-> 这是一个前端工程，构建后的页面将输出到 skywalker-console module 中
+> 这是一个前端工程，构建后的页面将输出到 nacossync-console module 中
 
 ## 前端框架选型
 1. React
@@ -12,13 +12,13 @@
 ## 开发
 
 > 准备工作
-- `git clone git@gitlab.alibaba-inc.com:middleware-config/skywalker.git`
-- `cd skywalker`
+- `git clone git@github.com:nacos-group/nacos-sync.git`
+- `cd nacos-group`
 
 > 开始
 1. 创建软连接
     ```
-       ln -s ./skywalker-console/src/main/resources/static/console-fe ./
+       ln -s ./nacossync-console/src/main/resources/static/console-fe ./
        cd console-fe
        ...
     ```
@@ -29,7 +29,7 @@
 ## 注意
 
 构建输出目录为前端工程目录下的 `dist/` ， `run build` 时会复制到上层目录，所以不能在上层目录（
-`skywalker/skywalker-console/src/main/resources/static/`） 下出现以下内容
+`nacossync-console/src/main/resources/static/`） 下出现以下内容
 
 1. `js` directory
 2. `css` directory
