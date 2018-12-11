@@ -6,6 +6,8 @@ const FormItem = Form.Item
 
 @ConfigProvider.config
 class AddSysConfigDialog extends React.Component {
+    static displayName = 'AddSysConfigDialog'
+
     constructor(props) {
         super(props)
         this.state = {

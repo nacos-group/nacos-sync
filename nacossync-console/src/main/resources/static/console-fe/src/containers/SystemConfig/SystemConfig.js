@@ -17,6 +17,8 @@ for (let i = 0; i < 10; i++) {
 
 @ConfigProvider.config
 class SystemConfig extends React.Component {
+    static displayName = 'SystemConfig'
+
     constructor(props) {
         super(props)
         this.addDialog = React.createRef()

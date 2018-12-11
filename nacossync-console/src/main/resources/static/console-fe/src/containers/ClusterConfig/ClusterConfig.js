@@ -11,6 +11,8 @@ const FormItem = Form.Item
 @connect(state => ({...state.cluster}), {list})
 @ConfigProvider.config
 class ClusterConfig extends React.Component {
+    static displayName = 'ClusterConfig'
+
     constructor(props) {
         super(props)
         this.addDialog = React.createRef()

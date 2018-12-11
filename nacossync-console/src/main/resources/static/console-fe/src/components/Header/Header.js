@@ -9,6 +9,8 @@ import './index.scss'
 @connect(state => ({...state.locale}), {changeLanguage})
 @ConfigProvider.config
 class Header extends React.Component {
+    static displayName = 'Header'
+
     constructor(props) {
         super(props)
     }
