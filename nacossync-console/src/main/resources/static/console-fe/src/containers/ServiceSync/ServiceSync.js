@@ -11,6 +11,8 @@ const FormItem = Form.Item
 @connect(state => ({...state.task}), {list})
 @ConfigProvider.config
 class ServiceSync extends React.Component {
+    static displayName = 'ServiceSync'
+
     constructor(props) {
         super(props)
         this.addDialog = React.createRef()

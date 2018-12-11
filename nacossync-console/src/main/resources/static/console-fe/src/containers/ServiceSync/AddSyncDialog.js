@@ -6,6 +6,8 @@ const FormItem = Form.Item
 
 @ConfigProvider.config
 class AddSyncDialog extends React.Component {
+    static displayName = 'AddSyncDialog'
+
     constructor(props) {
         super(props)
         this.state = {

@@ -10,6 +10,8 @@ const {Option} = Select
 @connect(state => ({...state.cluster}), {getTypes}, null, {withRef: true})
 @ConfigProvider.config
 class AddConfigDialog extends React.Component {
+    static displayName = 'AddConfigDialog'
+
     constructor(props) {
         super(props)
         this.state = {
