@@ -14,6 +14,8 @@ const add = data => request.post(`${PATH}add`, data)
 
 const update = data => request.post(`${PATH}update`, data)
 
+const deleteRow = params => request.delete(`${PATH}delete`, {params})
+
 const list = params => dispatch => request.get(`${PATH}list`, {
     params: {
         ...params,
@@ -41,4 +43,4 @@ export default (state = initialState, action) => {
     }
 }
 
-export {list, add, update, detail}
+export {list, add, update, deleteRow, detail}

@@ -3,7 +3,7 @@ import {connect} from 'react-redux'
 import {Table, Pagination, Form, Input, Button, Dialog, Message, ConfigProvider} from '@alifd/next'
 import FuncHead from '../../components/FuncHead'
 import AddSyncDialog from './AddSyncDialog'
-import {list, update} from '../../reducers/task'
+import {list, update, deleteRow} from '../../reducers/task'
 import './index.scss'
 
 const FormItem = Form.Item
@@ -47,6 +47,19 @@ class ServiceSync extends React.Component {
         Dialog.confirm({
             title: locale.confirm,
             content: locale.confirmMsg,
+            onOk: () => deleteRow({taskId}).then(() => {
+                this.turnPage(this.state.pageNum)
+                Message.success(locale.successMsg)
+            })
+        })
+    }
+
+    suspendedServiceSync(record) {
+        const {taskId} = record
+        const {locale = {}} = this.props
+        Dialog.confirm({
+            title: locale.confirm,
+            content: locale.suspendedMsg,
             onOk: () => update({taskId, taskStatus: 'DELETE'}).then(() => {
                 this.turnPage(this.state.pageNum)
                 Message.success(locale.successMsg)
@@ -102,24 +115,36 @@ class ServiceSync extends React.Component {
                     <Table.Column
                         title={locale.operation}
                         cell={(value, index, record) => {
+                            const buttonList = [
+                                <Button
+                                    key="deleteBtn"
+                                    text
+                                    type="primary"
+                                    style={{marginRight: 18}}
+                                    onClick={() => this.deleteServiceSync(record)}
+                                >{locale.deleteBtn}</Button>
+                            ]
                             if (record.taskStatus === 'SYNC') {
-                                return (
+                                buttonList.push(
                                     <Button
+                                        key="suspendedBtn"
                                         text
                                         type="primary"
-                                        onClick={() => this.deleteServiceSync(record)}
-                                    >{locale.deleteBtn}</Button>
+                                        onClick={() => this.suspendedServiceSync(record)}
+                                    >{locale.suspendedBtn}</Button>
                                 )
                             }
                             if (record.taskStatus === 'DELETE') {
-                                return (
+                                buttonList.push(
                                     <Button
+                                        key="resynchronizeBtn"
                                         text
                                         type="primary"
                                         onClick={() => this.resynchronize(record)}
                                     >{locale.resynchronizeBtn}</Button>
                                 )
                             }
+                            return buttonList
                         }}
                     />
                 </Table>
