@@ -4,11 +4,12 @@ import {Table, Pagination, Form, Input, Button, Dialog, Message, ConfigProvider}
 import FuncHead from '../../components/FuncHead'
 import AddSyncDialog from './AddSyncDialog'
 import {list, update, deleteRow} from '../../reducers/task'
+import {list as getClusterList} from "../../reducers/cluster";
 import './index.scss'
 
 const FormItem = Form.Item
 
-@connect(state => ({...state.task}), {list})
+@connect(state => ({...state.task, ...state.cluster}), {list, getClusterList})
 @ConfigProvider.config
 class ServiceSync extends React.Component {
     static displayName = 'ServiceSync'
@@ -27,8 +28,9 @@ class ServiceSync extends React.Component {
 
     componentDidMount() {
         const {pageNum} = this.state
-        const {list} = this.props
+        const {list, getClusterList} = this.props
         list({pageNum}).then(() => this.loadComplete())
+        getClusterList({pageSize: 10000000, pageNum: 1})
     }
 
     loadComplete() {
@@ -87,7 +89,11 @@ class ServiceSync extends React.Component {
 
     render() {
         const {loading, pageNum, search} = this.state
-        const {taskModels = [], locale = {}, totalSize = 0, totalPage = 0} = this.props
+        const {taskModels = [], locale = {}, totalSize = 0, totalPage = 0, clusterModels = []} = this.props
+        const clusterMap = {}
+        clusterModels.forEach(({clusterId, clusterName}) => {
+            clusterMap[clusterId] = clusterName
+        })
         return (
             <div className="service-sync">
                 <FuncHead title={locale.title}/>
@@ -110,8 +116,16 @@ class ServiceSync extends React.Component {
                 <Table dataSource={taskModels} loading={loading}>
                     <Table.Column title={locale.serviceName} dataIndex="serviceName"/>
                     <Table.Column title={locale.groupName} dataIndex="groupName"/>
-                    <Table.Column title={locale.sourceCluster} dataIndex="sourceClusterName"/>
-                    <Table.Column title={locale.destCluster} dataIndex="destClusterName"/>
+                    <Table.Column
+                        title={locale.sourceCluster}
+                        dataIndex="sourceClusterId"
+                        cell={key => clusterMap[key]}
+                    />
+                    <Table.Column
+                        title={locale.destCluster}
+                        dataIndex="destClusterId"
+                        cell={key => clusterMap[key]}
+                    />
                     <Table.Column
                         title={locale.operation}
                         cell={(value, index, record) => {
