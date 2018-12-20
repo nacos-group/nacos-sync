@@ -5,7 +5,6 @@ import FuncHead from '../../components/FuncHead'
 import AddSyncDialog from './AddSyncDialog'
 import {list, update, deleteRow} from '../../reducers/task'
 import './index.scss'
-import AddConfigDialog from "../ClusterConfig/AddConfigDialog";
 
 const FormItem = Form.Item
 
@@ -50,7 +49,7 @@ class ServiceSync extends React.Component {
             content: locale.confirmMsg,
             onOk: () => deleteRow({taskId}).then(() => {
                 this.turnPage(this.state.pageNum)
-                Message.success(locale.successMsg)
+                Message.success(locale.deleteSuccessMsg)
             })
         })
     }
@@ -141,7 +140,7 @@ class ServiceSync extends React.Component {
                                         key="deleteBtn"
                                         text
                                         type="primary"
-                                        style={{marginRight: 18}}
+                                        style={{marginLeft: 18}}
                                         onClick={() => this.deleteServiceSync(record)}
                                     >{locale.deleteBtn}</Button>
                                 )

@@ -50,7 +50,8 @@ const I18N_CONF = {
         confirm: 'Prompt',
         confirmMsg: 'Are you sure you want to delete this row？',
         suspendedMsg: 'Are you sure you want to pause this row？',
-        successMsg: 'Delete the success!',
+        successMsg: 'Suspension of success!',
+        deleteSuccessMsg: 'Delete the success!',
         syncSuccessMsg: 'Resync succeeded!',
     },
     AddSyncDialog: {

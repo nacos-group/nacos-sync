@@ -50,7 +50,8 @@ const I18N_CONF = {
         confirm: '提示',
         confirmMsg: '确定要删除这行数据吗？',
         suspendedMsg: '确定要暂停这行数据吗？',
-        successMsg: '删除成功!',
+        successMsg: '暂停成功!',
+        deleteSuccessMsg: '删除成功!',
         syncSuccessMsg: '重新同步成功!',
     },
     AddSyncDialog: {
