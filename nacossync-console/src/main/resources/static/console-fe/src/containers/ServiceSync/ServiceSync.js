@@ -5,6 +5,7 @@ import FuncHead from '../../components/FuncHead'
 import AddSyncDialog from './AddSyncDialog'
 import {list, update, deleteRow} from '../../reducers/task'
 import './index.scss'
+import AddConfigDialog from "../ClusterConfig/AddConfigDialog";
 
 const FormItem = Form.Item
 
@@ -82,7 +83,7 @@ class ServiceSync extends React.Component {
     }
 
     openAddDialog() {
-        this.addDialog.current.getInstance().open()
+        this.addDialog.current.getWrappedInstance().getInstance().open()
     }
 
     render() {
@@ -115,15 +116,7 @@ class ServiceSync extends React.Component {
                     <Table.Column
                         title={locale.operation}
                         cell={(value, index, record) => {
-                            const buttonList = [
-                                <Button
-                                    key="deleteBtn"
-                                    text
-                                    type="primary"
-                                    style={{marginRight: 18}}
-                                    onClick={() => this.deleteServiceSync(record)}
-                                >{locale.deleteBtn}</Button>
-                            ]
+                            const buttonList = []
                             if (record.taskStatus === 'SYNC') {
                                 buttonList.push(
                                     <Button
@@ -143,6 +136,15 @@ class ServiceSync extends React.Component {
                                         onClick={() => this.resynchronize(record)}
                                     >{locale.resynchronizeBtn}</Button>
                                 )
+                                buttonList.push(
+                                    <Button
+                                        key="deleteBtn"
+                                        text
+                                        type="primary"
+                                        style={{marginRight: 18}}
+                                        onClick={() => this.deleteServiceSync(record)}
+                                    >{locale.deleteBtn}</Button>
+                                )
                             }
                             return buttonList
                         }}
@@ -158,7 +160,7 @@ class ServiceSync extends React.Component {
                         />
                         : null
                 }
-                <AddSyncDialog ref={this.addDialog}/>
+                <AddSyncDialog ref={this.addDialog} turnPage={pn => this.turnPage(pn)}/>
             </div>
         )
     }

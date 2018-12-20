@@ -1,7 +1,7 @@
 import request from '../utils/request'
 import {TASK_LIST, GET_TASK_BY_ID, PAGE_SIZE} from '../constants'
 
-const PATH = '/nacossync/v1/task/'
+const PATH = '/v1/task/'
 const initialState = {
     totalPage: 0,
     totalSize: 0,
@@ -18,8 +18,8 @@ const deleteRow = params => request.delete(`${PATH}delete`, {params})
 
 const list = params => dispatch => request.get(`${PATH}list`, {
     params: {
-        ...params,
-        pageSize: PAGE_SIZE
+        pageSize: PAGE_SIZE,
+        ...params
     }
 }).then(data => dispatch({
     type: TASK_LIST,

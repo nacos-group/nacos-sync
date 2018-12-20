@@ -1,7 +1,7 @@
 import request from '../utils/request'
 import {CLUSTER_LIST, GET_CLUSTER_BY_ID, CLUSTER_TYPES, PAGE_SIZE} from '../constants'
 
-const PATH = '/nacossync/v1/cluster/'
+const PATH = '/v1/cluster/'
 const initialState = {
     totalPage: 0,
     totalSize: 0,
@@ -16,8 +16,8 @@ const deleteCluster = data => request.delete(`${PATH}delete`, {data})
 
 const list = params => dispatch => request.get(`${PATH}list`, {
     params: {
-        ...params,
-        pageSize: PAGE_SIZE
+        pageSize: PAGE_SIZE,
+        ...params
     }
 }).then(data => dispatch({
     type: CLUSTER_LIST,
