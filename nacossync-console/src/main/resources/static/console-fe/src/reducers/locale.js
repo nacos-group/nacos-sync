@@ -14,7 +14,7 @@ const initialState = {
 const changeLanguage = language => (dispatch) => {
   const newLan = language === 'zh-CN' ? 'zh-CN' : 'en-US';
   localStorage.setItem(LANGUAGE_KEY, newLan);
-  dispatch({ type: LANGUAGE_SWITCH, newLan, locale: newLan === 'zh-CN' ? zhCN : enUS });
+  dispatch({ type: LANGUAGE_SWITCH, language: newLan, locale: newLan === 'zh-CN' ? zhCN : enUS });
 };
 
 export default (state = initialState, action) => {

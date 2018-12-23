@@ -11,3 +11,5 @@ export const TASK_LIST = 'TASK_LIST';
 export const GET_TASK_BY_ID = 'GET_TASK_BY_ID';
 
 export const PAGE_SIZE = 10;
+
+export const REDUX_DEVTOOLS = '__REDUX_DEVTOOLS_EXTENSION__';

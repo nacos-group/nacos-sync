@@ -7,13 +7,7 @@ import './index.scss';
 const FormItem = Form.Item;
 
 const dataSource = [];
-
-for (let i = 0; i < 10; i++) {
-  dataSource.push({
-    c1: 'key1',
-    c2: '1',
-  });
-}
+for (let i = 0; i < 10; i++) dataSource.push({ c1: 'key1', c2: '1' });
 
 @ConfigProvider.config
 class SystemConfig extends React.Component {

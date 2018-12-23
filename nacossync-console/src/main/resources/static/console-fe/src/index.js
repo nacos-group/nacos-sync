@@ -11,7 +11,7 @@ import Layout from './containers/Layout';
 import ServiceSync from './containers/ServiceSync';
 import SystemConfig from './containers/SystemConfig';
 import ClusterConfig from './containers/ClusterConfig';
-import { LANGUAGE_KEY } from './constants';
+import { LANGUAGE_KEY, REDUX_DEVTOOLS } from './constants';
 
 import * as reducers from './reducers';
 import { changeLanguage } from './reducers/locale';
@@ -31,7 +31,7 @@ const store = createStore(
   reducer,
   compose(
     applyMiddleware(thunk),
-    window.__REDUX_DEVTOOLS_EXTENSION__ ? window.__REDUX_DEVTOOLS_EXTENSION__() : f => f,
+    window[REDUX_DEVTOOLS] ? window[REDUX_DEVTOOLS]() : f => f,
   ),
 );
 
