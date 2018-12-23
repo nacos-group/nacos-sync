@@ -1,3 +1,3 @@
-import ClusterConfig from './ClusterConfig'
+import ClusterConfig from './ClusterConfig';
 
-export default ClusterConfig
+export default ClusterConfig;

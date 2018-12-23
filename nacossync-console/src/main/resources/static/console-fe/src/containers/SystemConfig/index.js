@@ -1,3 +1,3 @@
-import SystemConfig from './SystemConfig'
+import SystemConfig from './SystemConfig';
 
-export default SystemConfig
+export default SystemConfig;
