@@ -1,28 +1,20 @@
 package com.alibaba.nacossync.extension;
 
-import com.alibaba.nacos.api.PropertyKeyConst;
-import com.alibaba.nacos.api.exception.NacosException;
-import com.alibaba.nacos.api.naming.NamingFactory;
 import com.alibaba.nacos.api.naming.NamingService;
-import com.alibaba.nacos.api.naming.listener.Event;
 import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.listener.NamingEvent;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
+import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.pojo.model.TaskDO;
-import com.google.common.collect.ImmutableMap;
-import io.swagger.models.auth.In;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * @author yangyshdan
@@ -31,18 +23,20 @@ import java.util.concurrent.locks.ReentrantLock;
 
 @Slf4j
 @Service
-public class NacosSyncService implements SyncService, InitializingBean {
-    private final ReentrantLock namingServiceMapLock = new ReentrantLock();
+public class NacosSyncService implements SyncService {
     private Map<String, EventListener> nacosListenerMap = new ConcurrentHashMap<>();
-    private Map<String, NamingService> namingServiceMap = new ConcurrentHashMap<>();
     @Autowired
     private SyncManagerService syncManagerService;
+
+    @Autowired
+    private NacosServerHolder nacosServerHolder;
 
     @Override
     public boolean delete(TaskDO taskDO) {
         try {
-            NamingService sourceNamingService = getFromCache(taskDO.getSourceClusterId(), taskDO.getGroupName());
-            NamingService destNamingService = getFromCache(taskDO.getDestClusterId(), taskDO.getGroupName());
+
+            NamingService sourceNamingService = nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
 
             sourceNamingService.unsubscribe(taskDO.getServiceName(), nacosListenerMap.get(taskDO.getTaskId()));
 
@@ -63,8 +57,8 @@ public class NacosSyncService implements SyncService, InitializingBean {
     @Override
     public boolean sync(TaskDO taskDO) {
         try {
-            NamingService sourceNamingService = getFromCache(taskDO.getSourceClusterId(), taskDO.getGroupName());
-            NamingService destNamingService = getFromCache(taskDO.getDestClusterId(), taskDO.getGroupName());
+            NamingService sourceNamingService = nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
 
             nacosListenerMap.putIfAbsent(taskDO.getTaskId(), event -> {
                 if (event instanceof NamingEvent) {
@@ -101,29 +95,17 @@ public class NacosSyncService implements SyncService, InitializingBean {
         return true;
     }
 
+    @Override
+    public ClusterTypeEnum getClusterType() {
+        return ClusterTypeEnum.NACOS;
+    }
+
     private String composeInstanceKey(Instance instance) {
         return instance.getIp() + ":" + instance.getPort();
     }
 
 
-    private NamingService getFromCache(String clusterId, String namespace) throws NacosException {
-        if (namespace == null) {
-            namespace = "";
-        }
-        String key = clusterId + "_" + namespace;
-        namingServiceMapLock.lock();
-        try {
-            if (namingServiceMap.get(key) == null) {
-                Properties properties = new Properties();
-                properties.setProperty(PropertyKeyConst.SERVER_ADDR, syncManagerService.skyWalkerCacheServices.getClusterConnectKey(clusterId));
-                properties.setProperty(PropertyKeyConst.NAMESPACE, namespace);
-                namingServiceMap.put(key, NamingFactory.createNamingService(properties));
-            }
-        } finally {
-            namingServiceMapLock.unlock();
-        }
-        return namingServiceMap.get(key);
-    }
+
 
     /**
      * 判断当前实例数据是否是其他地方同步过来的， 如果是则不进行同步操作
@@ -150,10 +132,7 @@ public class NacosSyncService implements SyncService, InitializingBean {
         return false;
     }
 
-    @Override
-    public void afterPropertiesSet() throws Exception {
-        syncManagerService.register(ClusterTypeEnum.NACOS, this);
-    }
+
 
     public Instance buildSyncInstance(Instance instance, TaskDO taskDO) {
         Instance temp = new Instance();

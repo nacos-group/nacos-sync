@@ -16,22 +16,19 @@
  */
 package com.alibaba.nacossync.template.processor;
 
-import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.ClusterAccessService;
 import com.alibaba.nacossync.dao.TaskAccessService;
 import com.alibaba.nacossync.exception.SkyWalkerException;
-import com.alibaba.nacossync.pojo.result.TaskAddResult;
 import com.alibaba.nacossync.pojo.model.ClusterDO;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskAddRequest;
+import com.alibaba.nacossync.pojo.result.TaskAddResult;
 import com.alibaba.nacossync.template.Processor;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 /**
  * @author NacosSync
@@ -63,12 +60,12 @@ public class TaskAddProcessor implements Processor<TaskAddRequest, TaskAddResult
 
         }
 
-        if (!ClusterTypeEnum.NACOS.getCode().equals(sourceCluster.getClusterType())
-            || !ClusterTypeEnum.NACOS.getCode().equals(destCluster.getClusterType())) {
-
-            throw new SkyWalkerException("请检查是否支持源到目标集群类型的同步！目前只支持NACOS->NACOS");
-
-        }
+//        if (!ClusterTypeEnum.NACOS.getCode().equals(sourceCluster.getClusterType())
+//            || !ClusterTypeEnum.NACOS.getCode().equals(destCluster.getClusterType())) {
+//
+//            throw new SkyWalkerException("请检查是否支持源到目标集群类型的同步！目前只支持NACOS->NACOS");
+//
+//        }
 
         String taskId = SkyWalkerUtil.generateTaskId(taskAddRequest);
 
@@ -81,7 +78,9 @@ public class TaskAddProcessor implements Processor<TaskAddRequest, TaskAddResult
             taskDO.setDestClusterId(taskAddRequest.getDestClusterId());
             taskDO.setSourceClusterId(taskAddRequest.getSourceClusterId());
             taskDO.setServiceName(taskAddRequest.getServiceName());
+            taskDO.setVersion(taskAddRequest.getVersion());
             taskDO.setGroupName(taskAddRequest.getGroupName());
+            taskDO.setNameSpace(taskAddRequest.getNameSpace());
             taskDO.setTaskStatus(TaskStatusEnum.SYNC.getCode());
             taskDO.setWorkerIp(SkyWalkerUtil.getLocalIp());
             taskDO.setOperationId(SkyWalkerUtil.generateOperationId());
