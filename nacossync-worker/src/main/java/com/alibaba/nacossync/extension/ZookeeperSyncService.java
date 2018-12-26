@@ -11,16 +11,13 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.base.Joiner;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
+import org.apache.curator.utils.CloseableUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
-import java.io.UnsupportedEncodingException;
-import java.net.MalformedURLException;
-import java.net.URLDecoder;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,9 +36,8 @@ import static com.alibaba.nacossync.util.StringUtils.parseQueryString;
 @Service
 public class ZookeeperSyncService implements SyncService {
 
-    private static final String MONITOR_PATH_PATTERN =
-        StringUtils.join(new String[] {"/dubbo", "%s", "providers"}, File.separator);
     private Map<String, PathChildrenCache> pathChildrenCacheMap = new ConcurrentHashMap<>();
+    private Map<String, String> nacosServiceNameMap = new ConcurrentHashMap<>();
 
     @Autowired
     private ZookeeperServerHolder zookeeperServerHolder;
@@ -59,31 +55,32 @@ public class ZookeeperSyncService implements SyncService {
                 return true;
             }
 
-            CuratorFramework curatorFramework =
-                zookeeperServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
+            PathChildrenCache pathChildrenCache = getPathCache(taskDO);
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), "");
-            PathChildrenCache pathChildrenCache = createPathCache(curatorFramework, taskDO.getServiceName());
-            pathChildrenCacheMap.put(taskDO.getTaskId(), pathChildrenCache);
+
             Objects.requireNonNull(pathChildrenCache).getListenable().addListener((client, event) -> {
                 try {
 
                     String path = event.getData().getPath();
-                    Map<String, String> pathMap = parseQueryString(path);
-                    Map<String, String> ipAndPortMap = parseIpAndPortString(path);
-                    if (isMatch(taskDO, pathMap)) {
+                    Map<String, String> queryParam = parseQueryString(path);
 
-                        Instance instance = buildSyncInstance(pathMap, ipAndPortMap, taskDO);
+                    if (isMatch(taskDO, queryParam)) {
+                        Map<String, String> ipAndPortParam = parseIpAndPortString(path);
+                        Instance instance = buildSyncInstance(queryParam, ipAndPortParam, taskDO);
                         switch (event.getType()) {
                             case CHILD_ADDED:
-                                destNamingService.registerInstance(composeServiceName(pathMap), instance);
+                                destNamingService.registerInstance(
+                                    getServiceNameFromCache(taskDO.getTaskId(), queryParam), instance);
                                 break;
                             case CHILD_UPDATED:
-                                destNamingService.registerInstance(composeServiceName(pathMap), instance);
+                                destNamingService.registerInstance(
+                                    getServiceNameFromCache(taskDO.getTaskId(), queryParam), instance);
                                 break;
                             case CHILD_REMOVED:
-                                destNamingService.deregisterInstance(composeServiceName(pathMap),
-                                    ipAndPortMap.get(INSTANCE_IP_KEY),
-                                    Integer.parseInt(ipAndPortMap.get(INSTANCE_IP_KEY)));
+                                destNamingService.deregisterInstance(
+                                    getServiceNameFromCache(taskDO.getTaskId(), queryParam),
+                                    ipAndPortParam.get(INSTANCE_IP_KEY),
+                                    Integer.parseInt(ipAndPortParam.get(INSTANCE_PORT_KEY)));
                                 break;
                             default:
                                 break;
@@ -103,7 +100,24 @@ public class ZookeeperSyncService implements SyncService {
 
     @Override
     public boolean delete(TaskDO taskDO) {
-        return false;
+        try {
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
+            CloseableUtils.closeQuietly(pathChildrenCacheMap.get(taskDO.getDestClusterId()));
+            List<Instance> allInstances =
+                destNamingService.getAllInstances(nacosServiceNameMap.get(taskDO.getTaskId()));
+            for (Instance instance : allInstances) {
+                if (needDelete(instance.getMetadata(), taskDO)) {
+                    destNamingService.deregisterInstance(getServiceNameFromCache(taskDO.getTaskId()), instance.getIp(),
+                        instance.getPort());
+                }
+
+            }
+
+        } catch (Exception e) {
+            log.error("delete task fail, taskId:{}", taskDO.getTaskId(), e);
+            return false;
+        }
+        return true;
     }
 
     @Override
@@ -111,36 +125,87 @@ public class ZookeeperSyncService implements SyncService {
         return ClusterTypeEnum.ZK;
     }
 
-    private PathChildrenCache createPathCache(CuratorFramework curatorFramework, String serviceName) throws Exception {
-        PathChildrenCache pathChildrenCache = new PathChildrenCache(curatorFramework, monitorPath(serviceName), false);
-        pathChildrenCache.start();
-        return pathChildrenCache;
+    /**
+     * 判断当前实例数据是否源集群信息是一致的， 一致才会进行删除
+     *
+     * @param destMetaData
+     * @param taskDO
+     * @return
+     */
+    private boolean needDelete(Map<String, String> destMetaData, TaskDO taskDO) {
+        if (StringUtils.equals(destMetaData.get(SkyWalkerConstants.SOURCE_CLUSTERID_KEY),
+            taskDO.getSourceClusterId())) {
+            return true;
+        }
+        return false;
     }
 
-    private String monitorPath(String serviceName) {
-        return String.format(MONITOR_PATH_PATTERN, serviceName);
+    /**
+     * 获取zk path child 监听缓存类
+     * 
+     * @param taskDO
+     * @return
+     */
+    private PathChildrenCache getPathCache(TaskDO taskDO) {
+        return pathChildrenCacheMap.computeIfAbsent(taskDO.getTaskId(), (key) -> {
+            try {
+                PathChildrenCache pathChildrenCache =
+                    new PathChildrenCache(zookeeperServerHolder.get(taskDO.getSourceClusterId(), ""),
+                        monitorPath(taskDO.getServiceName()), false);
+                pathChildrenCache.start();
+                return pathChildrenCache;
+            } catch (Exception e) {
+                log.error("zookeeper path children cache start fail, taskId:{}", taskDO.getTaskId(), e);
+                return null;
+            }
+        });
+
     }
 
-    private boolean isMatch(TaskDO taskDO, Map<String, String> pathMap) {
+    /**
+     * 创建zk监听路径 /dubbo/serviceName/providers
+     * 
+     * @param serviceName 服务名
+     * @return
+     */
+    private static String monitorPath(String serviceName) {
+        return String.format(MONITOR_PATH_FORMAT, serviceName);
+    }
+
+    /**
+     * 根据dubbo 版本和分组名匹配是否是需要同步的实例信息
+     * 
+     * @param taskDO
+     * @param queryParam
+     * @return
+     */
+    private boolean isMatch(TaskDO taskDO, Map<String, String> queryParam) {
         Predicate<TaskDO> isVersionEq =
-            (task) -> task.getVersion() == null || StringUtils.equals(task.getVersion(), pathMap.get(VERSION_KEY));
+            (task) -> task.getVersion() == null || StringUtils.equals(task.getVersion(), queryParam.get(VERSION_KEY));
         Predicate<TaskDO> isGroupEq =
-            (task) -> task.getGroupName() == null || StringUtils.equals(task.getGroupName(), pathMap.get(GROUP_KEY));
+            (task) -> task.getGroupName() == null || StringUtils.equals(task.getGroupName(), queryParam.get(GROUP_KEY));
         return isVersionEq.and(isGroupEq).test(taskDO);
     }
 
-    private Instance buildSyncInstance(Map<String, String> pathMap, Map<String, String> ipAndPortMap, TaskDO taskDO) {
+    /**
+     * 构建Nacos 注册服务实例
+     * 
+     * @param queryParam
+     * @param ipAndPortMap
+     * @param taskDO
+     * @return
+     */
+    private Instance buildSyncInstance(Map<String, String> queryParam, Map<String, String> ipAndPortMap,
+        TaskDO taskDO) {
         Instance temp = new Instance();
         temp.setIp(ipAndPortMap.get(INSTANCE_IP_KEY));
         temp.setPort(Integer.parseInt(ipAndPortMap.get(INSTANCE_PORT_KEY)));
-        // temp.setClusterName(instance.getClusterName());
-        temp.setServiceName(composeServiceName(pathMap));
+        temp.setServiceName(getServiceNameFromCache(taskDO.getTaskId(), queryParam));
         temp.setEnabled(true);
         temp.setHealthy(true);
-        // temp.setWeight(instance.getWeight());
 
         Map<String, String> metaData = new HashMap<>();
-        metaData.putAll(pathMap);
+        metaData.putAll(queryParam);
         metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
             skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
@@ -149,25 +214,20 @@ public class ZookeeperSyncService implements SyncService {
         return temp;
     }
 
-    private static String composeServiceName(Map<String, String> pathMap) {
-
-        return Joiner.on(":").skipNulls().join("provider", pathMap.get(INTERFACE_KEY), pathMap.get(VERSION_KEY),
-            pathMap.get(GROUP_KEY));
+    /**
+     * 构建Dubbo 格式服务名
+     * 
+     * @param taskId 任务ID
+     * @param queryParam dubbo 元数据
+     * @return
+     */
+    private String getServiceNameFromCache(String taskId, Map<String, String> queryParam) {
+        return nacosServiceNameMap.computeIfAbsent(taskId, (key) -> Joiner.on(":").skipNulls().join("provider",
+            queryParam.get(INTERFACE_KEY), queryParam.get(VERSION_KEY), queryParam.get(GROUP_KEY)));
     }
 
-    public static void main(String[] args) throws UnsupportedEncodingException, MalformedURLException {
-        Map<String, String> instanceIpAndPort = parseIpAndPortString(
-            "dubbo://172.16.0.12:20880/org.apache.dubbo.demo.DemoService?anyhost=true&application=demo-provider&dubbo=2.0.2&generic=false&group=testGroup&interface=org.apache.dubbo.demo.DemoService&methods=sayHello&pid=26104&revision=1.0.0&side=provider&timestamp=1545740922290&version=1.0.0");
-        for (String value : instanceIpAndPort.values()) {
-            System.out.println(value);
-        }
-        Map<String, String> stringStringMap = parseQueryString(URLDecoder.decode(
-            "dubbo%3A%2F%2F172.16.0.12%3A20880%2Forg.apache.dubbo.demo.DemoService%3Fanyhost%3Dtrue%26application%3Ddemo-provider%26dubbo%3D2.0.2%26generic%3Dfalse%26group%3DtestGroup%26interface%3Dorg.apache.dubbo.demo.DemoService%26methods%3DsayHello%26pid%3D26104%26revision%3D1.0.0%26side%3Dprovider%26timestamp%3D1545740922290%26version%3D1.0.0",
-            "UTF-8"));
-        stringStringMap.remove(VERSION_KEY);
-        stringStringMap.remove(GROUP_KEY);
-        System.out.println(composeServiceName(stringStringMap));
-
+    private String getServiceNameFromCache(String taskId) {
+        return nacosServiceNameMap.get(taskId);
     }
 
 }
