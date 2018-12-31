@@ -15,6 +15,7 @@ package com.alibaba.nacossync.extension;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
+import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeansException;
@@ -37,7 +38,7 @@ public class SyncManagerService implements InitializingBean, ApplicationContextA
     @Autowired
     protected SkyWalkerCacheServices skyWalkerCacheServices;
 
-    private Hashtable<ClusterTypeEnum, SyncService> syncServiceMap = new Hashtable<ClusterTypeEnum, SyncService>();
+    private Hashtable<ClusterTypeEnum, com.alibaba.nacossync.extension.SyncService> syncServiceMap = new Hashtable<ClusterTypeEnum, com.alibaba.nacossync.extension.SyncService>();
 
     private ApplicationContext applicationContext;
 
@@ -58,8 +59,8 @@ public class SyncManagerService implements InitializingBean, ApplicationContextA
 
     @Override
     public void afterPropertiesSet() {
-        this.applicationContext.getBeansOfType(SyncService.class)
-            .forEach((key, value) -> syncServiceMap.put(value.getClusterType(), value));
+        this.applicationContext.getBeansOfType(SyncService.class).forEach((key, value) -> syncServiceMap
+            .put(value.getClass().getAnnotation(NacosSyncService.class).clusterType(), value));
     }
 
     @Override

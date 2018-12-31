@@ -23,7 +23,7 @@ public enum ClusterTypeEnum {
 
     CS("CS", "configserver集群"),
 
-    NACOS("NACOS", "nacos集群"),
+    NACOS("NACOS", "nacos集群"), EUREKA("EUREKA", "eureka集群"),
 
     ZK("ZK", "zookeeper集群");
 

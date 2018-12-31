@@ -1,10 +1,11 @@
-package com.alibaba.nacossync.extension;
+package com.alibaba.nacossync.extension.impl;
 
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
+import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.extension.holder.ZookeeperServerHolder;
 import com.alibaba.nacossync.pojo.model.TaskDO;
@@ -14,7 +15,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
 import org.apache.curator.utils.CloseableUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.List;
@@ -33,10 +33,16 @@ import static com.alibaba.nacossync.util.StringUtils.parseQueryString;
  * @date: 2018-12-24 21:33
  */
 @Slf4j
-@Service
-public class ZookeeperSyncService implements SyncService {
+@NacosSyncService(clusterType = ClusterTypeEnum.ZK)
+public class ZookeeperSyncServiceImpl implements com.alibaba.nacossync.extension.SyncService {
 
+    /**
+     * 存放zk监听缓存 格式taskId -> PathChildrenCache实例
+     */
     private Map<String, PathChildrenCache> pathChildrenCacheMap = new ConcurrentHashMap<>();
+    /**
+     * 存放zk监听缓存
+     */
     private Map<String, String> nacosServiceNameMap = new ConcurrentHashMap<>();
 
     @Autowired
@@ -56,7 +62,7 @@ public class ZookeeperSyncService implements SyncService {
             }
 
             PathChildrenCache pathChildrenCache = getPathCache(taskDO);
-            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), "");
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
 
             Objects.requireNonNull(pathChildrenCache).getListenable().addListener((client, event) -> {
                 try {
@@ -87,12 +93,12 @@ public class ZookeeperSyncService implements SyncService {
                         }
                     }
                 } catch (Exception e) {
-                    log.error("event process fail, taskId:{}", taskDO.getTaskId(), e);
+                    log.error("event process from zookeeper to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
                 }
 
             });
         } catch (Exception e) {
-            log.error("sync task fail, taskId:{}", taskDO.getTaskId(), e);
+            log.error("sync task from zookeeper to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
             return false;
         }
         return true;
@@ -101,28 +107,25 @@ public class ZookeeperSyncService implements SyncService {
     @Override
     public boolean delete(TaskDO taskDO) {
         try {
+
+            CloseableUtils.closeQuietly(pathChildrenCacheMap.get(taskDO.getTaskId()));
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
-            CloseableUtils.closeQuietly(pathChildrenCacheMap.get(taskDO.getDestClusterId()));
             List<Instance> allInstances =
                 destNamingService.getAllInstances(nacosServiceNameMap.get(taskDO.getTaskId()));
             for (Instance instance : allInstances) {
                 if (needDelete(instance.getMetadata(), taskDO)) {
-                    destNamingService.deregisterInstance(getServiceNameFromCache(taskDO.getTaskId()), instance.getIp(),
+                    destNamingService.deregisterInstance(instance.getServiceName(), instance.getIp(),
                         instance.getPort());
                 }
+                nacosServiceNameMap.remove(taskDO.getTaskId());
 
             }
 
         } catch (Exception e) {
-            log.error("delete task fail, taskId:{}", taskDO.getTaskId(), e);
+            log.error("delete task from zookeeper to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
             return false;
         }
         return true;
-    }
-
-    @Override
-    public ClusterTypeEnum getClusterType() {
-        return ClusterTypeEnum.ZK;
     }
 
     /**
@@ -155,7 +158,7 @@ public class ZookeeperSyncService implements SyncService {
                 pathChildrenCache.start();
                 return pathChildrenCache;
             } catch (Exception e) {
-                log.error("zookeeper path children cache start fail, taskId:{}", taskDO.getTaskId(), e);
+                log.error("zookeeper path children cache start failed, taskId:{}", taskDO.getTaskId(), e);
                 return null;
             }
         });
@@ -224,10 +227,6 @@ public class ZookeeperSyncService implements SyncService {
     private String getServiceNameFromCache(String taskId, Map<String, String> queryParam) {
         return nacosServiceNameMap.computeIfAbsent(taskId, (key) -> Joiner.on(":").skipNulls().join("provider",
             queryParam.get(INTERFACE_KEY), queryParam.get(VERSION_KEY), queryParam.get(GROUP_KEY)));
-    }
-
-    private String getServiceNameFromCache(String taskId) {
-        return nacosServiceNameMap.get(taskId);
     }
 
 }
