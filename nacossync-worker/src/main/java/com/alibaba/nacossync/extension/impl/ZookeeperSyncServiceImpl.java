@@ -1,20 +1,8 @@
 package com.alibaba.nacossync.extension.impl;
 
-import com.alibaba.nacos.api.naming.NamingService;
-import com.alibaba.nacos.api.naming.pojo.Instance;
-import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
-import com.alibaba.nacossync.constant.ClusterTypeEnum;
-import com.alibaba.nacossync.constant.SkyWalkerConstants;
-import com.alibaba.nacossync.extension.annotation.NacosSyncService;
-import com.alibaba.nacossync.extension.holder.NacosServerHolder;
-import com.alibaba.nacossync.extension.holder.ZookeeperServerHolder;
-import com.alibaba.nacossync.pojo.model.TaskDO;
-import com.google.common.base.Joiner;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.curator.framework.recipes.cache.PathChildrenCache;
-import org.apache.curator.utils.CloseableUtils;
-import org.springframework.beans.factory.annotation.Autowired;
+import static com.alibaba.nacossync.util.DubboConstants.*;
+import static com.alibaba.nacossync.util.StringUtils.parseIpAndPortString;
+import static com.alibaba.nacossync.util.StringUtils.parseQueryString;
 
 import java.util.HashMap;
 import java.util.List;
@@ -23,9 +11,24 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
-import static com.alibaba.nacossync.util.DubboConstants.*;
-import static com.alibaba.nacossync.util.StringUtils.parseIpAndPortString;
-import static com.alibaba.nacossync.util.StringUtils.parseQueryString;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.curator.framework.recipes.cache.PathChildrenCache;
+import org.apache.curator.utils.CloseableUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import com.alibaba.nacos.api.naming.NamingService;
+import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
+import com.alibaba.nacossync.constant.ClusterTypeEnum;
+import com.alibaba.nacossync.constant.SkyWalkerConstants;
+import com.alibaba.nacossync.extension.SyncService;
+import com.alibaba.nacossync.extension.annotation.NacosSyncService;
+import com.alibaba.nacossync.extension.holder.NacosServerHolder;
+import com.alibaba.nacossync.extension.holder.ZookeeperServerHolder;
+import com.alibaba.nacossync.pojo.model.TaskDO;
+import com.google.common.base.Joiner;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * @author paderlol
@@ -34,7 +37,7 @@ import static com.alibaba.nacossync.util.StringUtils.parseQueryString;
  */
 @Slf4j
 @NacosSyncService(clusterType = ClusterTypeEnum.ZK)
-public class ZookeeperSyncServiceImpl implements com.alibaba.nacossync.extension.SyncService {
+public class ZookeeperSyncServiceImpl implements SyncService {
 
     /**
      * 存放zk监听缓存 格式taskId -> PathChildrenCache实例
@@ -70,7 +73,7 @@ public class ZookeeperSyncServiceImpl implements com.alibaba.nacossync.extension
                     String path = event.getData().getPath();
                     Map<String, String> queryParam = parseQueryString(path);
 
-                    if (isMatch(taskDO, queryParam)) {
+                    if (isMatch(taskDO, queryParam) && needSync(queryParam)) {
                         Map<String, String> ipAndPortParam = parseIpAndPortString(path);
                         Instance instance = buildSyncInstance(queryParam, ipAndPortParam, taskDO);
                         switch (event.getType()) {
@@ -227,6 +230,16 @@ public class ZookeeperSyncServiceImpl implements com.alibaba.nacossync.extension
     private String getServiceNameFromCache(String taskId, Map<String, String> queryParam) {
         return nacosServiceNameMap.computeIfAbsent(taskId, (key) -> Joiner.on(":").skipNulls().join("provider",
             queryParam.get(INTERFACE_KEY), queryParam.get(VERSION_KEY), queryParam.get(GROUP_KEY)));
+    }
+
+    /**
+     * 判断当前实例数据是否是其他地方同步过来的， 如果是则不进行同步操作
+     *
+     * @param sourceMetaData
+     * @return
+     */
+    private boolean needSync(Map<String, String> sourceMetaData) {
+        return StringUtils.isBlank(sourceMetaData.get(SkyWalkerConstants.SOURCE_CLUSTERID_KEY));
     }
 
 }

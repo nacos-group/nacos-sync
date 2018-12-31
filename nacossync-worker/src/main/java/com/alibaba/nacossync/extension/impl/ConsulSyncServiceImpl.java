@@ -7,35 +7,31 @@ import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
-import com.alibaba.nacossync.extension.holder.EurekaServerHolder;
+import com.alibaba.nacossync.extension.holder.ConsulServerHolder;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.pojo.model.TaskDO;
-import com.netflix.appinfo.InstanceInfo;
-import com.netflix.discovery.shared.Application;
-import com.netflix.discovery.shared.transport.EurekaHttpClient;
-import com.netflix.discovery.shared.transport.EurekaHttpResponse;
+import com.ecwid.consul.v1.ConsulClient;
+import com.ecwid.consul.v1.QueryParams;
+import com.ecwid.consul.v1.Response;
+import com.ecwid.consul.v1.health.model.HealthService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 /**
- * eureka
+ * Consul 同步 Nacos
  * 
  * @author paderlol
  * @date: 2018-12-31 16:25
  */
 @Slf4j
-@NacosSyncService(clusterType = ClusterTypeEnum.EUREKA)
-public class EurekaSyncServiceImpl implements SyncService {
+@NacosSyncService(clusterType = ClusterTypeEnum.CONSUL)
+public class ConsulSyncServiceImpl implements SyncService {
 
     @Autowired
-    private EurekaServerHolder eurekaServerHolder;
+    private ConsulServerHolder consulServerHolder;
     @Autowired
     private SkyWalkerCacheServices skyWalkerCacheServices;
 
@@ -55,7 +51,7 @@ public class EurekaSyncServiceImpl implements SyncService {
             }
 
         } catch (Exception e) {
-            log.error("delete task from eureka to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
+            log.error("delete task from consul to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
             return false;
         }
         return true;
@@ -64,29 +60,31 @@ public class EurekaSyncServiceImpl implements SyncService {
     @Override
     public boolean sync(TaskDO taskDO) {
         try {
-            EurekaHttpClient eurekaHttpClient = eurekaServerHolder.get(taskDO.getSourceClusterId(), null);
+            ConsulClient consulClient = consulServerHolder.get(taskDO.getSourceClusterId(), null);
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
-            EurekaHttpResponse<Application> eurekaHttpResponse =
-                eurekaHttpClient.getApplication(taskDO.getServiceName());
-            if (Objects.requireNonNull(HttpStatus.resolve(eurekaHttpResponse.getStatusCode())).is2xxSuccessful()) {
-                Application application = eurekaHttpResponse.getEntity();
-                for (InstanceInfo instanceInfo : application.getInstances()) {
-                    if (needSync(instanceInfo.getMetadata())) {
-                        continue;
-                    }
-                    if (InstanceInfo.InstanceStatus.UP.equals(instanceInfo.getStatus())) {
-                        destNamingService.registerInstance(taskDO.getServiceName(),
-                            buildSyncInstance(instanceInfo, taskDO));
-                    } else {
-                        destNamingService.deregisterInstance(instanceInfo.getAppName(), instanceInfo.getIPAddr(),
-                            instanceInfo.getPort());
-                    }
+            Response<List<HealthService>> response =
+                consulClient.getHealthServices(taskDO.getServiceName(), true, QueryParams.DEFAULT);
+            List<HealthService> healthServiceList = response.getValue();
+            Set<String> instanceKeySet = new HashSet<>();
+            for (HealthService healthService : healthServiceList) {
+                if (needSync(healthService.getNode().getMeta())) {
+
+                    destNamingService.registerInstance(taskDO.getServiceName(),
+                        buildSyncInstance(healthService, taskDO));
+                    instanceKeySet.add(composeInstanceKey(healthService.getService().getAddress(),
+                        healthService.getService().getPort()));
                 }
-            } else {
-                throw new RuntimeException("trying to connect to the server failed");
             }
+            List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName());
+            for (Instance instance : allInstances) {
+                if (needDelete(instance.getMetadata(), taskDO)
+                    && !instanceKeySet.contains(composeInstanceKey(instance.getIp(), instance.getPort()))) {
+                    destNamingService.deregisterInstance(taskDO.getServiceName(), instance.getIp(), instance.getPort());
+                }
+            }
+
         } catch (Exception e) {
-            log.error("sync task from eureka to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
+            log.error("sync task from consul to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
             return false;
         }
         return true;
@@ -104,15 +102,12 @@ public class EurekaSyncServiceImpl implements SyncService {
             taskDO.getSourceClusterId());
     }
 
-    private Instance buildSyncInstance(InstanceInfo instance, TaskDO taskDO) {
+    private Instance buildSyncInstance(HealthService instance, TaskDO taskDO) {
         Instance temp = new Instance();
-        temp.setIp(instance.getIPAddr());
-        temp.setPort(instance.getPort());
-        temp.setServiceName(instance.getAppName());
-        temp.setHealthy(true);
+        temp.setIp(instance.getService().getAddress());
+        temp.setPort(instance.getService().getPort());
 
-        Map<String, String> metaData = new HashMap<>();
-        metaData.putAll(instance.getMetadata());
+        Map<String, String> metaData = new HashMap<>(instance.getNode().getMeta());
         metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
             skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
@@ -129,6 +124,10 @@ public class EurekaSyncServiceImpl implements SyncService {
      */
     private boolean needSync(Map<String, String> sourceMetaData) {
         return StringUtils.isBlank(sourceMetaData.get(SkyWalkerConstants.SOURCE_CLUSTERID_KEY));
+    }
+
+    private String composeInstanceKey(String ip, int port) {
+        return ip + ":" + port;
     }
 
 }

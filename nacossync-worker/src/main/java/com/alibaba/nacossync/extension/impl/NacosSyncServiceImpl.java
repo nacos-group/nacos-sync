@@ -7,6 +7,7 @@ import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
+import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.pojo.model.TaskDO;
@@ -24,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @NacosSyncService(clusterType = ClusterTypeEnum.NACOS)
-public class NacosSyncServiceImpl implements com.alibaba.nacossync.extension.SyncService {
+public class NacosSyncServiceImpl implements SyncService {
     private Map<String, EventListener> nacosListenerMap = new ConcurrentHashMap<>();
     @Autowired
     private SkyWalkerCacheServices skyWalkerCacheServices;
@@ -111,10 +112,7 @@ public class NacosSyncServiceImpl implements com.alibaba.nacossync.extension.Syn
      * @return
      */
     private boolean needSync(Map<String, String> sourceMetaData) {
-        if (StringUtils.isBlank(sourceMetaData.get(SkyWalkerConstants.SOURCE_CLUSTERID_KEY))) {
-            return true;
-        }
-        return false;
+        return StringUtils.isBlank(sourceMetaData.get(SkyWalkerConstants.SOURCE_CLUSTERID_KEY));
     }
 
     /**
