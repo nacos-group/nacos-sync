@@ -27,6 +27,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.Hashtable;
 
+import static com.alibaba.nacossync.util.SkyWalkerUtil.generateSyncKey;
+
 /**
  * @author NacosSync
  * @version $Id: SyncManagerService.java, v 0.1 2018-09-25 下午5:17 NacosSync Exp $$
@@ -38,33 +40,41 @@ public class SyncManagerService implements InitializingBean, ApplicationContextA
     @Autowired
     protected SkyWalkerCacheServices skyWalkerCacheServices;
 
-    private Hashtable<ClusterTypeEnum, com.alibaba.nacossync.extension.SyncService> syncServiceMap = new Hashtable<ClusterTypeEnum, com.alibaba.nacossync.extension.SyncService>();
+    private Hashtable<String, SyncService> syncServiceMap = new Hashtable<String, SyncService>();
 
     private ApplicationContext applicationContext;
 
     public boolean delete(TaskDO taskDO) throws NacosException {
 
-        ClusterTypeEnum type = this.skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId());
-        return syncServiceMap.get(type).delete(taskDO);
+        return getSyncService(taskDO).delete(taskDO);
 
     }
 
     public boolean sync(TaskDO taskDO) {
 
-        ClusterTypeEnum type = this.skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId());
-
-        return syncServiceMap.get(type).sync(taskDO);
+        return getSyncService(taskDO).sync(taskDO);
 
     }
 
     @Override
     public void afterPropertiesSet() {
-        this.applicationContext.getBeansOfType(SyncService.class).forEach((key, value) -> syncServiceMap
-            .put(value.getClass().getAnnotation(NacosSyncService.class).clusterType(), value));
+        this.applicationContext.getBeansOfType(SyncService.class).forEach((key, value) -> {
+            NacosSyncService nacosSyncService = value.getClass().getAnnotation(NacosSyncService.class);
+            ClusterTypeEnum sourceCluster = nacosSyncService.sourceCluster();
+            ClusterTypeEnum destinationCluster = nacosSyncService.destinationCluster();
+            syncServiceMap.put(generateSyncKey(sourceCluster, destinationCluster), value);
+        });
     }
 
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         this.applicationContext = applicationContext;
     }
+
+    private SyncService getSyncService(TaskDO taskDO) {
+        ClusterTypeEnum sourceClusterType = this.skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId());
+        ClusterTypeEnum destClusterType = this.skyWalkerCacheServices.getClusterType(taskDO.getDestClusterId());
+        return syncServiceMap.get(generateSyncKey(sourceClusterType, destClusterType));
+    }
+
 }

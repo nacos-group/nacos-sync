@@ -1,21 +1,5 @@
 package com.alibaba.nacossync.extension.impl;
 
-import static com.alibaba.nacossync.util.DubboConstants.*;
-import static com.alibaba.nacossync.util.StringUtils.parseIpAndPortString;
-import static com.alibaba.nacossync.util.StringUtils.parseQueryString;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Predicate;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.curator.framework.recipes.cache.PathChildrenCache;
-import org.apache.curator.utils.CloseableUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
@@ -27,8 +11,22 @@ import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.extension.holder.ZookeeperServerHolder;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.base.Joiner;
-
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.curator.framework.recipes.cache.PathChildrenCache;
+import org.apache.curator.utils.CloseableUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
+
+import static com.alibaba.nacossync.util.DubboConstants.*;
+import static com.alibaba.nacossync.util.StringUtils.parseIpAndPortString;
+import static com.alibaba.nacossync.util.StringUtils.parseQueryString;
 
 /**
  * @author paderlol
@@ -36,7 +34,7 @@ import lombok.extern.slf4j.Slf4j;
  * @date: 2018-12-24 21:33
  */
 @Slf4j
-@NacosSyncService(clusterType = ClusterTypeEnum.ZK)
+@NacosSyncService(sourceCluster = ClusterTypeEnum.ZK,destinationCluster = ClusterTypeEnum.NACOS)
 public class ZookeeperSyncServiceImpl implements SyncService {
 
     /**

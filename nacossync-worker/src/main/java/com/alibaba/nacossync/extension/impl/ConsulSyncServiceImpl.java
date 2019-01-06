@@ -27,7 +27,7 @@ import java.util.*;
  * @date: 2018-12-31 16:25
  */
 @Slf4j
-@NacosSyncService(clusterType = ClusterTypeEnum.CONSUL)
+@NacosSyncService(sourceCluster = ClusterTypeEnum.CONSUL,destinationCluster = ClusterTypeEnum.NACOS)
 public class ConsulSyncServiceImpl implements SyncService {
 
     @Autowired

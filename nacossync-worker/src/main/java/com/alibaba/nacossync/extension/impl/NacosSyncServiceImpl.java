@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 
 @Slf4j
-@NacosSyncService(clusterType = ClusterTypeEnum.NACOS)
+@NacosSyncService(sourceCluster = ClusterTypeEnum.NACOS,destinationCluster = ClusterTypeEnum.NACOS)
 public class NacosSyncServiceImpl implements SyncService {
     private Map<String, EventListener> nacosListenerMap = new ConcurrentHashMap<>();
     @Autowired

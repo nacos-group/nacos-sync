@@ -31,7 +31,7 @@ import java.util.Objects;
  * @date: 2018-12-31 16:25
  */
 @Slf4j
-@NacosSyncService(clusterType = ClusterTypeEnum.EUREKA)
+@NacosSyncService(sourceCluster = ClusterTypeEnum.EUREKA, destinationCluster = ClusterTypeEnum.NACOS)
 public class EurekaSyncServiceImpl implements SyncService {
 
     @Autowired
@@ -72,15 +72,15 @@ public class EurekaSyncServiceImpl implements SyncService {
                 Application application = eurekaHttpResponse.getEntity();
                 for (InstanceInfo instanceInfo : application.getInstances()) {
                     if (needSync(instanceInfo.getMetadata())) {
-                        continue;
+                        if (InstanceInfo.InstanceStatus.UP.equals(instanceInfo.getStatus())) {
+                            destNamingService.registerInstance(taskDO.getServiceName(),
+                                buildSyncInstance(instanceInfo, taskDO));
+                        } else {
+                            destNamingService.deregisterInstance(instanceInfo.getAppName(), instanceInfo.getIPAddr(),
+                                instanceInfo.getPort());
+                        }
                     }
-                    if (InstanceInfo.InstanceStatus.UP.equals(instanceInfo.getStatus())) {
-                        destNamingService.registerInstance(taskDO.getServiceName(),
-                            buildSyncInstance(instanceInfo, taskDO));
-                    } else {
-                        destNamingService.deregisterInstance(instanceInfo.getAppName(), instanceInfo.getIPAddr(),
-                            instanceInfo.getPort());
-                    }
+
                 }
             } else {
                 throw new RuntimeException("trying to connect to the server failed");

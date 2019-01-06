@@ -16,6 +16,13 @@
  */
 package com.alibaba.nacossync.util;
 
+import com.alibaba.nacossync.constant.ClusterTypeEnum;
+import com.alibaba.nacossync.constant.SkyWalkerConstants;
+import com.alibaba.nacossync.pojo.model.TaskDO;
+import com.alibaba.nacossync.pojo.request.ClusterAddRequest;
+import com.alibaba.nacossync.pojo.request.TaskAddRequest;
+import com.google.common.base.Joiner;
+
 import java.io.UnsupportedEncodingException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -24,11 +31,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Enumeration;
 import java.util.UUID;
-
-import com.alibaba.nacossync.constant.SkyWalkerConstants;
-import com.alibaba.nacossync.pojo.model.TaskDO;
-import com.alibaba.nacossync.pojo.request.ClusterAddRequest;
-import com.alibaba.nacossync.pojo.request.TaskAddRequest;
 
 /**
 * @author NacosSync
@@ -137,6 +139,10 @@ public class SkyWalkerUtil {
     public static String generateWorkerId(String workerIp) {
         return UUID.randomUUID() + SkyWalkerConstants.UNDERLINE + workerIp;
 
+    }
+
+    public static String generateSyncKey(ClusterTypeEnum sourceClusterType,ClusterTypeEnum destClusterType){
+        return Joiner.on(":").join(sourceClusterType.getCode(),destClusterType.getCode());
     }
 
     public static String getOperationId(TaskDO taskDO) {
