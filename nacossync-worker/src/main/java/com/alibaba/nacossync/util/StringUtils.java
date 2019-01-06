@@ -7,8 +7,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.alibaba.nacossync.util.DubboConstants.INSTANCE_IP_KEY;
-import static com.alibaba.nacossync.util.DubboConstants.INSTANCE_PORT_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.*;
 
 /**
  * @author paderlol
@@ -16,7 +15,7 @@ import static com.alibaba.nacossync.util.DubboConstants.INSTANCE_PORT_KEY;
  */
 public final class StringUtils {
     private static final Pattern KVP_PATTERN = Pattern.compile("([_.a-zA-Z0-9][-_.a-zA-Z0-9]*)[=](.*)");
-    private static final Pattern IP_PORT_PATTERN = Pattern.compile("(\\d+\\.\\d+\\.\\d+\\.\\d+)\\:(\\d+)");
+    private static final Pattern IP_PORT_PATTERN = Pattern.compile("(.*)://(\\d+\\.\\d+\\.\\d+\\.\\d+):(\\d+)");
 
     /**
      * parse key-value pair.
@@ -68,10 +67,12 @@ public final class StringUtils {
         // 将符合规则的提取出来
         Map<String, String> instanceMap = new HashMap<>();
         while (matcher.find()) {
+            //协议
+            instanceMap.put(PROTOCOL_KEY, matcher.group(1));
             // ip地址
-            instanceMap.put(INSTANCE_IP_KEY, matcher.group(1));
+            instanceMap.put(INSTANCE_IP_KEY, matcher.group(2));
             // 端口
-            instanceMap.put(INSTANCE_PORT_KEY, matcher.group(2));
+            instanceMap.put(INSTANCE_PORT_KEY, matcher.group(3));
             break;
 
         }
