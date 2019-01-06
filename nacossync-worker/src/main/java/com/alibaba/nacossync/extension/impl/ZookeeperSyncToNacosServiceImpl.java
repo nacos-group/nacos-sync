@@ -13,6 +13,7 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.base.Joiner;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.curator.framework.recipes.cache.ChildData;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
 import org.apache.curator.utils.CloseableUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,8 +35,8 @@ import static com.alibaba.nacossync.util.StringUtils.parseQueryString;
  * @date: 2018-12-24 21:33
  */
 @Slf4j
-@NacosSyncService(sourceCluster = ClusterTypeEnum.ZK,destinationCluster = ClusterTypeEnum.NACOS)
-public class ZookeeperSyncServiceImpl implements SyncService {
+@NacosSyncService(sourceCluster = ClusterTypeEnum.ZK, destinationCluster = ClusterTypeEnum.NACOS)
+public class ZookeeperSyncToNacosServiceImpl implements SyncService {
 
     /**
      * 存放zk监听缓存 格式taskId -> PathChildrenCache实例
@@ -46,14 +47,18 @@ public class ZookeeperSyncServiceImpl implements SyncService {
      */
     private Map<String, String> nacosServiceNameMap = new ConcurrentHashMap<>();
 
-    @Autowired
-    private ZookeeperServerHolder zookeeperServerHolder;
+    private final ZookeeperServerHolder zookeeperServerHolder;
+
+    private final NacosServerHolder nacosServerHolder;
+
+    private final SkyWalkerCacheServices skyWalkerCacheServices;
 
     @Autowired
-    private NacosServerHolder nacosServerHolder;
-
-    @Autowired
-    private SkyWalkerCacheServices skyWalkerCacheServices;
+    public ZookeeperSyncToNacosServiceImpl(ZookeeperServerHolder zookeeperServerHolder, NacosServerHolder nacosServerHolder, SkyWalkerCacheServices skyWalkerCacheServices) {
+        this.zookeeperServerHolder = zookeeperServerHolder;
+        this.nacosServerHolder = nacosServerHolder;
+        this.skyWalkerCacheServices = skyWalkerCacheServices;
+    }
 
     @Override
     public boolean sync(TaskDO taskDO) {
@@ -64,7 +69,17 @@ public class ZookeeperSyncServiceImpl implements SyncService {
 
             PathChildrenCache pathChildrenCache = getPathCache(taskDO);
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
-
+            List<ChildData> currentData = pathChildrenCache.getCurrentData();
+            for (ChildData childData : currentData) {
+                String path = childData.getPath();
+                Map<String, String> queryParam = parseQueryString(childData.getPath());
+                if (isMatch(taskDO, queryParam) && needSync(queryParam)) {
+                    Map<String, String> ipAndPortParam = parseIpAndPortString(path);
+                    Instance instance = buildSyncInstance(queryParam, ipAndPortParam, taskDO);
+                    destNamingService.registerInstance(getServiceNameFromCache(taskDO.getTaskId(), queryParam),
+                        instance);
+                }
+            }
             Objects.requireNonNull(pathChildrenCache).getListenable().addListener((client, event) -> {
                 try {
 
@@ -80,14 +95,17 @@ public class ZookeeperSyncServiceImpl implements SyncService {
                                     getServiceNameFromCache(taskDO.getTaskId(), queryParam), instance);
                                 break;
                             case CHILD_UPDATED:
+
                                 destNamingService.registerInstance(
                                     getServiceNameFromCache(taskDO.getTaskId(), queryParam), instance);
                                 break;
                             case CHILD_REMOVED:
+
                                 destNamingService.deregisterInstance(
                                     getServiceNameFromCache(taskDO.getTaskId(), queryParam),
                                     ipAndPortParam.get(INSTANCE_IP_KEY),
                                     Integer.parseInt(ipAndPortParam.get(INSTANCE_PORT_KEY)));
+
                                 break;
                             default:
                                 break;
@@ -129,8 +147,6 @@ public class ZookeeperSyncServiceImpl implements SyncService {
         return true;
     }
 
-
-
     /**
      * 获取zk path child 监听缓存类
      * 
@@ -143,7 +159,7 @@ public class ZookeeperSyncServiceImpl implements SyncService {
                 PathChildrenCache pathChildrenCache =
                     new PathChildrenCache(zookeeperServerHolder.get(taskDO.getSourceClusterId(), ""),
                         monitorPath(taskDO.getServiceName()), false);
-                pathChildrenCache.start();
+                pathChildrenCache.start(PathChildrenCache.StartMode.BUILD_INITIAL_CACHE);
                 return pathChildrenCache;
             } catch (Exception e) {
                 log.error("zookeeper path children cache start failed, taskId:{}", taskDO.getTaskId(), e);
@@ -160,7 +176,7 @@ public class ZookeeperSyncServiceImpl implements SyncService {
      * @return
      */
     private static String monitorPath(String serviceName) {
-        return String.format(MONITOR_PATH_FORMAT, serviceName);
+        return String.format(DUBBO_PATH_FORMAT, serviceName);
     }
 
     /**
@@ -192,11 +208,12 @@ public class ZookeeperSyncServiceImpl implements SyncService {
         temp.setIp(ipAndPortMap.get(INSTANCE_IP_KEY));
         temp.setPort(Integer.parseInt(ipAndPortMap.get(INSTANCE_PORT_KEY)));
         temp.setServiceName(getServiceNameFromCache(taskDO.getTaskId(), queryParam));
-        temp.setEnabled(true);
+        temp.setWeight(Double.valueOf(queryParam.get(WEIGHT_KEY) == null ? "1.0" : queryParam.get(WEIGHT_KEY)));
         temp.setHealthy(true);
 
         Map<String, String> metaData = new HashMap<>();
         metaData.putAll(queryParam);
+        metaData.put(PROTOCOL_KEY, ipAndPortMap.get(PROTOCOL_KEY));
         metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
             skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
@@ -213,10 +230,8 @@ public class ZookeeperSyncServiceImpl implements SyncService {
      * @return
      */
     private String getServiceNameFromCache(String taskId, Map<String, String> queryParam) {
-        return nacosServiceNameMap.computeIfAbsent(taskId, (key) -> Joiner.on(":").skipNulls().join("provider",
+        return nacosServiceNameMap.computeIfAbsent(taskId, (key) -> Joiner.on(":").skipNulls().join(CATALOG_KEY,
             queryParam.get(INTERFACE_KEY), queryParam.get(VERSION_KEY), queryParam.get(GROUP_KEY)));
     }
-
-
 
 }

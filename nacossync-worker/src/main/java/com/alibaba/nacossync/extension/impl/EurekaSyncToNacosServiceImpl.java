@@ -31,7 +31,7 @@ import java.util.Objects;
  */
 @Slf4j
 @NacosSyncService(sourceCluster = ClusterTypeEnum.EUREKA, destinationCluster = ClusterTypeEnum.NACOS)
-public class EurekaSyncServiceImpl implements SyncService {
+public class EurekaSyncToNacosServiceImpl implements SyncService {
 
     @Autowired
     private EurekaServerHolder eurekaServerHolder;

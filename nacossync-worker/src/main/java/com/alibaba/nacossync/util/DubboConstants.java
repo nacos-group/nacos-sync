@@ -9,11 +9,15 @@ import java.io.File;
  * @date: 2018-12-25 21:34
  */
 public final class DubboConstants {
-    public static final String MONITOR_PATH_FORMAT =
+    public static final String DUBBO_PATH_FORMAT =
         StringUtils.join(new String[] {"/dubbo", "%s", "providers"}, File.separator);
+    public static final String DUBBO_URL_FORMAT ="%s://%s:%s?%s";
     public static final String VERSION_KEY = "version";
     public static final String GROUP_KEY = "group";
     public static final String INTERFACE_KEY = "interface";
     public static final String INSTANCE_IP_KEY = "ip";
     public static final String INSTANCE_PORT_KEY = "port";
+    public static final String PROTOCOL_KEY = "protocol";
+    public static final String WEIGHT_KEY = "weight";
+    public static final String CATALOG_KEY = "providers";
 }

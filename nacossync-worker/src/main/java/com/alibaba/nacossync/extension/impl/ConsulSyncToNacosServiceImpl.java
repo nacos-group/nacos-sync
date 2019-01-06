@@ -27,7 +27,7 @@ import java.util.*;
  */
 @Slf4j
 @NacosSyncService(sourceCluster = ClusterTypeEnum.CONSUL,destinationCluster = ClusterTypeEnum.NACOS)
-public class ConsulSyncServiceImpl implements SyncService {
+public class ConsulSyncToNacosServiceImpl implements SyncService {
 
     @Autowired
     private ConsulServerHolder consulServerHolder;

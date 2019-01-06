@@ -46,6 +46,7 @@ public class TaskDO implements Serializable {
      * 命名空间
      */
     private String nameSpace;
+
     /** 当前任务状态 */
     private String taskStatus;
     /** 执行这个任务的IP */
