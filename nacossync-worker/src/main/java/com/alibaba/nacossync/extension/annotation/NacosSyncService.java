@@ -21,5 +21,7 @@ public @interface NacosSyncService {
     @AliasFor(annotation = Component.class)
     String value() default "";
 
-    ClusterTypeEnum clusterType();
+    ClusterTypeEnum sourceCluster();
+
+    ClusterTypeEnum destinationCluster();
 }
