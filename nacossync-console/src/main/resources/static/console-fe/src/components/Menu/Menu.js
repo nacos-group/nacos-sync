@@ -38,7 +38,8 @@ class Menu extends React.Component {
 
   buildMenuData() {
     const { locale = {} } = this.props;
-    const { serviceSync, clusterConfig, systemConfig } = locale;
+    // const { serviceSync, clusterConfig, systemConfig } = locale;
+    const { serviceSync, clusterConfig } = locale;
     return [{
       id: 1,
       title: serviceSync,
@@ -47,11 +48,12 @@ class Menu extends React.Component {
       id: 2,
       title: clusterConfig,
       link: '/clusterConfig',
-    }, {
-      id: 3,
-      title: systemConfig,
-      link: '/systemConfig',
     }];
+    // , {
+    //   id: 3,
+    //   title: systemConfig,
+    //   link: '/systemConfig',
+    // }];
   }
 
   render() {

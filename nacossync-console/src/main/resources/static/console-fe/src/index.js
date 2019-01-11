@@ -9,7 +9,7 @@ import { ConfigProvider } from '@alifd/next';
 
 import Layout from './containers/Layout';
 import ServiceSync from './containers/ServiceSync';
-import SystemConfig from './containers/SystemConfig';
+// import SystemConfig from './containers/SystemConfig';
 import ClusterConfig from './containers/ClusterConfig';
 import { LANGUAGE_KEY, REDUX_DEVTOOLS } from './constants';
 
@@ -35,6 +35,13 @@ const store = createStore(
   ),
 );
 
+const MENU = [
+  { path: '/', exact: true, render: () => (<Redirect to="/serviceSync" />) },
+  { path: '/serviceSync', component: ServiceSync },
+  { path: '/clusterConfig', component: ClusterConfig },
+  // { path: '/systemConfig', component: SystemConfig },
+];
+
 @connect(state => ({ ...state.locale }), { changeLanguage })
 class App extends React.Component {
   componentDidMount() {
@@ -42,15 +49,12 @@ class App extends React.Component {
     this.props.changeLanguage(language);
   }
 
-  generateRouter() {
+  get router() {
     return (
       <HashRouter>
         <Layout>
           <Switch>
-            <Route path="/" exact render={() => <Redirect to="/serviceSync" />} />
-            <Route path="/serviceSync" component={ServiceSync} />
-            <Route path="/systemConfig" component={SystemConfig} />
-            <Route path="/clusterConfig" component={ClusterConfig} />
+            {MENU.map(item => (<Route {...Object.assign(item, { key: item.path })} />))}
           </Switch>
         </Layout>
       </HashRouter>
@@ -61,7 +65,7 @@ class App extends React.Component {
     const { locale } = this.props;
     return (
       <ConfigProvider locale={locale}>
-        {this.generateRouter()}
+        {this.router}
       </ConfigProvider>
     );
   }
