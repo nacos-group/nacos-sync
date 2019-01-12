@@ -9,7 +9,7 @@ import './index.scss';
 
 const FormItem = Form.Item;
 
-@connect(state => ({ ...state.task, ...state.cluster }), { list, getClusterList })
+@connect(state => ({ ...state.task, clusterModels: state.cluster.clusterModels }), { list, getClusterList })
 @ConfigProvider.config
 class ServiceSync extends React.Component {
   static displayName = 'ServiceSync'
