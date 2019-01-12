@@ -153,7 +153,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
      * @param taskDO
      * @return
      */
-    private PathChildrenCache getPathCache(TaskDO taskDO) {
+    protected PathChildrenCache getPathCache(TaskDO taskDO) {
         return pathChildrenCacheMap.computeIfAbsent(taskDO.getTaskId(), (key) -> {
             try {
                 PathChildrenCache pathChildrenCache =
@@ -186,7 +186,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
      * @param queryParam
      * @return
      */
-    private boolean isMatch(TaskDO taskDO, Map<String, String> queryParam) {
+    protected boolean isMatch(TaskDO taskDO, Map<String, String> queryParam) {
         Predicate<TaskDO> isVersionEq =
             (task) -> task.getVersion() == null || StringUtils.equals(task.getVersion(), queryParam.get(VERSION_KEY));
         Predicate<TaskDO> isGroupEq =
@@ -202,7 +202,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
      * @param taskDO
      * @return
      */
-    private Instance buildSyncInstance(Map<String, String> queryParam, Map<String, String> ipAndPortMap,
+    protected Instance buildSyncInstance(Map<String, String> queryParam, Map<String, String> ipAndPortMap,
         TaskDO taskDO) {
         Instance temp = new Instance();
         temp.setIp(ipAndPortMap.get(INSTANCE_IP_KEY));
@@ -211,8 +211,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         temp.setWeight(Double.valueOf(queryParam.get(WEIGHT_KEY) == null ? "1.0" : queryParam.get(WEIGHT_KEY)));
         temp.setHealthy(true);
 
-        Map<String, String> metaData = new HashMap<>();
-        metaData.putAll(queryParam);
+        Map<String, String> metaData = new HashMap<>(queryParam);
         metaData.put(PROTOCOL_KEY, ipAndPortMap.get(PROTOCOL_KEY));
         metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
@@ -229,7 +228,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
      * @param queryParam dubbo 元数据
      * @return
      */
-    private String getServiceNameFromCache(String taskId, Map<String, String> queryParam) {
+    protected String getServiceNameFromCache(String taskId, Map<String, String> queryParam) {
         return nacosServiceNameMap.computeIfAbsent(taskId, (key) -> Joiner.on(":").skipNulls().join(CATALOG_KEY,
             queryParam.get(INTERFACE_KEY), queryParam.get(VERSION_KEY), queryParam.get(GROUP_KEY)));
     }
