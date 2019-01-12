@@ -16,15 +16,6 @@
  */
 package com.alibaba.nacossync.timer;
 
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
-import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.stereotype.Service;
-
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.TaskAccessService;
@@ -32,6 +23,13 @@ import com.alibaba.nacossync.event.DeleteTaskEvent;
 import com.alibaba.nacossync.event.SyncTaskEvent;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.eventbus.EventBus;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Service;
+
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author NacosSync
@@ -58,6 +56,7 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
         /** 3s去数据库捞一次任务列表 */
         scheduledExecutorService.scheduleWithFixedDelay(new CheckRunningStatusThread(), 0, 3000,
             TimeUnit.MILLISECONDS);
+
 
     }
 
