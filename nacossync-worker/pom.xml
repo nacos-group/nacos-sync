@@ -24,6 +24,7 @@
         <zookeeper.version>3.4.9</zookeeper.version>
         <curator.version>4.1.0</curator.version>
         <cloud.version>Finchley.SR2</cloud.version>
+        <mockito.version>1.10.19</mockito.version>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -44,10 +45,18 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-logging</artifactId>
+
         </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-all</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
@@ -119,7 +128,6 @@
         <dependency>
             <groupId>com.ecwid.consul</groupId>
             <artifactId>consul-api</artifactId>
-            <version>1.3.1</version>
         </dependency>
 
     </dependencies>
