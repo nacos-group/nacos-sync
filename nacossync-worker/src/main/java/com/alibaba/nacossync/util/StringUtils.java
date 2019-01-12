@@ -1,5 +1,7 @@
 package com.alibaba.nacossync.util;
 
+import com.google.common.collect.Maps;
+
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.HashMap;
@@ -15,7 +17,7 @@ import static com.alibaba.nacossync.util.DubboConstants.*;
  */
 public final class StringUtils {
     private static final Pattern KVP_PATTERN = Pattern.compile("([_.a-zA-Z0-9][-_.a-zA-Z0-9]*)[=](.*)");
-    private static final Pattern IP_PORT_PATTERN = Pattern.compile("(.*)://(\\d+\\.\\d+\\.\\d+\\.\\d+):(\\d+)");
+    private static final Pattern IP_PORT_PATTERN = Pattern.compile(".*/(.*)://(\\d+\\.\\d+\\.\\d+\\.\\d+):(\\d+)");
 
     /**
      * parse key-value pair.
@@ -43,12 +45,17 @@ public final class StringUtils {
      * @param qs query string.
      * @return Parameters instance.
      */
-    public static Map<String, String> parseQueryString(String qs) throws UnsupportedEncodingException {
-        String decodePath = URLDecoder.decode(qs, "UTF-8");
-        if (isEmpty(qs)) {
-            return new HashMap<String, String>();
+    public static Map<String, String> parseQueryString(String qs) {
+        try {
+            String decodePath = URLDecoder.decode(qs, "UTF-8");
+            if (isEmpty(qs)) {
+                return new HashMap<>();
+            }
+            return parseKeyValuePair(decodePath, "\\&");
+
+        } catch (UnsupportedEncodingException uee) {
+            return Maps.newHashMap();
         }
-        return parseKeyValuePair(decodePath, "\\&");
     }
 
     /**
@@ -61,22 +68,27 @@ public final class StringUtils {
         return str == null || str.isEmpty();
     }
 
-    public static Map<String, String> parseIpAndPortString(String path) throws UnsupportedEncodingException {
-        String decodePath = URLDecoder.decode(path, "UTF-8");
-        Matcher matcher = IP_PORT_PATTERN.matcher(decodePath);
-        // 将符合规则的提取出来
-        Map<String, String> instanceMap = new HashMap<>();
-        while (matcher.find()) {
-            //协议
-            instanceMap.put(PROTOCOL_KEY, matcher.group(1));
-            // ip地址
-            instanceMap.put(INSTANCE_IP_KEY, matcher.group(2));
-            // 端口
-            instanceMap.put(INSTANCE_PORT_KEY, matcher.group(3));
-            break;
+    public static Map<String, String> parseIpAndPortString(String path){
 
+        try {
+            String decodePath = URLDecoder.decode(path, "UTF-8");
+            Matcher matcher = IP_PORT_PATTERN.matcher(decodePath);
+            // 将符合规则的提取出来
+            Map<String, String> instanceMap = new HashMap<>();
+            while (matcher.find()) {
+                // 协议
+                instanceMap.put(PROTOCOL_KEY, matcher.group(1));
+                // ip地址
+                instanceMap.put(INSTANCE_IP_KEY, matcher.group(2));
+                // 端口
+                instanceMap.put(INSTANCE_PORT_KEY, matcher.group(3));
+                break;
+
+            }
+            return instanceMap;
+        } catch (UnsupportedEncodingException e) {
+            return Maps.newHashMap();
         }
-        return instanceMap;
 
     }
 }
