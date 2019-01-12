@@ -7,6 +7,7 @@ import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
+import com.alibaba.nacossync.extension.event.SpecialSyncEventBus;
 import com.alibaba.nacossync.extension.holder.EurekaServerHolder;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.pojo.model.TaskDO;
@@ -33,18 +34,26 @@ import java.util.Objects;
 @NacosSyncService(sourceCluster = ClusterTypeEnum.EUREKA, destinationCluster = ClusterTypeEnum.NACOS)
 public class EurekaSyncToNacosServiceImpl implements SyncService {
 
-    @Autowired
-    private EurekaServerHolder eurekaServerHolder;
-    @Autowired
-    private SkyWalkerCacheServices skyWalkerCacheServices;
+    private final EurekaServerHolder eurekaServerHolder;
+    private final SkyWalkerCacheServices skyWalkerCacheServices;
+
+    private final NacosServerHolder nacosServerHolder;
+
+    private final SpecialSyncEventBus specialSyncEventBus;
 
     @Autowired
-    private NacosServerHolder nacosServerHolder;
+    public EurekaSyncToNacosServiceImpl(EurekaServerHolder eurekaServerHolder, SkyWalkerCacheServices skyWalkerCacheServices, NacosServerHolder nacosServerHolder, SpecialSyncEventBus specialSyncEventBus) {
+        this.eurekaServerHolder = eurekaServerHolder;
+        this.skyWalkerCacheServices = skyWalkerCacheServices;
+        this.nacosServerHolder = nacosServerHolder;
+        this.specialSyncEventBus = specialSyncEventBus;
+    }
 
     @Override
     public boolean delete(TaskDO taskDO) {
 
         try {
+            specialSyncEventBus.unsubscribe(taskDO);
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
             List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName());
             for (Instance instance : allInstances) {
@@ -84,14 +93,13 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
             } else {
                 throw new RuntimeException("trying to connect to the server failed");
             }
+            specialSyncEventBus.subscribe(taskDO, this::sync);
         } catch (Exception e) {
             log.error("sync task from eureka to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
             return false;
         }
         return true;
     }
-
-
 
     private Instance buildSyncInstance(InstanceInfo instance, TaskDO taskDO) {
         Instance temp = new Instance();
@@ -109,6 +117,5 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
         temp.setMetadata(metaData);
         return temp;
     }
-
 
 }
