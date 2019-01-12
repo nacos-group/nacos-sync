@@ -26,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.text.DecimalFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -41,7 +42,8 @@ import static com.alibaba.nacossync.util.DubboConstants.PROTOCOL_KEY;
 @Slf4j
 @NacosSyncService(sourceCluster = ClusterTypeEnum.NACOS, destinationCluster = ClusterTypeEnum.ZK)
 public class NacosSyncToZookeeperServiceImpl implements SyncService {
-    public static final String SEPARATOR_CHARS = ":";
+    private static final String SEPARATOR_CHARS = ":";
+    private static final int SEGMENT_LENGTH = 2;
     /**
      * @description The Nacos listener map.
      */
@@ -160,14 +162,15 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
         return true;
     }
 
-    public String buildSyncInstance(Instance instance, TaskDO taskDO) throws UnsupportedEncodingException {
+    protected String buildSyncInstance(Instance instance, TaskDO taskDO) throws UnsupportedEncodingException {
         Map<String, String> metaData = new HashMap<>();
         metaData.putAll(instance.getMetadata());
         metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
             skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
         metaData.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
-        metaData.put(DubboConstants.WEIGHT_KEY, Double.toString(instance.getWeight()));
+        int weight = Integer.parseInt(new DecimalFormat("0").format(Math.ceil(instance.getWeight())));
+        metaData.put(DubboConstants.WEIGHT_KEY, Integer.toString(weight));
 
         String servicePath = getServiceInterface(taskDO.getServiceName());
         String urlParam = Joiner.on("&").withKeyValueSeparator("=").join(metaData);
@@ -177,9 +180,9 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
         return String.join(File.separator, servicePath, URLEncoder.encode(instanceUrl, "UTF-8"));
     }
 
-    private static String getServiceInterface(String serviceName) {
+    protected  String getServiceInterface(String serviceName) {
         String[] segments = StringUtils.split(serviceName, SEPARATOR_CHARS);
-        if (segments.length < 2) {
+        if (segments.length < SEGMENT_LENGTH) {
             throw new IllegalArgumentException("The length of the split service name must be greater than 2");
         }
         return String.format(DubboConstants.DUBBO_PATH_FORMAT, segments[1]);
@@ -191,7 +194,7 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
      * @param taskDO
      * @return
      */
-    private PathChildrenCache getPathCache(TaskDO taskDO) {
+    protected PathChildrenCache getPathCache(TaskDO taskDO) {
         return pathChildrenCacheMap.computeIfAbsent(taskDO.getTaskId(), (key) -> {
             try {
                 PathChildrenCache pathChildrenCache =
@@ -206,5 +209,7 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
         });
 
     }
+
+
 
 }
