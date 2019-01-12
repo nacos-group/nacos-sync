@@ -7,6 +7,7 @@ import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
+import com.alibaba.nacossync.extension.event.SpecialSyncEventBus;
 import com.alibaba.nacossync.extension.holder.ConsulServerHolder;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.pojo.model.TaskDO;
@@ -26,21 +27,31 @@ import java.util.*;
  * @date: 2018-12-31 16:25
  */
 @Slf4j
-@NacosSyncService(sourceCluster = ClusterTypeEnum.CONSUL,destinationCluster = ClusterTypeEnum.NACOS)
+@NacosSyncService(sourceCluster = ClusterTypeEnum.CONSUL, destinationCluster = ClusterTypeEnum.NACOS)
 public class ConsulSyncToNacosServiceImpl implements SyncService {
 
-    @Autowired
-    private ConsulServerHolder consulServerHolder;
-    @Autowired
-    private SkyWalkerCacheServices skyWalkerCacheServices;
+    private final ConsulServerHolder consulServerHolder;
+    private final SkyWalkerCacheServices skyWalkerCacheServices;
+
+    private final NacosServerHolder nacosServerHolder;
+
+    private final SpecialSyncEventBus specialSyncEventBus;
 
     @Autowired
-    private NacosServerHolder nacosServerHolder;
+    public ConsulSyncToNacosServiceImpl(ConsulServerHolder consulServerHolder,
+        SkyWalkerCacheServices skyWalkerCacheServices, NacosServerHolder nacosServerHolder,
+        SpecialSyncEventBus specialSyncEventBus) {
+        this.consulServerHolder = consulServerHolder;
+        this.skyWalkerCacheServices = skyWalkerCacheServices;
+        this.nacosServerHolder = nacosServerHolder;
+        this.specialSyncEventBus = specialSyncEventBus;
+    }
 
     @Override
     public boolean delete(TaskDO taskDO) {
 
         try {
+            specialSyncEventBus.unsubscribe(taskDO);
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
             List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName());
             for (Instance instance : allInstances) {
@@ -81,15 +92,13 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
                     destNamingService.deregisterInstance(taskDO.getServiceName(), instance.getIp(), instance.getPort());
                 }
             }
-
+            specialSyncEventBus.subscribe(taskDO, this::sync);
         } catch (Exception e) {
             log.error("sync task from consul to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
             return false;
         }
         return true;
     }
-
-
 
     private Instance buildSyncInstance(HealthService instance, TaskDO taskDO) {
         Instance temp = new Instance();
@@ -104,8 +113,6 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
         temp.setMetadata(metaData);
         return temp;
     }
-
-
 
     private String composeInstanceKey(String ip, int port) {
         return ip + ":" + port;
