@@ -207,7 +207,7 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
      * @param taskDO
      * @return
      */
-    protected PathChildrenCache getPathCache(TaskDO taskDO) {
+    private PathChildrenCache getPathCache(TaskDO taskDO) {
         return pathChildrenCacheMap.computeIfAbsent(taskDO.getTaskId(), (key) -> {
             try {
                 PathChildrenCache pathChildrenCache =

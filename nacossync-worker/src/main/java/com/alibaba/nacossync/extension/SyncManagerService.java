@@ -46,13 +46,13 @@ public class SyncManagerService implements InitializingBean, ApplicationContextA
 
     public boolean delete(TaskDO taskDO) throws NacosException {
 
-        return getSyncService(taskDO).delete(taskDO);
+        return getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId()).delete(taskDO);
 
     }
 
     public boolean sync(TaskDO taskDO) {
 
-        return getSyncService(taskDO).sync(taskDO);
+        return getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId()).sync(taskDO);
 
     }
 
@@ -71,9 +71,11 @@ public class SyncManagerService implements InitializingBean, ApplicationContextA
         this.applicationContext = applicationContext;
     }
 
-    private SyncService getSyncService(TaskDO taskDO) {
-        ClusterTypeEnum sourceClusterType = this.skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId());
-        ClusterTypeEnum destClusterType = this.skyWalkerCacheServices.getClusterType(taskDO.getDestClusterId());
+    public SyncService getSyncService(String sourceClusterId, String destClusterId) {
+
+        ClusterTypeEnum sourceClusterType = this.skyWalkerCacheServices.getClusterType(sourceClusterId);
+        ClusterTypeEnum destClusterType = this.skyWalkerCacheServices.getClusterType(destClusterId);
+
         return syncServiceMap.get(generateSyncKey(sourceClusterType, destClusterType));
     }
 

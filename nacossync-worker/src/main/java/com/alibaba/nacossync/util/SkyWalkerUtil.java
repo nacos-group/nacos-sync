@@ -33,13 +33,14 @@ import java.util.Enumeration;
 import java.util.UUID;
 
 /**
-* @author NacosSync
-* @version $Id: SkyWalkerUtil.java, v 0.1 2018-09-26 上午12:10 NacosSync Exp $$
-*/
+ * @author NacosSync
+ * @version $Id: SkyWalkerUtil.java, v 0.1 2018-09-26 上午12:10 NacosSync Exp $$
+ */
 public class SkyWalkerUtil {
 
     /**
      * 获取字符串md5
+     *
      * @param value
      * @return
      */
@@ -68,17 +69,19 @@ public class SkyWalkerUtil {
 
     /**
      * 生成taskId的规则
+     *
      * @param addTaskRequest
      * @return
      */
     public static String generateTaskId(TaskAddRequest addTaskRequest) {
 
         return generateTaskId(addTaskRequest.getServiceName(), addTaskRequest.getGroupName(),
-            addTaskRequest.getSourceClusterId(), addTaskRequest.getDestClusterId());
+                addTaskRequest.getSourceClusterId(), addTaskRequest.getDestClusterId());
     }
 
     /**
      * 生成taskId的规则
+     *
      * @return
      */
     public static String generateTaskId(String serviceName, String groupName,
@@ -98,6 +101,7 @@ public class SkyWalkerUtil {
 
     /**
      * 生成集群clusterId的规则
+     *
      * @param addClusterRequest
      * @return
      */
@@ -113,6 +117,7 @@ public class SkyWalkerUtil {
 
     /**
      * 避免获取到回传地址
+     *
      * @return
      * @throws Exception
      */
@@ -136,13 +141,9 @@ public class SkyWalkerUtil {
         return localIp;
     }
 
-    public static String generateWorkerId(String workerIp) {
-        return UUID.randomUUID() + SkyWalkerConstants.UNDERLINE + workerIp;
+    public static String generateSyncKey(ClusterTypeEnum sourceClusterType, ClusterTypeEnum destClusterType) {
 
-    }
-
-    public static String generateSyncKey(ClusterTypeEnum sourceClusterType,ClusterTypeEnum destClusterType){
-        return Joiner.on(":").join(sourceClusterType.getCode(),destClusterType.getCode());
+        return Joiner.on(":").join(sourceClusterType.getCode(), destClusterType.getCode());
     }
 
     public static String getOperationId(TaskDO taskDO) {

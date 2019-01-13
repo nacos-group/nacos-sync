@@ -18,11 +18,27 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.util.Map;
 
+/**
+ * @author NacosSync
+ * @version $Id: SyncManagerService.java, v 0.1 2018-09-25 下午5:17 NacosSync Exp $$
+ */
 public interface SyncService {
 
-    public boolean delete(TaskDO taskDO);
+    /**
+     * 删除同步
+     *
+     * @param taskDO
+     * @return
+     */
+    boolean delete(TaskDO taskDO);
 
-    public boolean sync(TaskDO taskDO);
+    /**
+     * 执行一次同步
+     *
+     * @param taskDO
+     * @return
+     */
+    boolean sync(TaskDO taskDO);
 
     /**
      * 判断当前实例数据是否是其他地方同步过来的， 如果是则不进行同步操作
@@ -43,9 +59,7 @@ public interface SyncService {
      */
     default boolean needDelete(Map<String, String> destMetaData, TaskDO taskDO) {
         return StringUtils.equals(destMetaData.get(SkyWalkerConstants.SOURCE_CLUSTERID_KEY),
-            taskDO.getSourceClusterId());
+                taskDO.getSourceClusterId());
     }
-
-
 
 }

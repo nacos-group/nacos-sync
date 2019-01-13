@@ -28,29 +28,45 @@ public class TaskDO implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    /** 自定义生成的任务id，唯一 */
-    private String taskId;
-    /** 源集群id */
-    private String sourceClusterId;
-    /** 目标集群id */
-    private String destClusterId;
-    /** 服务名 */
-    private String serviceName;
+    /**
+     * 自定义生成的任务id，唯一
+     */
+    private String  taskId;
+    /**
+     * 源集群id
+     */
+    private String  sourceClusterId;
+    /**
+     * 目标集群id
+     */
+    private String  destClusterId;
+    /**
+     * 服务名
+     */
+    private String  serviceName;
     /**
      * 版本
      */
-    private String version;
-    /** 分组名 */
-    private String groupName;
+    private String  version;
+    /**
+     * 分组名
+     */
+    private String  groupName;
     /**
      * 命名空间
      */
-    private String nameSpace;
+    private String  nameSpace;
 
-    /** 当前任务状态 */
+    /**
+     * 当前任务状态
+     */
     private String taskStatus;
-    /** 执行这个任务的IP */
+    /**
+     * 执行这个任务的IP
+     */
     private String workerIp;
-    /** 操作id,任务状态变更时，此id会跟着变更 */
+    /**
+     * 操作id,任务状态变更时，此id会跟着变更
+     */
     private String operationId;
 }
