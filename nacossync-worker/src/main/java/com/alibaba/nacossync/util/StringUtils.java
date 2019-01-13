@@ -1,6 +1,7 @@
 package com.alibaba.nacossync.util;
 
 import com.google.common.collect.Maps;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -15,6 +16,7 @@ import static com.alibaba.nacossync.util.DubboConstants.*;
  * @author paderlol
  * @date: 2018-12-25 21:08
  */
+@Slf4j
 public final class StringUtils {
     private static final Pattern KVP_PATTERN = Pattern.compile("([_.a-zA-Z0-9][-_.a-zA-Z0-9]*)[=](.*)");
     private static final Pattern IP_PORT_PATTERN = Pattern.compile(".*/(.*)://(\\d+\\.\\d+\\.\\d+\\.\\d+):(\\d+)");
@@ -53,7 +55,8 @@ public final class StringUtils {
             }
             return parseKeyValuePair(decodePath, "\\&");
 
-        } catch (UnsupportedEncodingException uee) {
+        } catch (UnsupportedEncodingException e) {
+            log.warn("parse query string failed", e);
             return Maps.newHashMap();
         }
     }
@@ -68,7 +71,7 @@ public final class StringUtils {
         return str == null || str.isEmpty();
     }
 
-    public static Map<String, String> parseIpAndPortString(String path){
+    public static Map<String, String> parseIpAndPortString(String path) {
 
         try {
             String decodePath = URLDecoder.decode(path, "UTF-8");
@@ -87,6 +90,7 @@ public final class StringUtils {
             }
             return instanceMap;
         } catch (UnsupportedEncodingException e) {
+            log.warn("parse query string failed", e);
             return Maps.newHashMap();
         }
 
