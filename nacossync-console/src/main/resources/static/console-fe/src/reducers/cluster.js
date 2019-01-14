@@ -12,7 +12,7 @@ const initialState = {
 
 const add = data => request.post(`${PATH}add`, data);
 
-const deleteCluster = data => request.delete(`${PATH}delete`, { data });
+const deleteCluster = params => request.delete(`${PATH}delete`, { params });
 
 const list = params => dispatch => request.get(`${PATH}list`, {
   params: {

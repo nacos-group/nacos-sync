@@ -62,6 +62,8 @@ const I18N_CONF = {
     groupNamePlaceholder: '请输入分组名',
     sourceCluster: '源集群',
     destCluster: '目标集群',
+    version: '版本',
+    versionPlaceholder: '请输入版本',
   },
   SystemConfig: {
     title: '系统配置',
