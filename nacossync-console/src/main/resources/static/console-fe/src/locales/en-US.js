@@ -62,6 +62,8 @@ const I18N_CONF = {
     groupNamePlaceholder: 'Please enter group name',
     sourceCluster: 'Source Cluster',
     destCluster: 'Dest Cluster',
+    version: 'Version',
+    versionPlaceholder: 'Please enter version',
   },
   SystemConfig: {
     title: 'System configuration',
