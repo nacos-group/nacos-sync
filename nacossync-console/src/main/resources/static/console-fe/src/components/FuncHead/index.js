@@ -1,3 +1,3 @@
-import FuncHead from './FuncHead'
+import FuncHead from './FuncHead';
 
-export default FuncHead
+export default FuncHead;

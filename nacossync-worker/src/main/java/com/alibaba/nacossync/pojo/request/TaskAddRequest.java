@@ -30,5 +30,7 @@ public class TaskAddRequest extends BaseRequest {
 
     private String serviceName;
     private String groupName;
+    private String version;
+    private String nameSpace;
 
 }

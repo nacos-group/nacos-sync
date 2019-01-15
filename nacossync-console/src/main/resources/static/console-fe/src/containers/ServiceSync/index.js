@@ -1,3 +1,3 @@
-import ServiceSync from './ServiceSync'
+import ServiceSync from './ServiceSync';
 
-export default ServiceSync
+export default ServiceSync;

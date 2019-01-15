@@ -19,6 +19,7 @@ package com.alibaba.nacossync;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+import org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 /**
@@ -26,7 +27,7 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
  * @version $Id: SkyWalkerMain.java, v 0.1 2018-09-24 下午12:42 NacosSync Exp $$
  */
 @EnableSwagger2
-@SpringBootApplication
+@SpringBootApplication(exclude = EurekaClientAutoConfiguration.class)
 public class NacosSyncMain {
 
     public static void main(String[] args) {

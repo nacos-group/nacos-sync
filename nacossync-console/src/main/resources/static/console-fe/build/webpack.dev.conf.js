@@ -7,7 +7,7 @@ module.exports = Object.assign({}, base, {
             context: ['/nacossync'],
             changeOrigin: true,
             secure: false,
-            target: 'http://10.101.15.150:8081'
+            target: 'http://30.5.121.153:8081'
         }],
         disableHostCheck: true
     },
