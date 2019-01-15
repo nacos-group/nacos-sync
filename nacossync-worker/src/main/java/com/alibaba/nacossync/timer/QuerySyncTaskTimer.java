@@ -40,13 +40,13 @@ import java.util.concurrent.TimeUnit;
 public class QuerySyncTaskTimer implements CommandLineRunner {
 
     @Autowired
-    private SkyWalkerCacheServices   skyWalkerCacheServices;
+    private SkyWalkerCacheServices skyWalkerCacheServices;
 
     @Autowired
-    private TaskAccessService        taskAccessService;
+    private TaskAccessService taskAccessService;
 
     @Autowired
-    private EventBus                 eventBus;
+    private EventBus eventBus;
 
     @Autowired
     private ScheduledExecutorService scheduledExecutorService;
@@ -55,8 +55,7 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
     public void run(String... args) {
         /** 3s去数据库捞一次任务列表 */
         scheduledExecutorService.scheduleWithFixedDelay(new CheckRunningStatusThread(), 0, 3000,
-            TimeUnit.MILLISECONDS);
-
+                TimeUnit.MILLISECONDS);
 
     }
 

@@ -71,7 +71,7 @@ public class ClusterApi {
     }
 
     @RequestMapping(path = "/v1/cluster/delete", method = RequestMethod.DELETE)
-    public ClusterDeleteResult deleteTask(@RequestBody ClusterDeleteRequest clusterDeleteRequest) {
+    public ClusterDeleteResult deleteTask(ClusterDeleteRequest clusterDeleteRequest) {
 
         return SkyWalkerTemplate.run(clusterDeleteProcessor, clusterDeleteRequest,
                 new ClusterDeleteResult());

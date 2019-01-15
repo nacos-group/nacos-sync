@@ -16,10 +16,12 @@
  */
 package com.alibaba.nacossync.template.processor;
 
+import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.ClusterAccessService;
 import com.alibaba.nacossync.dao.TaskAccessService;
 import com.alibaba.nacossync.exception.SkyWalkerException;
+import com.alibaba.nacossync.extension.SyncManagerService;
 import com.alibaba.nacossync.pojo.model.ClusterDO;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskAddRequest;
@@ -39,7 +41,10 @@ import org.springframework.stereotype.Service;
 public class TaskAddProcessor implements Processor<TaskAddRequest, TaskAddResult> {
 
     @Autowired
-    private TaskAccessService    taskAccessService;
+    private SyncManagerService syncManagerService;
+
+    @Autowired
+    private TaskAccessService taskAccessService;
 
     @Autowired
     private ClusterAccessService clusterAccessService;
@@ -49,10 +54,10 @@ public class TaskAddProcessor implements Processor<TaskAddRequest, TaskAddResult
                         Object... others) throws Exception {
 
         ClusterDO destCluster = clusterAccessService.findByClusterId(taskAddRequest
-            .getDestClusterId());
+                .getDestClusterId());
 
         ClusterDO sourceCluster = clusterAccessService.findByClusterId(taskAddRequest
-            .getSourceClusterId());
+                .getSourceClusterId());
 
         if (null == destCluster || null == sourceCluster) {
 
@@ -60,12 +65,10 @@ public class TaskAddProcessor implements Processor<TaskAddRequest, TaskAddResult
 
         }
 
-//        if (!ClusterTypeEnum.NACOS.getCode().equals(sourceCluster.getClusterType())
-//            || !ClusterTypeEnum.NACOS.getCode().equals(destCluster.getClusterType())) {
-//
-//            throw new SkyWalkerException("请检查是否支持源到目标集群类型的同步！目前只支持NACOS->NACOS");
-//
-//        }
+        if (null == syncManagerService.getSyncService(sourceCluster.getClusterId(), destCluster.getClusterId())) {
+
+            throw new SkyWalkerException("不支持当前同步类型");
+        }
 
         String taskId = SkyWalkerUtil.generateTaskId(taskAddRequest);
 

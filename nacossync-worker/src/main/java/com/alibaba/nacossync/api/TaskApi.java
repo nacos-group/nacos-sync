@@ -70,7 +70,7 @@ public class TaskApi {
     }
 
     @RequestMapping(path = "/v1/task/delete", method = RequestMethod.DELETE)
-    public BaseResult deleteTask(@RequestBody TaskDeleteRequest taskDeleteRequest) {
+    public BaseResult deleteTask(TaskDeleteRequest taskDeleteRequest) {
 
         return SkyWalkerTemplate.run(taskDeleteProcessor, taskDeleteRequest, new BaseResult());
     }

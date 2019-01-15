@@ -6,6 +6,7 @@ import { add } from '../../reducers/task';
 import { list } from '../../reducers/cluster';
 
 const FormItem = Form.Item;
+const { Option } = Select;
 
 @connect(state => ({ ...state.cluster }), { list }, null, { withRef: true })
 @ConfigProvider.config
@@ -20,6 +21,8 @@ class AddSyncDialog extends React.Component {
       groupName: '',
       serviceName: '',
       sourceClusterId: '',
+      version: '',
+      sourceCluster: {},
     };
   }
 
@@ -28,8 +31,8 @@ class AddSyncDialog extends React.Component {
   }
 
   save() {
-    const { destClusterId, groupName, serviceName, sourceClusterId } = this.state;
-    add({ destClusterId, groupName, serviceName, sourceClusterId })
+    const { destClusterId, groupName, serviceName, sourceClusterId, version } = this.state;
+    add({ destClusterId, groupName, serviceName, sourceClusterId, version })
       .then(() => {
         this.props.turnPage(1);
         this.close();
@@ -38,12 +41,18 @@ class AddSyncDialog extends React.Component {
   }
 
   close() {
-    this.setState({ visible: false });
+    this.setState({ visible: false, sourceCluster: {} });
+  }
+
+  onSourceClusterChange(sourceClusterId) {
+    const [sourceCluster] = this.props.clusterModels.filter(({ clusterId }) => clusterId === sourceClusterId);
+    this.setState({ sourceClusterId, sourceCluster });
   }
 
   open = () => this.setState({ visible: true })
 
   render() {
+    const { sourceCluster } = this.state;
     const { locale = {}, clusterModels = [] } = this.props;
     return (
       <Dialog
@@ -67,11 +76,21 @@ class AddSyncDialog extends React.Component {
               onChange={groupName => this.setState({ groupName })}
             />
           </FormItem>
+          {
+            sourceCluster.clusterType === 'ZK' && (
+              <FormItem label={`${locale.version}:`}>
+                <Input
+                  placeholder={locale.versionPlaceholder}
+                  onChange={version => this.setState({ version })}
+                />
+              </FormItem>
+            )
+          }
           <FormItem label={`${locale.sourceCluster}:`}>
-            <Select onChange={sourceClusterId => this.setState({ sourceClusterId })}>
+            <Select onChange={value => this.onSourceClusterChange(value)}>
               {
                 clusterModels.map(({ clusterId, clusterName }) => (
-                  <Select.Option key={clusterId} value={clusterId}>{clusterName}</Select.Option>
+                  <Option key={clusterId} value={clusterId}>{clusterName}</Option>
                 ))
               }
             </Select>
@@ -80,7 +99,7 @@ class AddSyncDialog extends React.Component {
             <Select onChange={destClusterId => this.setState({ destClusterId })}>
               {
                 clusterModels.map(({ clusterId, clusterName }) => (
-                  <Select.Option key={clusterId} value={clusterId}>{clusterName}</Select.Option>
+                  <Option key={clusterId} value={clusterId}>{clusterName}</Option>
                 ))
               }
             </Select>
