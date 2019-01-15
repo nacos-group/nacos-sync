@@ -26,7 +26,7 @@ import com.alibaba.nacossync.pojo.model.ClusterDO;
 
 /**
  * @author NacosSync
- * @version $Id: ClusterRepository.java, v 0.1 2018-09-25 下午9:31 NacosSync Exp $$
+ * @version $Id: ClusterRepository.java, v 0.1 2018-09-25 PM9:31 NacosSync Exp $$
  */
 public interface ClusterRepository extends CrudRepository<ClusterDO, Integer>, JpaRepository<ClusterDO, Integer>,
         JpaSpecificationExecutor<ClusterDO> {

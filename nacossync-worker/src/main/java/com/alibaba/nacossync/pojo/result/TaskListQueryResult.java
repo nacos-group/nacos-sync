@@ -24,7 +24,7 @@ import com.alibaba.nacossync.pojo.view.TaskModel;
 
 /**
  * @author NacosSync
- * @version $Id: TaskListResult.java, v 0.1 2018-09-30 下午12:50 NacosSync Exp $$
+ * @version $Id: TaskListResult.java, v 0.1 2018-09-30 PM12:50 NacosSync Exp $$
  */
 @Data
 public class TaskListQueryResult extends BaseResult {

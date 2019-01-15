@@ -21,7 +21,7 @@ import org.springframework.data.domain.Page;
 
 /**
  * @author NacosSync
- * @version $Id: PageQueryService.java, v 0.1 2018年11月05日 下午5:51 NacosSync Exp $
+ * @version $Id: PageQueryService.java, v 0.1 2018年11月05日 PM5:51 NacosSync Exp $
  */
 public interface PageQueryService<T> {
 

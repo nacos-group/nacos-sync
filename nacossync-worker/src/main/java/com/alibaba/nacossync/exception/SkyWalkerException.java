@@ -20,7 +20,7 @@ import com.alibaba.nacossync.constant.ResultCodeEnum;
 
 /**
  * @author NacosSync
- * @version $Id: SkyWalkerException.java, v 0.1 2018-09-30 上午10:09 NacosSync Exp $$
+ * @version $Id: SkyWalkerException.java, v 0.1 2018-09-30 AM10:09 NacosSync Exp $$
  */
 public class SkyWalkerException extends RuntimeException {
     /**

@@ -19,54 +19,55 @@ import java.io.Serializable;
 
 /**
  * @author NacosSync
- * @version $Id: TaskDo.java, v 0.1 2018-09-24 下午11:53 NacosSync Exp $$
+ * @version $Id: TaskDo.java, v 0.1 2018-09-24 PM11:53 NacosSync Exp $$
  */
 @Data
 @Entity
 @Table(name = "task")
 public class TaskDO implements Serializable {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     /**
-     * 自定义生成的任务id，唯一
+     * custom task id(unique)
      */
-    private String  taskId;
+    private String taskId;
     /**
-     * 源集群id
+     * source cluster id
      */
-    private String  sourceClusterId;
+    private String sourceClusterId;
     /**
-     * 目标集群id
+     * destination cluster id
      */
-    private String  destClusterId;
+    private String destClusterId;
     /**
-     * 服务名
+     * service name
      */
-    private String  serviceName;
+    private String serviceName;
     /**
-     * 版本
+     * version
      */
-    private String  version;
+    private String version;
     /**
-     * 分组名
+     * group name
      */
-    private String  groupName;
+    private String groupName;
     /**
-     * 命名空间
+     * name space
      */
     private String  nameSpace;
 
     /**
-     * 当前任务状态
+     * the current task status
      */
     private String taskStatus;
     /**
-     * 执行这个任务的IP
+     * The IP address that performs the current task
      */
     private String workerIp;
     /**
-     * 操作id,任务状态变更时，此id会跟着变更
+     * operation id,The operation id follow when the task status changes
      */
     private String operationId;
 }

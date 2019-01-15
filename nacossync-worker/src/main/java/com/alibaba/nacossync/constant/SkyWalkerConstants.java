@@ -18,7 +18,7 @@ package com.alibaba.nacossync.constant;
 
 /**
  * @author NacosSync
- * @version $Id: SkyWalkerConstants.java, v 0.1 2018-09-26 上午12:07 NacosSync Exp $$
+ * @version $Id: SkyWalkerConstants.java, v 0.1 2018-09-26 AM12:07 NacosSync Exp $$
  */
 public class SkyWalkerConstants {
 

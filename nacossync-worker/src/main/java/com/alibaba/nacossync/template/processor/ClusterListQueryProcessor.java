@@ -34,7 +34,7 @@ import com.alibaba.nacossync.template.Processor;
 
 /**
  * @author NacosSync
- * @version $Id: ClusterListQueryProcessor.java, v 0.1 2018-09-30 下午2:33 NacosSync Exp $$
+ * @version $Id: ClusterListQueryProcessor.java, v 0.1 2018-09-30 PM2:33 NacosSync Exp $$
  */
 @Service
 public class ClusterListQueryProcessor implements

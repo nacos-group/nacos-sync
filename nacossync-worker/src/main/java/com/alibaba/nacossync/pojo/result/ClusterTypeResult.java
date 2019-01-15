@@ -22,7 +22,7 @@ import lombok.Data;
 
 /**
  * @author NacosSync
- * @version $Id: ClusterTypeResult.java, v 0.1 2018-09-25 下午10:51 NacosSync Exp $$
+ * @version $Id: ClusterTypeResult.java, v 0.1 2018-09-25 PM10:51 NacosSync Exp $$
  */
 @Data
 public class ClusterTypeResult extends BaseResult {

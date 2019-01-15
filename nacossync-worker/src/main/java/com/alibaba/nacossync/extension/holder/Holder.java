@@ -13,10 +13,18 @@
 package com.alibaba.nacossync.extension.holder;
 
 /**
+ * cluster client service
  * @author paderlol
- * @date: 2018-12-24 21:59
+ * @date 2018-12-24 21:59
  */
 public interface Holder<T> {
 
+    /**
+     *  Through the cluster ID and namespace fetch cluster client service
+     * @param clusterId cluster id
+     * @param namespace name space
+     * @return
+     * @throws Exception
+     */
     public T get(String clusterId, String namespace) throws Exception;
 }

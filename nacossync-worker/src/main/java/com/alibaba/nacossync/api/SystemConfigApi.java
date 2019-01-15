@@ -37,7 +37,7 @@ import com.alibaba.nacossync.template.processor.ConfigQueryProcessor;
 
 /**
  * @author NacosSync
- * @version $Id: SystemConfigApi.java, v 0.1 2018-09-26 上午2:06 NacosSync Exp $$
+ * @version $Id: SystemConfigApi.java, v 0.1 2018-09-26 AM2:06 NacosSync Exp $$
  */
 @Slf4j
 @RestController

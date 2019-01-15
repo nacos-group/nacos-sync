@@ -22,7 +22,7 @@ import com.alibaba.nacossync.pojo.request.BaseRequest;
 /**
  *
  * @author NacosSync
- * @version $Id: Processor.java, v 0.1 2018-05-12 下午3:03 NacosSync Exp $$
+ * @version $Id: Processor.java, v 0.1 2018-05-12 PM3:03 NacosSync Exp $$
  */
 public interface Processor<R extends BaseRequest, N extends BaseResult> {
 

@@ -21,7 +21,7 @@ import java.util.function.Consumer;
 
 /**
  * @author paderlol
- * @date: 2019-01-12 22:42
+ * @date 2019-01-12 22:42
  */
 @Service
 public class SpecialSyncEventBus {

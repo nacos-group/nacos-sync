@@ -24,7 +24,7 @@ import com.alibaba.nacossync.template.Processor;
 
 /**
  * @author NacosSync
- * @version $Id: ConfigQueryProcessor.java, v 0.1 2018-09-30 下午4:52 NacosSync Exp $$
+ * @version $Id: ConfigQueryProcessor.java, v 0.1 2018-09-30 PM4:52 NacosSync Exp $$
  */
 @Service
 public class ConfigQueryProcessor implements Processor<ConfigQueryRequest, ConfigQueryResult> {

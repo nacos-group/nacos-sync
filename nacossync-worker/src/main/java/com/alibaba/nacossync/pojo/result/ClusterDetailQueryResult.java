@@ -22,7 +22,7 @@ import com.alibaba.nacossync.pojo.view.ClusterModel;
 
 /**
  * @author NacosSync
- * @version $Id: ClusterDetailQueryResult.java, v 0.1 2018-09-30 下午2:40 NacosSync Exp $$
+ * @version $Id: ClusterDetailQueryResult.java, v 0.1 2018-09-30 PM2:40 NacosSync Exp $$
  */
 @Data
 public class ClusterDetailQueryResult extends BaseResult {

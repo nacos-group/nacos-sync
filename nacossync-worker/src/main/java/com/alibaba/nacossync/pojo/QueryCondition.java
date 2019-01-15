@@ -20,7 +20,7 @@ import lombok.Data;
 
 /**
  * @author NacosSync
- * @version $Id: QueryCondition.java, v 0.1 2018年11月06日 上午11:03 NacosSync Exp $
+ * @version $Id: QueryCondition.java, v 0.1 2018年11月06日 AM11:03 NacosSync Exp $
  */
 @Data
 public class QueryCondition {

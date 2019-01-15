@@ -20,7 +20,7 @@ import lombok.Data;
 
 /**
  * @author NacosSync
- * @version $Id: TaskAddResult.java, v 0.1 2018-09-30 下午12:34 NacosSync Exp $$
+ * @version $Id: TaskAddResult.java, v 0.1 2018-09-30 PM12:34 NacosSync Exp $$
  */
 @Data
 public class TaskAddResult extends BaseResult {

@@ -22,9 +22,13 @@ package com.alibaba.nacossync.constant;
  */
 public enum TaskStatusEnum {
 
-    /** */
+    /**
+     * synchronization of task
+     */
     SYNC("SYNC", "任务同步"),
-    /**  */
+    /**
+     * delete the task
+     */
     DELETE("DELETE", "任务需要被删除");
 
     private String code;

@@ -33,7 +33,7 @@ import com.alibaba.nacossync.util.SkyWalkerUtil;
 
 /**
  * @author NacosSync
- * @version $Id: ClusterAddProcessor.java, v 0.1 2018-09-30 下午12:22 NacosSync Exp $$
+ * @version $Id: ClusterAddProcessor.java, v 0.1 2018-09-30 PM12:22 NacosSync Exp $$
  */
 @Slf4j
 @Service
