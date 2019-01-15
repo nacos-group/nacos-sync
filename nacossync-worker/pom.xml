@@ -153,6 +153,12 @@
                         <exclude>application.properties</exclude>
                         <exclude>logback-spring.xml</exclude>
                     </excludes>
+                    <archive>
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                            <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+                        </manifest>
+                    </archive>
                 </configuration>
             </plugin>
         </plugins>
