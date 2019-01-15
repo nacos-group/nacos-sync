@@ -24,7 +24,7 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 /**
  * @author NacosSync
- * @version $Id: SkyWalkerMain.java, v 0.1 2018-09-24 下午12:42 NacosSync Exp $$
+ * @version $Id: SkyWalkerMain.java, v 0.1 2018-09-24 PM12:42 NacosSync Exp $$
  */
 @EnableSwagger2
 @SpringBootApplication(exclude = EurekaClientAutoConfiguration.class)

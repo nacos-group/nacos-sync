@@ -34,7 +34,7 @@ import com.alibaba.nacossync.template.SkyWalkerTemplate;
 
 /**
  * @author NacosSync
- * @version $Id: Task.java, v 0.1 2018-09-24 下午3:43 NacosSync Exp $$
+ * @version $Id: Task.java, v 0.1 2018-09-24 PM3:43 NacosSync Exp $$
  */
 @Slf4j
 @RestController

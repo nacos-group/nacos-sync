@@ -36,7 +36,7 @@ import com.alibaba.nacossync.template.Processor;
 
 /**
  * @author NacosSync
- * @version $Id: TaskListQueryProcessor.java, v 0.1 2018-09-30 下午1:01 NacosSync Exp $$
+ * @version $Id: TaskListQueryProcessor.java, v 0.1 2018-09-30 PM1:01 NacosSync Exp $$
  */
 @Service
 @Slf4j

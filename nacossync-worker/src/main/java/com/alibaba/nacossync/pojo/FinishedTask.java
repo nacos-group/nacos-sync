@@ -22,7 +22,7 @@ import lombok.Data;
 
 /**
  * @author NacosSync
- * @version $Id: FinishedTask.java, v 0.1 2018-10-17 下午11:01 NacosSync Exp $$
+ * @version $Id: FinishedTask.java, v 0.1 2018-10-17 PM11:01 NacosSync Exp $$
  */
 @Data
 public class FinishedTask implements Serializable {

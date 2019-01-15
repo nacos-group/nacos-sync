@@ -28,7 +28,7 @@ import com.alibaba.nacossync.template.Processor;
 
 /**
  * @author NacosSync
- * @version $Id: TaskDeleteProcessor.java, v 0.1 2018-09-30 下午12:52 NacosSync Exp $$
+ * @version $Id: TaskDeleteProcessor.java, v 0.1 2018-09-30 PM12:52 NacosSync Exp $$
  */
 @Slf4j
 @Service

@@ -22,7 +22,7 @@ import com.alibaba.nacossync.constant.ResultCodeEnum;
 
 /**
  * @author NacosSync
- * @version $Id: BaseResult.java, v 0.1 2018-09-24 下午3:45 NacosSync Exp $$
+ * @version $Id: BaseResult.java, v 0.1 2018-09-24 PM3:45 NacosSync Exp $$
  */
 @Data
 public class BaseResult {

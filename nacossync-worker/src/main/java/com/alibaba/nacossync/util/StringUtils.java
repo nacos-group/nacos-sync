@@ -88,14 +88,14 @@ public final class StringUtils {
         try {
             String decodePath = URLDecoder.decode(path, "UTF-8");
             Matcher matcher = IP_PORT_PATTERN.matcher(decodePath);
-            // 将符合规则的提取出来
+            // extract the ones that match the rules
             Map<String, String> instanceMap = new HashMap<>();
             while (matcher.find()) {
-                // 协议
+                // protocol
                 instanceMap.put(PROTOCOL_KEY, matcher.group(1));
-                // ip地址
+                // ip address
                 instanceMap.put(INSTANCE_IP_KEY, matcher.group(2));
-                // 端口
+                // port
                 instanceMap.put(INSTANCE_PORT_KEY, matcher.group(3));
                 break;
 

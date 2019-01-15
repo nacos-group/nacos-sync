@@ -35,7 +35,7 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 
 /**
  * @author NacosSync
- * @version $Id: CleanExceedOperationIdTimer.java, v 0.1 2018-09-26 上午1:39 NacosSync Exp $$
+ * @version $Id: CleanExceedOperationIdTimer.java, v 0.1 2018-09-26 PM1:39 NacosSync Exp $$
  */
 @Slf4j
 @Service
@@ -52,7 +52,7 @@ public class CleanExceedOperationIdTimer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        /** 12小时清理OperationId缓存一次 */
+        /** Clean up the OperationId cache once every 12 hours */
         scheduledExecutorService.scheduleWithFixedDelay(new CleanExceedOperationIdThread(), 0, 12,
             TimeUnit.HOURS);
 

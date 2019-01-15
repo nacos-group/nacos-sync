@@ -20,7 +20,7 @@ import java.io.Serializable;
 
 /**
  * @author NacosSync
- * @version $Id: BaseRequest.java, v 0.1 2018-09-25 上午12:13 NacosSync Exp $$
+ * @version $Id: BaseRequest.java, v 0.1 2018-09-25 PM 12:13 NacosSync Exp $$
  */
 public class BaseRequest implements Serializable {
 }

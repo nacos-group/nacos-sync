@@ -13,16 +13,22 @@
 package com.alibaba.nacossync.extension.annotation;
 
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
+import com.alibaba.nacossync.extension.SyncManagerService;
+import com.alibaba.nacossync.extension.SyncService;
 import org.springframework.core.annotation.AliasFor;
 import org.springframework.stereotype.Component;
 
 import java.lang.annotation.*;
 
 /**
- * 同步服务实现类注解
+ *  Mainly used to mark the SyncService implementation
+ *  of which source cluster to which destination cluster
  * 
  * @author paderlol
- * @date: 2018-12-31 15:28
+ * @date 2018-12-31 15:28
+ * @see SyncService
+ * @see SyncManagerService
+ *
  */
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)

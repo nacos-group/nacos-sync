@@ -32,7 +32,7 @@ import com.google.common.eventbus.Subscribe;
 
 /**
  * @author NacosSync
- * @version $Id: EventListener.java, v 0.1 2018-09-27 上午1:21 NacosSync Exp $$
+ * @version $Id: EventListener.java, v 0.1 2018-09-27 AM1:21 NacosSync Exp $$
  */
 @Slf4j
 @Service

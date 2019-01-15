@@ -22,7 +22,7 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 
 /**
  * @author NacosSync
- * @version $Id: EventModel.java, v 0.1 2018-09-27 上午1:41 NacosSync Exp $$
+ * @version $Id: EventModel.java, v 0.1 2018-09-27 AM1:41 NacosSync Exp $$
  */
 @Data
 public class SyncTaskEvent {

@@ -18,7 +18,7 @@ package com.alibaba.nacossync.pojo.request;
 
 /**
  * @author NacosSync
- * @version $Id: ConfigQueryRequest.java, v 0.1 2018-09-30 下午4:53 NacosSync Exp $$
+ * @version $Id: ConfigQueryRequest.java, v 0.1 2018-09-30 PM4:53 NacosSync Exp $$
  */
 public class ConfigQueryRequest extends BaseRequest {
 }

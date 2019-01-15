@@ -24,7 +24,7 @@ import com.alibaba.nacossync.pojo.request.BaseRequest;
 
 /**
  * @author NacosSync
- * @version $Id: SkyWalkerTemplate.java, v 0.1 2018-05-12 下午1:13 NacosSync Exp $$
+ * @version $Id: SkyWalkerTemplate.java, v 0.1 2018-05-12 PM1:13 NacosSync Exp $$
  */
 @Slf4j
 public class SkyWalkerTemplate {
