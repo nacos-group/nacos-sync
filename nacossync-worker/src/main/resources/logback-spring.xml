@@ -2,6 +2,8 @@
 
 <configuration debug="false">
 
+    <property name="log.path" value="${user.home}" />
+
     <!-- 日志记录器，日期滚动记录 -->
     <appender name="FILEINFO" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <!-- 正在记录的日志文件的路径及文件名 -->
