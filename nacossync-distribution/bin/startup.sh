@@ -15,10 +15,13 @@ export JAVA="$JAVA_HOME/bin/java"
 export BASE_DIR=`cd $(dirname $0)/..; pwd`
 
 
+
+
 JAVA_OPT="${JAVA_OPT} -server -Xms2g -Xmx2g -Xmn1g -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m"
 JAVA_OPT="${JAVA_OPT} -XX:-OmitStackTraceInFastThrow -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=${BASE_DIR}/nacossync_java_heapdump.hprof"
 JAVA_OPT="${JAVA_OPT} -XX:-UseLargePages"
 JAVA_OPT="${JAVA_OPT} -Dspring.config.location=${BASE_DIR}/conf/application.properties"
+JAVA_OPT="${JAVA_OPT} -DnacosSync.home=${BASE_DIR}"
 
 JAVA_MAJOR_VERSION=$($JAVA -version 2>&1 | sed -E -n 's/.* version "([0-9]*).*$/\1/p')
 if [[ "$JAVA_MAJOR_VERSION" -ge "9" ]] ; then
