@@ -50,7 +50,13 @@ public class SkyWalkerCacheServices {
     private static Map<String, FinishedTask> finishedTaskMap = new ConcurrentHashMap<>();
 
     public String getClusterConnectKey(String clusterId) {
+        List<String> allClusterConnectKey = getAllClusterConnectKey(clusterId);
 
+        Random random = new Random();
+        return allClusterConnectKey.get(random.nextInt(allClusterConnectKey.size()));
+    }
+
+    public List<String> getAllClusterConnectKey(String clusterId){
         ClusterDO clusterDOS = clusterAccessService.findByClusterId(clusterId);
 
         List<String> connectKeyList = JSONObject.parseObject(clusterDOS.getConnectKeyList(),
@@ -60,9 +66,7 @@ public class SkyWalkerCacheServices {
         if (CollectionUtils.isEmpty(connectKeyList)) {
             throw new SkyWalkerException("getClusterConnectKey empty, clusterId:" + clusterId);
         }
-
-        Random random = new Random();
-        return connectKeyList.get(random.nextInt(connectKeyList.size()));
+        return connectKeyList;
     }
 
     public ClusterTypeEnum getClusterType(String clusterId) {

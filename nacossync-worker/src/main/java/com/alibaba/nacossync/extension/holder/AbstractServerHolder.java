@@ -13,17 +13,19 @@
 package com.alibaba.nacossync.extension.holder;
 
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * @author paderlol
  * @date: 2018-12-24 22:08
  */
+@Slf4j
 public abstract class AbstractServerHolder<T> implements Holder {
+
     private final ReentrantLock serviceMapLock = new ReentrantLock();
     private Map<String, T> serviceMap = new ConcurrentHashMap<>();
     @Autowired
@@ -35,16 +37,35 @@ public abstract class AbstractServerHolder<T> implements Holder {
             namespace = "";
         }
         String key = clusterId + "_" + namespace;
+        log.info("starting create cluster server,clusterId={}",clusterId);
         serviceMapLock.lock();
         try {
-            if (serviceMap.get(key) == null) {
-                serviceMap.put(key, createServer(skyWalkerCacheServices.getClusterConnectKey(clusterId), namespace));
-            }
+            String finalNamespace = namespace;
+            serviceMap.computeIfAbsent(key, clusterKey -> {
+                try {
+                    return createServer(clusterId,skyWalkerCacheServices.getClusterConnectKey(clusterId),
+                            finalNamespace);
+                } catch (Exception e) {
+                    log.error("clusterId={},start server failed", clusterId);
+                    return null;
+                }
+            });
+        } catch (Exception e) {
+            log.error("clusterId={},start server failed", clusterId);
+            throw new IllegalStateException(e.getMessage(), e);
         } finally {
             serviceMapLock.unlock();
         }
         return serviceMap.get(key);
     }
 
-     abstract T createServer(String serverAddress, String namespace) throws Exception;
+    /**
+     *  create real cluster client instance
+     * @param clusterId cluster id
+     * @param serverAddress server address
+     * @param namespace name space
+     * @return cluster client instance
+     * @throws Exception
+     */
+    abstract T createServer(String clusterId,String serverAddress, String namespace) throws Exception;
 }

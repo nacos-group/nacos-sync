@@ -29,7 +29,7 @@ import java.util.Properties;
 public class NacosServerHolder extends AbstractServerHolder<NamingService> {
 
     @Override
-    NamingService createServer(String serverAddress, String namespace) throws Exception {
+    NamingService createServer(String clusterId,String serverAddress, String namespace) throws Exception {
         Properties properties = new Properties();
         properties.setProperty(PropertyKeyConst.SERVER_ADDR, serverAddress);
         properties.setProperty(PropertyKeyConst.NAMESPACE, namespace);
