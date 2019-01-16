@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class EurekaServerHolder extends AbstractServerHolder<EurekaHttpClient>{
     @Override
-    EurekaHttpClient createServer(String serverAddress, String namespace) {
+    EurekaHttpClient createServer(String clusterId,String serverAddress, String namespace) {
         RestTemplateTransportClientFactory restTemplateTransportClientFactory =
                 new RestTemplateTransportClientFactory();
         EurekaEndpoint eurekaEndpoint = new DefaultEndpoint(serverAddress);

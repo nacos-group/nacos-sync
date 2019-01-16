@@ -12,6 +12,8 @@
  */
 package com.alibaba.nacossync.extension.holder;
 
+import com.google.common.base.Joiner;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
@@ -29,11 +31,15 @@ public class ZookeeperServerHolder extends AbstractServerHolder<CuratorFramework
 
 
     @Override
-    CuratorFramework createServer(String serverAddress, String namespace) {
+    CuratorFramework createServer(String clusterId,String serverAddress, String namespace) {
+        List<String> allClusterConnectKey = skyWalkerCacheServices
+                .getAllClusterConnectKey(clusterId);
+        String serverList = Joiner.on(",").join(allClusterConnectKey);
         CuratorFrameworkFactory.Builder builder = CuratorFrameworkFactory.builder()
-                .connectString(serverAddress)
-                .retryPolicy(new RetryNTimes(1, 1000))
+                .connectString(serverList)
+                .retryPolicy(new RetryNTimes(1, 2000))
                 .connectionTimeoutMs(5000);
+
         CuratorFramework client = builder.build();
         client.getConnectionStateListenable().addListener((client1, state) -> {
             if (state == ConnectionState.LOST) {
