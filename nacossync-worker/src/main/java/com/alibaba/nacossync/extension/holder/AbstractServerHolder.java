@@ -13,11 +13,12 @@
 package com.alibaba.nacossync.extension.holder;
 
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * @author paderlol
@@ -37,22 +38,20 @@ public abstract class AbstractServerHolder<T> implements Holder {
             namespace = "";
         }
         String key = clusterId + "_" + namespace;
-        log.info("starting create cluster server,clusterId={}",clusterId);
+        log.info("starting create cluster server,clusterId={}", clusterId);
         serviceMapLock.lock();
         try {
             String finalNamespace = namespace;
             serviceMap.computeIfAbsent(key, clusterKey -> {
                 try {
-                    return createServer(clusterId,skyWalkerCacheServices.getClusterConnectKey(clusterId),
-                            finalNamespace);
+                    return createServer(clusterId, skyWalkerCacheServices.getClusterConnectKey(clusterId),
+                        finalNamespace);
                 } catch (Exception e) {
-                    log.error("clusterId={},start server failed", clusterId);
+
+                    log.error(String.format("clusterId=%s,start server failed", clusterId), e);
                     return null;
                 }
             });
-        } catch (Exception e) {
-            log.error("clusterId={},start server failed", clusterId);
-            throw new IllegalStateException(e.getMessage(), e);
         } finally {
             serviceMapLock.unlock();
         }
@@ -60,12 +59,13 @@ public abstract class AbstractServerHolder<T> implements Holder {
     }
 
     /**
-     *  create real cluster client instance
+     * create real cluster client instance
+     * 
      * @param clusterId cluster id
      * @param serverAddress server address
      * @param namespace name space
      * @return cluster client instance
      * @throws Exception
      */
-    abstract T createServer(String clusterId,String serverAddress, String namespace) throws Exception;
+    abstract T createServer(String clusterId, String serverAddress, String namespace) throws Exception;
 }
