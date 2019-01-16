@@ -20,7 +20,7 @@ import lombok.Data;
 
 /**
  * @author NacosSync
- * @version $Id: TaskCacheResetRequest.java, v 0.1 2018-10-17 下午11:39 NacosSync Exp $$
+ * @version $Id: TaskCacheResetRequest.java, v 0.1 2018-10-17 PM11:39 NacosSync Exp $$
  */
 @Data
 public class TaskCacheResetRequest extends BaseRequest {

@@ -33,14 +33,14 @@ import java.util.Enumeration;
 import java.util.UUID;
 
 /**
- * @author NacosSync
- * @version $Id: SkyWalkerUtil.java, v 0.1 2018-09-26 上午12:10 NacosSync Exp $$
- */
+* @author NacosSync
+* @version $Id: SkyWalkerUtil.java, v 0.1 2018-09-26 AM12:10 NacosSync Exp $$
+*/
 public class SkyWalkerUtil {
 
     /**
-     * 获取字符串md5
      *
+     * Gets the string md5
      * @param value
      * @return
      */
@@ -68,8 +68,7 @@ public class SkyWalkerUtil {
     }
 
     /**
-     * 生成taskId的规则
-     *
+     * The rules of generating taskId
      * @param addTaskRequest
      * @return
      */
@@ -80,7 +79,7 @@ public class SkyWalkerUtil {
     }
 
     /**
-     * 生成taskId的规则
+     * The rules of generating taskId
      *
      * @return
      */
@@ -116,8 +115,7 @@ public class SkyWalkerUtil {
     }
 
     /**
-     * 避免获取到回传地址
-     *
+     * Avoid getting a return address
      * @return
      * @throws Exception
      */

@@ -33,30 +33,29 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * @author NacosSync
- * @version $Id: SkyWalkerServices.java, v 0.1 2018-09-26 上午1:39 NacosSync Exp $$
+ * @version $Id: SkyWalkerServices.java, v 0.1 2018-09-26 AM1:39 NacosSync Exp $$
  */
 @Slf4j
 @Service
 public class QuerySyncTaskTimer implements CommandLineRunner {
 
     @Autowired
-    private SkyWalkerCacheServices   skyWalkerCacheServices;
+    private SkyWalkerCacheServices skyWalkerCacheServices;
 
     @Autowired
-    private TaskAccessService        taskAccessService;
+    private TaskAccessService taskAccessService;
 
     @Autowired
-    private EventBus                 eventBus;
+    private EventBus eventBus;
 
     @Autowired
     private ScheduledExecutorService scheduledExecutorService;
 
     @Override
     public void run(String... args) {
-        /** 3s去数据库捞一次任务列表 */
+        /** Fetch the task list from the database every 3 seconds */
         scheduledExecutorService.scheduleWithFixedDelay(new CheckRunningStatusThread(), 0, 3000,
-            TimeUnit.MILLISECONDS);
-
+                TimeUnit.MILLISECONDS);
 
     }
 

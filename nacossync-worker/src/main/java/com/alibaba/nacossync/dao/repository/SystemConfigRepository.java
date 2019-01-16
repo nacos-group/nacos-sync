@@ -23,7 +23,7 @@ import com.alibaba.nacossync.pojo.model.SystemConfigDO;
 
 /**
  * @author NacosSync
- * @version $Id: SystemConfigRepository.java, v 0.1 2018-09-25 下午9:31 NacosSync Exp $$
+ * @version $Id: SystemConfigRepository.java, v 0.1 2018-09-25 PM9:31 NacosSync Exp $$
  */
 public interface SystemConfigRepository extends CrudRepository<SystemConfigDO, Integer>,
                                        JpaSpecificationExecutor<SystemConfigDO> {

@@ -32,7 +32,7 @@ import com.alibaba.nacossync.template.Processor;
 
 /**
  * @author NacosSync
- * @version $Id: TaskUpdateProcessor.java, v 0.1 2018-10-17 下午11:11 NacosSync Exp $$
+ * @version $Id: TaskUpdateProcessor.java, v 0.1 2018-10-17 PM11:11 NacosSync Exp $$
  */
 @Slf4j
 @Service

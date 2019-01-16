@@ -24,7 +24,7 @@ import com.alibaba.nacossync.template.Processor;
 
 /**
  * @author NacosSync
- * @version $Id: ConfigAddProcessor.java, v 0.1 2018-09-30 下午5:02 NacosSync Exp $$
+ * @version $Id: ConfigAddProcessor.java, v 0.1 2018-09-30 PM5:02 NacosSync Exp $$
  */
 @Service
 public class ConfigAddProcessor implements Processor<ConfigAddRequest, ConfigAddResult> {

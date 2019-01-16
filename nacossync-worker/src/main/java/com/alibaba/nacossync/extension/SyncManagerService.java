@@ -31,7 +31,7 @@ import static com.alibaba.nacossync.util.SkyWalkerUtil.generateSyncKey;
 
 /**
  * @author NacosSync
- * @version $Id: SyncManagerService.java, v 0.1 2018-09-25 下午5:17 NacosSync Exp $$
+ * @version $Id: SyncManagerService.java, v 0.1 2018-09-25 PM5:17 NacosSync Exp $$
  */
 @Slf4j
 @Service

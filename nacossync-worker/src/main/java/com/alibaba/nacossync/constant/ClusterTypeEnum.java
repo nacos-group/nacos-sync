@@ -31,7 +31,6 @@ public enum ClusterTypeEnum {
 
     ZK("ZK", "zookeeper集群");
 
-    // CONSUL("CONSUL", "consul集群");
 
     private String code;
 

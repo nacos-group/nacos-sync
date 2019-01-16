@@ -26,7 +26,7 @@ import com.alibaba.nacossync.template.Processor;
 
 /**
  * @author NacosSync
- * @version $Id: ClusterDeleteProcessor.java, v 0.1 2018-09-30 下午2:43 NacosSync Exp $$
+ * @version $Id: ClusterDeleteProcessor.java, v 0.1 2018-09-30 PM2:43 NacosSync Exp $$
  */
 @Service
 public class ClusterDeleteProcessor implements Processor<ClusterDeleteRequest, ClusterDeleteResult> {
