@@ -26,5 +26,5 @@ public interface Holder<T> {
      * @return
      * @throws Exception
      */
-    public T get(String clusterId, String namespace) throws Exception;
+     T get(String clusterId, String namespace) throws Exception;
 }

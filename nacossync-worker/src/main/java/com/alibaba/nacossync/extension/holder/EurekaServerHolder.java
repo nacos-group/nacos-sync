@@ -12,6 +12,7 @@
  */
 package com.alibaba.nacossync.extension.holder;
 
+import java.util.function.Supplier;
 import org.springframework.cloud.netflix.eureka.http.RestTemplateTransportClientFactory;
 import org.springframework.stereotype.Service;
 
@@ -29,10 +30,10 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class EurekaServerHolder extends AbstractServerHolder<EurekaHttpClient>{
     @Override
-    EurekaHttpClient createServer(String clusterId,String serverAddress, String namespace) {
+    EurekaHttpClient createServer(String clusterId, Supplier<String> serverAddressSupplier, String namespace) {
         RestTemplateTransportClientFactory restTemplateTransportClientFactory =
                 new RestTemplateTransportClientFactory();
-        EurekaEndpoint eurekaEndpoint = new DefaultEndpoint(serverAddress);
+        EurekaEndpoint eurekaEndpoint = new DefaultEndpoint(serverAddressSupplier.get());
         return restTemplateTransportClientFactory.newClient(eurekaEndpoint);
     }
 }
