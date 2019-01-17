@@ -15,6 +15,7 @@ package com.alibaba.nacossync.extension.holder;
 import com.alibaba.nacos.api.PropertyKeyConst;
 import com.alibaba.nacos.api.naming.NamingFactory;
 import com.alibaba.nacos.api.naming.NamingService;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -29,9 +30,9 @@ import java.util.Properties;
 public class NacosServerHolder extends AbstractServerHolder<NamingService> {
 
     @Override
-    NamingService createServer(String clusterId,String serverAddress, String namespace) throws Exception {
+    NamingService createServer(String clusterId, Supplier<String> serverAddressSupplier, String namespace) throws Exception {
         Properties properties = new Properties();
-        properties.setProperty(PropertyKeyConst.SERVER_ADDR, serverAddress);
+        properties.setProperty(PropertyKeyConst.SERVER_ADDR, serverAddressSupplier.get());
         properties.setProperty(PropertyKeyConst.NAMESPACE, namespace);
         return NamingFactory.createNamingService(properties);
     }

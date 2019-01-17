@@ -13,6 +13,7 @@
 package com.alibaba.nacossync.extension.holder;
 
 import com.ecwid.consul.v1.ConsulClient;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -29,7 +30,8 @@ public class ConsulServerHolder extends AbstractServerHolder<ConsulClient> {
     public static final String HTTP = "http://";
 
     @Override
-    ConsulClient createServer(String clusterId,String serverAddress, String namespace) throws Exception {
+    ConsulClient createServer(String clusterId, Supplier<String> serverAddressSupplier, String namespace) throws Exception {
+        String serverAddress = serverAddressSupplier.get();
         serverAddress = serverAddress.startsWith(HTTP) ? serverAddress : HTTP + serverAddress;
         URL url = new URL(serverAddress);
         return new ConsulClient(url.getHost(), url.getPort());

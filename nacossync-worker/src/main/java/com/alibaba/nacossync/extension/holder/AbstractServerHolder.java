@@ -13,59 +13,55 @@
 package com.alibaba.nacossync.extension.holder;
 
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
+import com.google.common.base.Joiner;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
-
 /**
  * @author paderlol
- * @date: 2018-12-24 22:08
+ * @date 2018-12-24 22:08
  */
 @Slf4j
 public abstract class AbstractServerHolder<T> implements Holder {
 
-    private final ReentrantLock serviceMapLock = new ReentrantLock();
-    private Map<String, T> serviceMap = new ConcurrentHashMap<>();
+    private final Map<String, T> serviceMap = new ConcurrentHashMap<>();
     @Autowired
     protected SkyWalkerCacheServices skyWalkerCacheServices;
 
     @Override
-    public T get(String clusterId, String namespace) throws Exception {
-        if (namespace == null) {
-            namespace = "";
-        }
-        String key = clusterId + "_" + namespace;
+    public T get(String clusterId, String namespace) {
+        final String finalNamespace = Optional.ofNullable(namespace).orElse("");
+        String key = Joiner.on("_").join(clusterId,finalNamespace);
         log.info("starting create cluster server,clusterId={}", clusterId);
-        serviceMapLock.lock();
-        try {
-            String finalNamespace = namespace;
-            serviceMap.computeIfAbsent(key, clusterKey -> {
-                try {
-                    return createServer(clusterId, skyWalkerCacheServices.getClusterConnectKey(clusterId),
+        serviceMap.computeIfAbsent(key, clusterKey -> {
+            try {
+                return createServer(clusterId,
+                        () -> skyWalkerCacheServices.getClusterConnectKey(clusterId),
                         finalNamespace);
-                } catch (Exception e) {
+            } catch (Exception e) {
+                log.error(String.format("clusterId=%s,start server failed", clusterId), e);
+                return null;
+            }
+        });
 
-                    log.error(String.format("clusterId=%s,start server failed", clusterId), e);
-                    return null;
-                }
-            });
-        } finally {
-            serviceMapLock.unlock();
-        }
         return serviceMap.get(key);
     }
 
     /**
      * create real cluster client instance
-     * 
+     *
      * @param clusterId cluster id
-     * @param serverAddress server address
+     * @param serverAddressSupplier server address
      * @param namespace name space
      * @return cluster client instance
-     * @throws Exception
      */
-    abstract T createServer(String clusterId, String serverAddress, String namespace) throws Exception;
+    abstract T createServer(String clusterId, Supplier<String> serverAddressSupplier,
+            String namespace)
+            throws Exception;
+
+
 }
