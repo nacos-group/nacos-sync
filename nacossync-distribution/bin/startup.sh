@@ -47,9 +47,7 @@ usage(){
     echo "command error"
 }
 
-restart(){
-
-killall -9 java
+start(){
 
 echo "$JAVA ${JAVA_OPT}" > ${BASE_DIR}/logs/nacossync_start.out 2>&1 &
 nohup $JAVA ${JAVA_OPT} >> ${BASE_DIR}/logs/nacossync_start.out 2>&1 &
@@ -58,19 +56,9 @@ echo "nacossync is starting，you can check the ${BASE_DIR}/logs/nacossync_start
 }
 
 
-stop(){
-
-killall -9 java
-
-}
-
-
 case "$ACTION" in
-    stop)
-        stop
-    ;;
-    restart)
-        restart
+    start)
+        start
     ;;
     *)
         usage
