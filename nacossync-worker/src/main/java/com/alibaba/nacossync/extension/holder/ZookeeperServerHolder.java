@@ -12,6 +12,9 @@
  */
 package com.alibaba.nacossync.extension.holder;
 
+import com.google.common.base.Joiner;
+import java.util.List;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
@@ -29,19 +32,23 @@ public class ZookeeperServerHolder extends AbstractServerHolder<CuratorFramework
 
 
     @Override
-    CuratorFramework createServer(String serverAddress, String namespace) {
+    CuratorFramework createServer(String clusterId, Supplier<String> serverAddressSupplier, String namespace) {
+        List<String> allClusterConnectKey = skyWalkerCacheServices
+                .getAllClusterConnectKey(clusterId);
+        String serverList = Joiner.on(",").join(allClusterConnectKey);
         CuratorFrameworkFactory.Builder builder = CuratorFrameworkFactory.builder()
-                .connectString(serverAddress)
-                .retryPolicy(new RetryNTimes(1, 1000))
+                .connectString(serverList)
+                .retryPolicy(new RetryNTimes(1, 3000))
                 .connectionTimeoutMs(5000);
+
         CuratorFramework client = builder.build();
-        client.getConnectionStateListenable().addListener((client1, state) -> {
+        client.getConnectionStateListenable().addListener((clientInstance, state) -> {
             if (state == ConnectionState.LOST) {
-                log.error("zk address: {} client state LOST",serverAddress);
+                log.error("zk address: {} client state LOST",serverList);
             } else if (state == ConnectionState.CONNECTED) {
-                log.info("zk address: {} client state CONNECTED",serverAddress);
+                log.info("zk address: {} client state CONNECTED",serverList);
             } else if (state == ConnectionState.RECONNECTED) {
-                log.info("zk address: {} client state RECONNECTED",serverAddress);
+                log.info("zk address: {} client state RECONNECTED",serverList);
             }
         });
         client.start();
