@@ -16,6 +16,7 @@ import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.listener.NamingEvent;
 import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.alibaba.nacos.client.naming.utils.CollectionUtils;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
@@ -25,10 +26,8 @@ import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.extension.holder.ZookeeperServerHolder;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.DubboConstants;
-import com.google.common.base.Joiner;
 import com.google.common.collect.Sets;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
@@ -36,15 +35,13 @@ import org.apache.curator.utils.CloseableUtils;
 import org.apache.zookeeper.CreateMode;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.io.File;
 import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.text.DecimalFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.alibaba.nacossync.util.DubboConstants.DUBBO_URL_FORMAT;
-import static com.alibaba.nacossync.util.DubboConstants.PROTOCOL_KEY;
+import static com.alibaba.nacossync.util.StringUtils.convertDubboFullPathForZk;
+import static com.alibaba.nacossync.util.StringUtils.convertDubboProvidersPath;
 
 /**
  * Nacos 同步 Zk 数据
@@ -55,21 +52,25 @@ import static com.alibaba.nacossync.util.DubboConstants.PROTOCOL_KEY;
 @Slf4j
 @NacosSyncService(sourceCluster = ClusterTypeEnum.NACOS, destinationCluster = ClusterTypeEnum.ZK)
 public class NacosSyncToZookeeperServiceImpl implements SyncService {
-    private static final String SEPARATOR_CHARS = ":";
-    private static final int SEGMENT_LENGTH = 2;
+
     /**
      * @description The Nacos listener map.
      */
-    private Map<String, EventListener> nacosListenerMap = new ConcurrentHashMap<>();
+    private final Map<String, EventListener> nacosListenerMap = new ConcurrentHashMap<>();
     /**
      * instance backup
      */
-    private Map<String, Set<String>> instanceBackupMap = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> instanceBackupMap = new ConcurrentHashMap<>();
 
     /**
-     * 存放zk监听缓存 格式taskId -> PathChildrenCache实例
+     * listener cache of zookeeper format: taskId -> PathChildrenCache instance
      */
-    private Map<String, PathChildrenCache> pathChildrenCacheMap = new ConcurrentHashMap<>();
+    private final Map<String, PathChildrenCache> pathChildrenCacheMap = new ConcurrentHashMap<>();
+
+    /**
+     * zookeeper path for dubbo providers
+     */
+    private final Map<String, String> monitorPath = new ConcurrentHashMap<>();
     /**
      * @description The Sky walker cache services.
      */
@@ -83,7 +84,8 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
     private final ZookeeperServerHolder zookeeperServerHolder;
 
     @Autowired
-    public NacosSyncToZookeeperServiceImpl(SkyWalkerCacheServices skyWalkerCacheServices, NacosServerHolder nacosServerHolder, ZookeeperServerHolder zookeeperServerHolder) {
+    public NacosSyncToZookeeperServiceImpl(SkyWalkerCacheServices skyWalkerCacheServices,
+        NacosServerHolder nacosServerHolder, ZookeeperServerHolder zookeeperServerHolder) {
         this.skyWalkerCacheServices = skyWalkerCacheServices;
         this.nacosServerHolder = nacosServerHolder;
         this.zookeeperServerHolder = zookeeperServerHolder;
@@ -145,22 +147,25 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
                         }
                         // 替换当前备份为最新备份
                         instanceBackupMap.put(taskDO.getTaskId(), newInstanceUrlSet);
-                        getPathCache(taskDO).getListenable().addListener((zkClient, zkEvent) -> {
+                        if (!CollectionUtils.isEmpty(sourceInstances)) {
 
-                            if (zkEvent.getType() == PathChildrenCacheEvent.Type.CHILD_REMOVED) {
-                                List<Instance> allInstances =
-                                    sourceNamingService.getAllInstances(taskDO.getServiceName());
-                                for (Instance instance : allInstances) {
-                                    String instanceUrl = buildSyncInstance(instance, taskDO);
-                                    String zkInstancePath = zkEvent.getData().getPath();
-                                    if (zkInstancePath.equals(instanceUrl)) {
-                                        zkClient.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL)
-                                            .forPath(zkInstancePath);
-                                        break;
+                            getPathCache(taskDO).getListenable().addListener((zkClient, zkEvent) -> {
+
+                                if (zkEvent.getType() == PathChildrenCacheEvent.Type.CHILD_REMOVED) {
+                                    List<Instance> allInstances =
+                                        sourceNamingService.getAllInstances(taskDO.getServiceName());
+                                    for (Instance instance : allInstances) {
+                                        String instanceUrl = buildSyncInstance(instance, taskDO);
+                                        String zkInstancePath = zkEvent.getData().getPath();
+                                        if (zkInstancePath.equals(instanceUrl)) {
+                                            zkClient.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL)
+                                                .forPath(zkInstancePath);
+                                            break;
+                                        }
                                     }
                                 }
-                            }
-                        });
+                            });
+                        }
                     } catch (Exception e) {
                         log.error("event process fail, taskId:{}", taskDO.getTaskId(), e);
                     }
@@ -185,20 +190,10 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
         int weight = Integer.parseInt(new DecimalFormat("0").format(Math.ceil(instance.getWeight())));
         metaData.put(DubboConstants.WEIGHT_KEY, Integer.toString(weight));
 
-        String servicePath = getServiceInterface(taskDO.getServiceName());
-        String urlParam = Joiner.on("&").withKeyValueSeparator("=").join(metaData);
-        String instanceUrl =
-            String.format(DUBBO_URL_FORMAT, metaData.get(PROTOCOL_KEY), instance.getIp(), instance.getPort(), urlParam);
+        String servicePath = monitorPath.computeIfAbsent(taskDO.getTaskId(),
+            key -> convertDubboProvidersPath(metaData.get(DubboConstants.INTERFACE_KEY)));
 
-        return String.join(File.separator, servicePath, URLEncoder.encode(instanceUrl, "UTF-8"));
-    }
-
-    protected  String getServiceInterface(String serviceName) {
-        String[] segments = StringUtils.split(serviceName, SEPARATOR_CHARS);
-        if (segments.length < SEGMENT_LENGTH) {
-            throw new IllegalArgumentException("The length of the split service name must be greater than 2");
-        }
-        return String.format(DubboConstants.DUBBO_PATH_FORMAT, segments[1]);
+        return convertDubboFullPathForZk(metaData, servicePath, instance.getIp(), instance.getPort());
     }
 
     /**
@@ -210,9 +205,8 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
     private PathChildrenCache getPathCache(TaskDO taskDO) {
         return pathChildrenCacheMap.computeIfAbsent(taskDO.getTaskId(), (key) -> {
             try {
-                PathChildrenCache pathChildrenCache =
-                    new PathChildrenCache(zookeeperServerHolder.get(taskDO.getDestClusterId(), ""),
-                        getServiceInterface(taskDO.getServiceName()), false);
+                PathChildrenCache pathChildrenCache = new PathChildrenCache(
+                    zookeeperServerHolder.get(taskDO.getDestClusterId(), ""), monitorPath.get(key), false);
                 pathChildrenCache.start(PathChildrenCache.StartMode.BUILD_INITIAL_CACHE);
                 return pathChildrenCache;
             } catch (Exception e) {
@@ -222,7 +216,5 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
         });
 
     }
-
-
 
 }

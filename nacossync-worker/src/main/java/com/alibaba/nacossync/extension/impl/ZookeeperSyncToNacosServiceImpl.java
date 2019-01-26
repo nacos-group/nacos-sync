@@ -12,18 +12,6 @@
  */
 package com.alibaba.nacossync.extension.impl;
 
-import static com.alibaba.nacossync.util.DubboConstants.CATALOG_KEY;
-import static com.alibaba.nacossync.util.DubboConstants.DUBBO_PATH_FORMAT;
-import static com.alibaba.nacossync.util.DubboConstants.GROUP_KEY;
-import static com.alibaba.nacossync.util.DubboConstants.INSTANCE_IP_KEY;
-import static com.alibaba.nacossync.util.DubboConstants.INSTANCE_PORT_KEY;
-import static com.alibaba.nacossync.util.DubboConstants.INTERFACE_KEY;
-import static com.alibaba.nacossync.util.DubboConstants.PROTOCOL_KEY;
-import static com.alibaba.nacossync.util.DubboConstants.VERSION_KEY;
-import static com.alibaba.nacossync.util.DubboConstants.WEIGHT_KEY;
-import static com.alibaba.nacossync.util.StringUtils.parseIpAndPortString;
-import static com.alibaba.nacossync.util.StringUtils.parseQueryString;
-
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
@@ -35,18 +23,22 @@ import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.extension.holder.ZookeeperServerHolder;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.base.Joiner;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Predicate;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.curator.framework.recipes.cache.ChildData;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
 import org.apache.curator.utils.CloseableUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
+
+import static com.alibaba.nacossync.util.DubboConstants.*;
+import static com.alibaba.nacossync.util.StringUtils.*;
 
 /**
  * @author paderlol
@@ -189,7 +181,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
                 PathChildrenCache pathChildrenCache =
                         new PathChildrenCache(
                                 zookeeperServerHolder.get(taskDO.getSourceClusterId(), ""),
-                                monitorPath(taskDO.getServiceName()), false);
+                                convertDubboProvidersPath(taskDO.getServiceName()), false);
                 pathChildrenCache.start(PathChildrenCache.StartMode.BUILD_INITIAL_CACHE);
                 return pathChildrenCache;
             } catch (Exception e) {
@@ -201,14 +193,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
 
     }
 
-    /**
-     * create listener path/dubbo/serviceName/providers
-     *
-     * @param serviceName service name
-     */
-    private static String monitorPath(String serviceName) {
-        return String.format(DUBBO_PATH_FORMAT, serviceName);
-    }
+
 
     /**
      * The instance information that needs to be synchronized is matched based on the dubbo version

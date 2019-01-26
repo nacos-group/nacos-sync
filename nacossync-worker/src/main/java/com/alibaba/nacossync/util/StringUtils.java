@@ -12,11 +12,14 @@
  */
 package com.alibaba.nacossync.util;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -104,6 +107,24 @@ public final class StringUtils {
         } catch (UnsupportedEncodingException e) {
             log.warn("parse query string failed", e);
             return Maps.newHashMap();
+        }
+
+    }
+
+    public static String convertDubboProvidersPath(String interfaceName) {
+        return String.format(DUBBO_PATH_FORMAT, interfaceName);
+    }
+
+    public static String convertDubboFullPathForZk(Map<String, String> metaData, String providersPath, String ip,
+        int port) {
+        try {
+            String urlParam = Joiner.on("&").withKeyValueSeparator("=").join(metaData);
+            String instanceUrl = String.format(DUBBO_URL_FORMAT, metaData.get(PROTOCOL_KEY), ip, port, urlParam);
+
+            return String.join(File.separator, providersPath, URLEncoder.encode(instanceUrl, "UTF-8"));
+        } catch (UnsupportedEncodingException e) {
+            log.warn("convert Dubbo full path", e);
+            return "";
         }
 
     }
