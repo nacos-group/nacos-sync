@@ -16,7 +16,7 @@
 <assembly>
     <id>bin</id>
     <includeBaseDirectory>true</includeBaseDirectory>
-    <!-- 解压后的文件夹名字 -->
+    <!-- file name after unzip -->
     <baseDirectory>nacosSync</baseDirectory>
     <formats>
         <format>dir</format>
