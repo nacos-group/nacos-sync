@@ -12,6 +12,18 @@
  */
 package com.alibaba.nacossync.extension.impl;
 
+import static com.alibaba.nacossync.util.DubboConstants.CATALOG_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.GROUP_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.INSTANCE_IP_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.INSTANCE_PORT_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.INTERFACE_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.PROTOCOL_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.VERSION_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.WEIGHT_KEY;
+import static com.alibaba.nacossync.util.StringUtils.convertDubboProvidersPath;
+import static com.alibaba.nacossync.util.StringUtils.parseIpAndPortString;
+import static com.alibaba.nacossync.util.StringUtils.parseQueryString;
+
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
@@ -23,22 +35,18 @@ import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.extension.holder.ZookeeperServerHolder;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.base.Joiner;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.curator.framework.recipes.cache.ChildData;
-import org.apache.curator.framework.recipes.cache.PathChildrenCache;
-import org.apache.curator.utils.CloseableUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
-
-import static com.alibaba.nacossync.util.DubboConstants.*;
-import static com.alibaba.nacossync.util.StringUtils.*;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.curator.framework.recipes.cache.ChildData;
+import org.apache.curator.framework.recipes.cache.PathChildrenCache;
+import org.apache.curator.utils.CloseableUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * @author paderlol
@@ -152,16 +160,19 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
             CloseableUtils.closeQuietly(pathChildrenCacheMap.get(taskDO.getTaskId()));
             NamingService destNamingService = nacosServerHolder
                     .get(taskDO.getDestClusterId(), null);
-            List<Instance> allInstances =
-                    destNamingService.getAllInstances(nacosServiceNameMap.get(taskDO.getTaskId()));
-            for (Instance instance : allInstances) {
-                if (needDelete(instance.getMetadata(), taskDO)) {
-                    destNamingService
-                            .deregisterInstance(instance.getServiceName(), instance.getIp(),
-                                    instance.getPort());
-                }
-                nacosServiceNameMap.remove(taskDO.getTaskId());
+            if(nacosServiceNameMap.containsKey(taskDO.getTaskId())){
+                List<Instance> allInstances =
+                        destNamingService
+                                .getAllInstances(nacosServiceNameMap.get(taskDO.getTaskId()));
+                for (Instance instance : allInstances) {
+                    if (needDelete(instance.getMetadata(), taskDO)) {
+                        destNamingService
+                                .deregisterInstance(instance.getServiceName(), instance.getIp(),
+                                        instance.getPort());
+                    }
+                    nacosServiceNameMap.remove(taskDO.getTaskId());
 
+                }
             }
 
         } catch (Exception e) {
