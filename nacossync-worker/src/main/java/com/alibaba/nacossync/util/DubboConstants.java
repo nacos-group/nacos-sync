@@ -21,9 +21,10 @@ import java.io.File;
  * @date: 2018-12-25 21:34
  */
 public final class DubboConstants {
+    public static final char ZOOKEEPER_SEPARATOR='/';
     public static final String DUBBO_PATH_FORMAT =
-        StringUtils.join(new String[] {"/dubbo", "%s", "providers"}, File.separator);
-    public static final String DUBBO_URL_FORMAT ="%s://%s:%s?%s";
+        StringUtils.join(new String[] {"/dubbo", "%s", "providers"}, ZOOKEEPER_SEPARATOR);
+    public static final String DUBBO_URL_FORMAT ="%s://%s:%s/%s?%s";
     public static final String VERSION_KEY = "version";
     public static final String GROUP_KEY = "group";
     public static final String INTERFACE_KEY = "interface";
