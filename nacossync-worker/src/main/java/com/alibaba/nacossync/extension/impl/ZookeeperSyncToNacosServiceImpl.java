@@ -28,11 +28,13 @@ import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
+import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.extension.holder.ZookeeperServerHolder;
+import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.base.Joiner;
 import java.util.HashMap;
@@ -56,6 +58,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 @Slf4j
 @NacosSyncService(sourceCluster = ClusterTypeEnum.ZK, destinationCluster = ClusterTypeEnum.NACOS)
 public class ZookeeperSyncToNacosServiceImpl implements SyncService {
+
+    @Autowired
+    private MetricsManager metricsManager;
 
     /**
      * Listener cache of Zookeeper  format taskId -> PathChildrenCache instance
@@ -142,12 +147,14 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
                         } catch (Exception e) {
                             log.error("event process from zookeeper to nacos was failed, taskId:{}",
                                     taskDO.getTaskId(), e);
+                            metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
                         }
 
                     });
         } catch (Exception e) {
             log.error("sync task from zookeeper to nacos was failed, taskId:{}", taskDO.getTaskId(),
                     e);
+            metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
             return false;
         }
         return true;
@@ -178,6 +185,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         } catch (Exception e) {
             log.error("delete task from zookeeper to nacos was failed, taskId:{}",
                     taskDO.getTaskId(), e);
+            metricsManager.recordError(MetricsStatisticsType.DELETE_ERROR);
             return false;
         }
         return true;

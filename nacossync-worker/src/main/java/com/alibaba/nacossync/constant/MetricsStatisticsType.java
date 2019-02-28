@@ -17,7 +17,13 @@ public enum MetricsStatisticsType {
 
     SYNC_TASK_RT("nacosSync.add.task.rt", "同步任务执行耗时"),
 
-    DELETE_TASK_RT("nacosSync.delete.task.rt", "同步任务执行耗时");
+    DELETE_TASK_RT("nacosSync.delete.task.rt", "删除任务耗时"),
+
+    DISPATCHER_TASK("nacosSync.dispatcher.task", "从数据库中分发任务"),
+
+    SYNC_ERROR("nacosSync.sync.task.error", "所有同步执行时的异常"),
+
+    DELETE_ERROR("nacosSync.delete.task.error", "所有删除同步执行时的异常");
 
     /**
      * metricsName

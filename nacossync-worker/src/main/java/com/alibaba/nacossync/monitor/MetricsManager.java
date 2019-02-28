@@ -6,6 +6,7 @@ package com.alibaba.nacossync.monitor;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.dao.ClusterAccessService;
+import com.alibaba.nacossync.dao.TaskAccessService;
 import io.micrometer.core.instrument.Metrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,9 @@ public class MetricsManager implements CommandLineRunner {
     @Autowired
     private ClusterAccessService clusterAccessService;
 
+    @Autowired
+    private TaskAccessService taskAccessService;
+
     /**
      * Callback used to run the bean.
      *
@@ -46,15 +50,14 @@ public class MetricsManager implements CommandLineRunner {
         Metrics.gauge(MetricsStatisticsType.TASK_SIZE.getMetricsName(), this,
                 MetricsManager::getTaskSize
         );
-
     }
 
-    private Integer getClusterSize() {
-        return clusterAccessService.findPageNoCriteria(1, Integer.MAX_VALUE).getNumber();
+    private Long getClusterSize() {
+        return clusterAccessService.findPageNoCriteria(1, Integer.MAX_VALUE).getTotalElements();
     }
 
-    private Integer getTaskSize() {
-        return clusterAccessService.findPageNoCriteria(1, Integer.MAX_VALUE).getNumber();
+    private Long getTaskSize() {
+        return taskAccessService.findPageNoCriteria(1, Integer.MAX_VALUE).getTotalElements();
     }
 
     private Integer getCacheSize() {
@@ -64,6 +67,10 @@ public class MetricsManager implements CommandLineRunner {
     public void record(MetricsStatisticsType metricsStatisticsType, long amount) {
 
         Metrics.timer(metricsStatisticsType.getMetricsName()).record(amount, TimeUnit.MILLISECONDS);
+    }
+
+    public void recordError(MetricsStatisticsType metricsStatisticsType) {
+        Metrics.counter(metricsStatisticsType.getMetricsName()).increment();
     }
 
 }

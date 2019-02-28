@@ -16,6 +16,8 @@
  */
 package com.alibaba.nacossync.template.processor;
 
+import com.alibaba.nacossync.constant.MetricsStatisticsType;
+import com.alibaba.nacossync.monitor.MetricsManager;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.commons.lang3.StringUtils;
@@ -41,6 +43,10 @@ import java.util.Collections;
 @Slf4j
 @Service
 public class ClusterAddProcessor implements Processor<ClusterAddRequest, ClusterAddResult> {
+
+    @Autowired
+    private MetricsManager metricsManager;
+
     @Autowired
     private ClusterAccessService clusterAccessService;
 
@@ -55,6 +61,7 @@ public class ClusterAddProcessor implements Processor<ClusterAddRequest, Cluster
         }
 
         if (StringUtils.isBlank(clusterAddRequest.getClusterName()) || StringUtils.isBlank(clusterAddRequest.getClusterType())) {
+
             throw new SkyWalkerException("集群名字或者类型不能为空！");
         }
 
