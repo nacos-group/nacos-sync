@@ -48,6 +48,13 @@
             <version>2.0.4.RELEASE</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.ning</groupId>
+            <artifactId>async-http-client</artifactId>
+            <version>1.7.17</version>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
