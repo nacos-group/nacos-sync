@@ -18,6 +18,7 @@ package com.alibaba.nacossync.template.processor;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +31,8 @@ import com.alibaba.nacossync.pojo.model.ClusterDO;
 import com.alibaba.nacossync.pojo.request.ClusterAddRequest;
 import com.alibaba.nacossync.template.Processor;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
+
+import java.util.Collections;
 
 /**
  * @author NacosSync
@@ -45,6 +48,15 @@ public class ClusterAddProcessor implements Processor<ClusterAddRequest, Cluster
     public void process(ClusterAddRequest clusterAddRequest, ClusterAddResult clusterAddResult,
                         Object... others) throws Exception {
         ClusterDO clusterDO = new ClusterDO();
+
+        if (null == clusterAddRequest.getConnectKeyList() || 0 == clusterAddRequest.getConnectKeyList().size()) {
+
+            throw new SkyWalkerException("集群列表不能为空！");
+        }
+
+        if (StringUtils.isBlank(clusterAddRequest.getClusterName()) || StringUtils.isBlank(clusterAddRequest.getClusterType())) {
+            throw new SkyWalkerException("集群名字或者类型不能为空！");
+        }
 
         if (!ClusterTypeEnum.contains(clusterAddRequest.getClusterType())) {
 
