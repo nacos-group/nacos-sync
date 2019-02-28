@@ -73,6 +73,28 @@ public class RestApiTest {
     }
 
     @Test
+    public void addClusterNotHaveClusterType() {
+        String url = baseUrl + "/v1/cluster/add";
+
+        JSONObject clusterJson = new JSONObject();
+        clusterJson.put("clusterName", "CI-Nacos-Test" + System.currentTimeMillis());
+
+        JSONArray jsonArray = new JSONArray();
+        jsonArray.add("11.11.11.11");
+        jsonArray.add("22.22.22.22");
+        clusterJson.put("connectKeyList", jsonArray);
+
+        try {
+            HttpClient.HttpResult result = HttpClient.httpPost(url, clusterJson.toJSONString());
+            Assert.assertEquals(HttpStatus.SC_OK, result.code);
+            Assert.assertFalse(JSON.parseObject(result.content).getBoolean("success"));
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            Assert.assertTrue("error", false);
+        }
+    }
+
+    @Test
     public void deleteCluster() {
         String url = baseUrl + "/v1/cluster/list";
         String clusterId = "";
@@ -99,6 +121,27 @@ public class RestApiTest {
             paramValues.put("clusterId", clusterId);
 
             result = HttpClient.httpDelete(url, paramValues, null, "UTF-8");
+            Assert.assertEquals(HttpStatus.SC_OK, result.code);
+            Assert.assertTrue(JSON.parseObject(result.content).getBoolean("success"));
+            System.out.println(result.content);
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            Assert.assertTrue("error", false);
+        }
+    }
+
+    /**
+     * delete clusterId不存在
+     */
+    @Test
+    public void deleteClusterByClusterId() {
+        String clusterId = "";
+        try {
+            String url = baseUrl + "/v1/cluster/delete";
+            Map<String, String> paramValues = new HashMap<>();
+            paramValues.put("clusterId", clusterId);
+
+            HttpResult result = HttpClient.httpDelete(url, paramValues, null, "UTF-8");
             Assert.assertEquals(HttpStatus.SC_OK, result.code);
             Assert.assertTrue(JSON.parseObject(result.content).getBoolean("success"));
             System.out.println(result.content);
@@ -137,7 +180,6 @@ public class RestApiTest {
             paramValues.put("clusterId", clusterId);
 
             result = HttpClient.httpGet(url, null, paramValues);
-            System.out.println("00000000000" + result.content);
             Assert.assertEquals(HttpStatus.SC_OK, result.code);
             Assert.assertTrue(JSON.parseObject(result.content).getBoolean("success"));
             Assert.assertEquals(clusterId, JSON.parseObject(result.content).getJSONObject("clusterModel").getString("clusterId"));
@@ -158,7 +200,26 @@ public class RestApiTest {
 
             HttpResult result = HttpClient.httpGet(url, null, paramValues);
             Assert.assertEquals(HttpStatus.SC_OK, result.code);
+            System.out.println(result.content);
             Assert.assertTrue(JSON.parseObject(result.content).getJSONArray("clusterModels").size() >= 0);
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            Assert.assertTrue("error", false);
+        }
+    }
+
+    @Test
+    public void getClusterListByClusterName() {
+        String url = baseUrl + "/v1/cluster/list";
+        try {
+            Map<String, String> paramValues = new HashMap<>();
+            paramValues.put("pageNum", "1");
+            paramValues.put("pageSize", "10");
+            paramValues.put("clusterName", "-CI");
+
+            HttpResult result = HttpClient.httpGet(url, null, paramValues);
+            Assert.assertEquals(HttpStatus.SC_OK, result.code);
+            Assert.assertTrue(JSON.parseObject(result.content).getJSONArray("clusterModels").size() == 0);
         } catch (Exception e) {
             System.out.println(e.getMessage());
             Assert.assertTrue("error", false);
@@ -277,6 +338,23 @@ public class RestApiTest {
     }
 
     @Test
+    public void deleteTaskByTaskId() {
+        String url = baseUrl + "/v1/task/delete";
+        Map<String, String> paramValues = new HashMap<>();
+        paramValues.put("taskId", "");
+
+        try {
+            HttpClient.HttpResult result = HttpClient.httpDelete(url, paramValues, null, "UTF-8");
+            Assert.assertEquals(HttpStatus.SC_OK, result.code);
+            Assert.assertTrue(JSON.parseObject(result.content).getBoolean("success"));
+            System.out.println(result.content);
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            Assert.assertTrue("error", false);
+        }
+    }
+
+    @Test
     public void getTaskDetail() {
         String taskId = getTaskId();
         String url = baseUrl + "/v1/task/detail";
@@ -288,6 +366,27 @@ public class RestApiTest {
             Assert.assertEquals(HttpStatus.SC_OK, result.code);
             Assert.assertTrue(JSON.parseObject(result.content).getBoolean("success"));
             Assert.assertEquals(taskId, JSON.parseObject(result.content).getJSONObject("taskModel").getString("taskId"));
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            Assert.assertTrue("error", false);
+        }
+    }
+
+    /**
+     * taskId为空, 必须存在taskId
+     */
+    @Test
+    public void getTaskDetailWithTaskId() {
+        String taskId = "";
+        String url = baseUrl + "/v1/task/detail";
+        Map<String, String> paramValues = new HashMap<>();
+        paramValues.put("taskId", taskId);
+
+        try {
+            HttpClient.HttpResult result = HttpClient.httpGet(url, null, paramValues);
+            Assert.assertEquals(HttpStatus.SC_OK, result.code);
+            System.out.print(result.content);
+            Assert.assertFalse(JSON.parseObject(result.content).getBoolean("success"));
         } catch (Exception e) {
             System.out.println(e.getMessage());
             Assert.assertTrue("error", false);
@@ -315,8 +414,9 @@ public class RestApiTest {
     @Test
     public void updateTask() {
         String url = baseUrl + "/v1/task/update";
+        String taskId = getTaskId();
         JSONObject clusterJson = new JSONObject();
-        clusterJson.put("taskId", getTaskId());
+        clusterJson.put("taskId", taskId);
         clusterJson.put("taskStatus", "DELETE");
 
         try {
@@ -324,6 +424,48 @@ public class RestApiTest {
             System.out.println(result.content);
             Assert.assertEquals(HttpStatus.SC_OK, result.code);
             Assert.assertTrue(JSON.parseObject(result.content).getBoolean("success"));
+            JSONObject taskDetail = getTaskDetailByTaskId(taskId);
+            Assert.assertEquals("DELETE", taskDetail.getString("taskStatus"));
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            Assert.assertTrue("error", false);
+        }
+    }
+
+    @Test
+    public void updateTaskWithStatusSync() {
+        String url = baseUrl + "/v1/task/update";
+        JSONObject clusterJson = new JSONObject();
+        clusterJson.put("taskId", getTaskId());
+        clusterJson.put("taskStatus", "SYNC");
+
+        try {
+            HttpClient.HttpResult result = HttpClient.httpPost(url, clusterJson.toJSONString());
+            System.out.println(result.content);
+            Assert.assertEquals(HttpStatus.SC_OK, result.code);
+            Assert.assertTrue(JSON.parseObject(result.content).getBoolean("success"));
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            Assert.assertTrue("error", false);
+        }
+    }
+
+    /**
+     * update中必须包含taskStatus
+     */
+    @Test
+    public void updateTaskWithServiceName() {
+        String url = baseUrl + "/v1/task/update";
+        JSONObject clusterJson = new JSONObject();
+        clusterJson.put("taskId", getTaskId());
+        String serviceName = "CI-Nacos-Service" + System.currentTimeMillis();
+        clusterJson.put("serviceName", serviceName);
+
+        try {
+            HttpClient.HttpResult result = HttpClient.httpPost(url, clusterJson.toJSONString());
+            System.out.println(result.content);
+            Assert.assertEquals(HttpStatus.SC_OK, result.code);
+            Assert.assertFalse(JSON.parseObject(result.content).getBoolean("success"));
         } catch (Exception e) {
             System.out.println(e.getMessage());
             Assert.assertTrue("error", false);
@@ -402,6 +544,23 @@ public class RestApiTest {
             System.out.println(e.getMessage());
         }
         return taskId;
+    }
+
+    private JSONObject getTaskDetailByTaskId(String taskId) {
+        String url = baseUrl + "/v1/task/detail";
+        Map<String, String> paramValues = new HashMap<>();
+        paramValues.put("taskId", taskId);
+
+        try {
+            HttpClient.HttpResult result = HttpClient.httpGet(url, null, paramValues);
+            if (HttpStatus.SC_OK == result.code) {
+                return JSON.parseObject(result.content).getJSONObject("taskModel");
+            }
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            return null;
+        }
+        return null;
     }
 
 }
