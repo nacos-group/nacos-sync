@@ -18,7 +18,7 @@
 
     <groupId>com.alibaba.nacossync</groupId>
     <artifactId>nacossync-parent</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
     <modules>
         <module>nacossync-console</module>
         <module>nacossync-worker</module>
@@ -74,19 +74,6 @@
                 <groupId>com.alibaba.nacossync</groupId>
                 <artifactId>nacossync-worker</artifactId>
                 <version>0.2.0</version>
-            </dependency>
-            <dependency>
-                <groupId>org.springframework</groupId>
-                <artifactId>spring-test</artifactId>
-            </dependency>
-            <dependency>
-                <groupId>junit</groupId>
-                <artifactId>junit</artifactId>
-                <version>4.12</version>
-            </dependency>
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-test</artifactId>
             </dependency>
         </dependencies>
     </dependencyManagement>

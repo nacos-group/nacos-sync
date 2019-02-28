@@ -15,9 +15,9 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.test.context.junit4.SpringRunner;
+
 
 /**
  * Created by mingyi.xxc
@@ -29,9 +29,9 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @date 2019/02/23
  */
 @RunWith(SpringRunner.class)
-@SpringBootTest(classes = NacosSyncMain.class, properties = {"server.servlet.context-path=/",
-    "server.port=8081"},
-    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+//@SpringBootTest(classes = NacosSyncMain.class, properties = {"server.servlet.context-path=/",
+//    "server.port=8081"},
+//    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class RestApiTest {
 
     private String baseUrl;
