@@ -18,10 +18,12 @@ import com.alibaba.nacos.api.naming.listener.NamingEvent;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
+import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
+import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +40,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @NacosSyncService(sourceCluster = ClusterTypeEnum.NACOS,destinationCluster = ClusterTypeEnum.NACOS)
 public class NacosSyncToNacosServiceImpl implements SyncService {
     private Map<String, EventListener> nacosListenerMap = new ConcurrentHashMap<>();
+
+    @Autowired
+    private MetricsManager metricsManager;
+
     @Autowired
     private SkyWalkerCacheServices skyWalkerCacheServices;
 
@@ -63,6 +69,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
             }
         } catch (Exception e) {
             log.error("delete task from nacos to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
+            metricsManager.recordError(MetricsStatisticsType.DELETE_ERROR);
             return false;
         }
         return true;
@@ -100,6 +107,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                         }
                     } catch (Exception e) {
                         log.error("event process fail, taskId:{}", taskDO.getTaskId(), e);
+                        metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
                     }
                 }
             });
@@ -107,6 +115,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
             sourceNamingService.subscribe(taskDO.getServiceName(), nacosListenerMap.get(taskDO.getTaskId()));
         } catch (Exception e) {
             log.error("sync task from nacos to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
+            metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
             return false;
         }
         return true;

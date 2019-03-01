@@ -12,11 +12,14 @@
  */
 package com.alibaba.nacossync.util;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -30,8 +33,11 @@ import static com.alibaba.nacossync.util.DubboConstants.*;
  */
 @Slf4j
 public final class StringUtils {
-    private static final Pattern KVP_PATTERN = Pattern.compile("([_.a-zA-Z0-9][-_.a-zA-Z0-9]*)[=](.*)");
-    private static final Pattern IP_PORT_PATTERN = Pattern.compile(".*/(.*)://(\\d+\\.\\d+\\.\\d+\\.\\d+):(\\d+)");
+
+    private static final Pattern KVP_PATTERN = Pattern
+            .compile("([_.a-zA-Z0-9][-_.a-zA-Z0-9]*)[=](.*)");
+    private static final Pattern IP_PORT_PATTERN = Pattern
+            .compile(".*/(.*)://(\\d+\\.\\d+\\.\\d+\\.\\d+):(\\d+)");
 
     /**
      * parse key-value pair.
@@ -89,7 +95,7 @@ public final class StringUtils {
             String decodePath = URLDecoder.decode(path, "UTF-8");
             Matcher matcher = IP_PORT_PATTERN.matcher(decodePath);
             // extract the ones that match the rules
-            Map<String, String> instanceMap = new HashMap<>();
+            Map<String, String> instanceMap = new HashMap<>(3);
             while (matcher.find()) {
                 // protocol
                 instanceMap.put(PROTOCOL_KEY, matcher.group(1));
@@ -98,13 +104,34 @@ public final class StringUtils {
                 // port
                 instanceMap.put(INSTANCE_PORT_KEY, matcher.group(3));
                 break;
-
             }
             return instanceMap;
         } catch (UnsupportedEncodingException e) {
             log.warn("parse query string failed", e);
             return Maps.newHashMap();
         }
+
+    }
+
+    public static String convertDubboProvidersPath(String interfaceName) {
+        return String.format(DUBBO_PATH_FORMAT, interfaceName);
+    }
+
+    public static String convertDubboFullPathForZk(Map<String, String> metaData,
+            String providersPath, String ip,
+            int port) {
+        try {
+            String urlParam = Joiner.on("&").withKeyValueSeparator("=").join(metaData);
+            String instanceUrl = String
+                    .format(DUBBO_URL_FORMAT, metaData.get(PROTOCOL_KEY), ip, port,metaData.get(INTERFACE_KEY),urlParam);
+
+            return Joiner.on(ZOOKEEPER_SEPARATOR)
+                    .join(providersPath, URLEncoder.encode(instanceUrl, "UTF-8"));
+        } catch (UnsupportedEncodingException e) {
+            log.warn("convert Dubbo full path", e);
+            return "";
+        }
+
 
     }
 }
