@@ -20,7 +20,7 @@ import lombok.Data;
 
 /**
  * @author NacosSync
- * @version $Id: ClusterDeleteResult.java, v 0.1 2018-09-30 下午2:44 NacosSync Exp $$
+ * @version $Id: ClusterDeleteResult.java, v 0.1 2018-09-30 PM2:44 NacosSync Exp $$
  */
 @Data
 public class ClusterDeleteResult extends BaseResult {

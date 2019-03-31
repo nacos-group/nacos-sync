@@ -16,6 +16,7 @@
  */
 package com.alibaba.nacossync.pojo.view;
 
+import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import java.io.Serializable;
 
 import lombok.Data;
@@ -28,10 +29,18 @@ import lombok.Data;
 public class ClusterModel implements Serializable {
 
     private String clusterId;
-    /** json格式，["192.168.1:8080","192.168.2?key=1"] */
+    /**
+     * json format，["192.168.1:8080","192.168.2?key=1"]
+     */
     private String connectKeyList;
-    /** 集群名字，用于展示，例如：上海集群（edas-sh） */
+    /**
+     * cluster name, eg：cluster of ShangHai（edas-sh）
+     */
     private String clusterName;
-    /** 集群类型，例如是CS集群，Nacos集群，见ClusterType */
+    /**
+     * cluster type, eg cluster of CS,cluster of Nacos,
+     *
+     * @see ClusterTypeEnum
+     */
     private String clusterType;
 }

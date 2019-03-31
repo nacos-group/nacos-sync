@@ -20,7 +20,7 @@ import lombok.Data;
 
 /**
  * @author NacosSync
- * @version $Id: AddTaskRequest.java, v 0.1 2018-09-25 上午12:13 NacosSync Exp $$
+ * @version $Id: AddTaskRequest.java, v 0.1 2018-09-25 AM12:13 NacosSync Exp $$
  */
 @Data
 public class TaskAddRequest extends BaseRequest {
@@ -30,5 +30,7 @@ public class TaskAddRequest extends BaseRequest {
 
     private String serviceName;
     private String groupName;
+    private String version;
+    private String nameSpace;
 
 }

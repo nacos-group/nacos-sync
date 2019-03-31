@@ -18,7 +18,7 @@ package com.alibaba.nacossync.constant;
 
 /**
  * @author NacosSync
- * @version $Id: ResultCodeEnum.java, v 0.1 2018-09-25 下午4:38 NacosSync Exp $$
+ * @version $Id: ResultCodeEnum.java, v 0.1 2018-09-25 PM4:38 NacosSync Exp $$
  */
 public enum ResultCodeEnum {
     

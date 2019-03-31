@@ -20,13 +20,15 @@ import lombok.Data;
 
 /**
  * @author NacosSync
- * @version $Id: TaskUpdateRequest.java, v 0.1 2018-10-17 下午11:10 NacosSync Exp $$
+ * @version $Id: TaskUpdateRequest.java, v 0.1 2018-10-17 PM11:10 NacosSync Exp $$
  */
 @Data
 public class TaskUpdateRequest extends BaseRequest {
 
     private String taskId;
-    /** 当前任务状态 */
-    private String  taskStatus;
+    /**
+     * The current task status
+     */
+    private String taskStatus;
 
 }

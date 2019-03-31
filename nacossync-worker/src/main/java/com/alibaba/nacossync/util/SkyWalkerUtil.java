@@ -16,6 +16,13 @@
  */
 package com.alibaba.nacossync.util;
 
+import com.alibaba.nacossync.constant.ClusterTypeEnum;
+import com.alibaba.nacossync.constant.SkyWalkerConstants;
+import com.alibaba.nacossync.pojo.model.TaskDO;
+import com.alibaba.nacossync.pojo.request.ClusterAddRequest;
+import com.alibaba.nacossync.pojo.request.TaskAddRequest;
+import com.google.common.base.Joiner;
+
 import java.io.UnsupportedEncodingException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -25,19 +32,15 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Enumeration;
 import java.util.UUID;
 
-import com.alibaba.nacossync.constant.SkyWalkerConstants;
-import com.alibaba.nacossync.pojo.model.TaskDO;
-import com.alibaba.nacossync.pojo.request.ClusterAddRequest;
-import com.alibaba.nacossync.pojo.request.TaskAddRequest;
-
 /**
 * @author NacosSync
-* @version $Id: SkyWalkerUtil.java, v 0.1 2018-09-26 上午12:10 NacosSync Exp $$
+* @version $Id: SkyWalkerUtil.java, v 0.1 2018-09-26 AM12:10 NacosSync Exp $$
 */
 public class SkyWalkerUtil {
 
     /**
-     * 获取字符串md5
+     *
+     * Gets the string md5
      * @param value
      * @return
      */
@@ -65,18 +68,19 @@ public class SkyWalkerUtil {
     }
 
     /**
-     * 生成taskId的规则
+     * The rules of generating taskId
      * @param addTaskRequest
      * @return
      */
     public static String generateTaskId(TaskAddRequest addTaskRequest) {
 
         return generateTaskId(addTaskRequest.getServiceName(), addTaskRequest.getGroupName(),
-            addTaskRequest.getSourceClusterId(), addTaskRequest.getDestClusterId());
+                addTaskRequest.getSourceClusterId(), addTaskRequest.getDestClusterId());
     }
 
     /**
-     * 生成taskId的规则
+     * The rules of generating taskId
+     *
      * @return
      */
     public static String generateTaskId(String serviceName, String groupName,
@@ -96,6 +100,7 @@ public class SkyWalkerUtil {
 
     /**
      * 生成集群clusterId的规则
+     *
      * @param addClusterRequest
      * @return
      */
@@ -110,7 +115,7 @@ public class SkyWalkerUtil {
     }
 
     /**
-     * 避免获取到回传地址
+     * Avoid getting a return address
      * @return
      * @throws Exception
      */
@@ -134,9 +139,9 @@ public class SkyWalkerUtil {
         return localIp;
     }
 
-    public static String generateWorkerId(String workerIp) {
-        return UUID.randomUUID() + SkyWalkerConstants.UNDERLINE + workerIp;
+    public static String generateSyncKey(ClusterTypeEnum sourceClusterType, ClusterTypeEnum destClusterType) {
 
+        return Joiner.on(":").join(sourceClusterType.getCode(), destClusterType.getCode());
     }
 
     public static String getOperationId(TaskDO taskDO) {

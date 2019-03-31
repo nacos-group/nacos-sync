@@ -26,7 +26,7 @@ import com.alibaba.nacossync.template.Processor;
 
 /**
  * @author NacosSync
- * @version $Id: TaskCacheResetProcessor.java, v 0.1 2018-10-17 下午11:38 NacosSync Exp $$
+ * @version $Id: TaskCacheResetProcessor.java, v 0.1 2018-10-17 PM11:38 NacosSync Exp $$
  */
 @Slf4j
 @Service

@@ -43,6 +43,108 @@ Info |      +------------+                   ^
      
 
 ## Quick Start:
- - Swagger API: http://127.0.0.1:8081/skywalker/swagger-ui.html#/
+ - Swagger API: http://127.0.0.1:8081/swagger-ui.html#/
+ - Web Console: http://127.0.0.1:8081/
  - Others: TBD
+
+# NacosSync Migration User Guide
+
+## Manual Goal
+
+- Start the NacosSync service
+- Use a simple example to demonstrate how to migrate a Dubbo client registered in the Zookeeper Registry to the Nacos Registry
+
+## Prerequisites
+
+Before you begin, install the following:
+
+- 64bit OS: Linux/Unix/Mac/Windows supported, Linux/Unix/Mac recommended.
+- 64bit JDK 1.8+: downloads, JAVA_HOME settings.
+- Maven 3.2.x+: downloads, settings.
+- MySql 5.6.+
+
+## Download & Build From Release
+
+There are two ways to get NacosSync.
+
+- Download run package
+- Download source code from Github
+
+``` xml
+
+cd nacosSync/
+mvn clean package -U
+
+```
+
+The path to the target file:
+
+``` xml
+
+nacos-sync/nacossync-distribution/target/nacosSync.0.1.0.zip
+
+```
+
+After extracting the installation package, the directory structure:
+
+``` xml
+
+nacosSync
+├── LICENSE
+├── NOTICE
+├── bin
+│   ├── nacosSync.sql
+│   ├── shutdown.sh
+│   └── startup.sh
+├── conf
+│   ├── application.properties
+│   └── logback-spring.xml
+├── logs
+└── nacosSync-server.0.1.0.jar
+
+```
+
+## Initialize The DB
+
+The default is Mysql database, which can support other relational databases
+
+- Build db schema, the default schema name nacos_Sync.
+- Tables do not need to be created separately, which is conducive to hibernate's automatic table creation function.
+- If the automatic table creation fails, you can build the table nacosSync.sql, the table statement is in the bin folder.
+
+## DB Configuration
+
+In the bin folder, application.properties:
+
+``` xml
+
+spring.datasource.url=jdbc:mysql://127.0.0.1:3306/nacos_sync?characterEncoding=utf8
+spring.datasource.username=root
+spring.datasource.password=root
+
+```
+
+## Start Server
+
+``` xml
+
+$ nacosSync/bin:
+sh startup.sh  restart
+
+```
+
+## Admin Console
+
+``` xml
+
+http://127.0.0.1:8081/#/serviceSync
+
+```
+
+
+
+
+
+
+
 

@@ -27,7 +27,7 @@ import com.google.common.eventbus.EventBus;
 
 /**
  * @author NacosSync
- * @version $Id: SkyWalkerConfiguration.java, v 0.1 2018-09-27 上午1:20 NacosSync Exp $$
+ * @version $Id: SkyWalkerConfiguration.java, v 0.1 2018-09-27 AM1:20 NacosSync Exp $$
  */
 @Configuration
 public class SkyWalkerConfiguration {

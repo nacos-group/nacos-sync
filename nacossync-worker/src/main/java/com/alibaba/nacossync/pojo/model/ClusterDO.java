@@ -16,6 +16,7 @@
  */
 package com.alibaba.nacossync.pojo.model;
 
+import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import java.io.Serializable;
 
 import javax.persistence.*;
@@ -24,22 +25,34 @@ import lombok.Data;
 
 /**
  * @author NacosSync
- * @version $Id: EnvDO.java, v 0.1 2018-09-25 下午4:17 NacosSync Exp $$
+ * @version $Id: EnvDO.java, v 0.1 2018-09-25 PM 4:17 NacosSync Exp $$
  */
 @Data
 @Entity
 @Table(name = "cluster")
 public class ClusterDO implements Serializable {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    /** 自定义生成的集群id(唯一) */
-    private String  clusterId;
-    /** 链接串组合，建立链接时，会随机选一个，无固定格式，每种集群都不一样，例如nacos＝["192.168.1:8080","192.168.2:8080"],C＝["192.168.1?key=1","192.168.2?key=1"] */
-    private String  connectKeyList;
-    /** 集群名字，用于展示，例如：上海集群（edas-sh） */
-    private String  clusterName;
-    /** 集群类型，例如是CS集群，Nacos集群，见ClusterType */
-    private String  clusterType;
+    /**
+     * custom cluster id(unique)
+     */
+    private String clusterId;
+    /**
+     * Linked list,When a connection is established, one is chosen at random, no fixed format and
+     * each cluster is not the same,eg nacos＝["192.168.1:8080","192.168.2:8080"],C＝["192.168.1?key=1","192.168.2?key=1"]
+     */
+    private String connectKeyList;
+    /**
+     * cluster name use to display eg：cluster of ShangHai（edas-sh）
+     */
+    private String clusterName;
+    /**
+     * cluster type ，eg CS cluster , Nacos cluster，
+     *
+     * @see ClusterTypeEnum
+     */
+    private String clusterType;
 
 }

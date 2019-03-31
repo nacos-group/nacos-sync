@@ -20,7 +20,7 @@ import lombok.Data;
 
 /**
  * @author NacosSync
- * @version $Id: TaskModel.java, v 0.1 2018-09-25 下午11:10 NacosSync Exp $$
+ * @version $Id: TaskModel.java, v 0.1 2018-09-25 PM11:10 NacosSync Exp $$
  */
 @Data
 public class TaskModel {

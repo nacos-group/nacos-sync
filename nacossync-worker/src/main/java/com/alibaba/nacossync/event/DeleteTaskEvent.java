@@ -22,7 +22,7 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 
 /**
  * @author NacosSync
- * @version $Id: DeleteTaskEvent.java, v 0.1 2018-09-27 上午2:38 NacosSync Exp $$
+ * @version $Id: DeleteTaskEvent.java, v 0.1 2018-09-27 AM2:38 NacosSync Exp $$
  */
 @Data
 public class DeleteTaskEvent {

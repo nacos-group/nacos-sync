@@ -16,6 +16,7 @@
  */
 package com.alibaba.nacossync.template;
 
+import com.alibaba.nacossync.monitor.MetricsManager;
 import lombok.extern.slf4j.Slf4j;
 
 import com.alibaba.nacossync.exception.SkyWalkerException;
@@ -24,7 +25,7 @@ import com.alibaba.nacossync.pojo.request.BaseRequest;
 
 /**
  * @author NacosSync
- * @version $Id: SkyWalkerTemplate.java, v 0.1 2018-05-12 下午1:13 NacosSync Exp $$
+ * @version $Id: SkyWalkerTemplate.java, v 0.1 2018-05-12 PM1:13 NacosSync Exp $$
  */
 @Slf4j
 public class SkyWalkerTemplate {
@@ -34,7 +35,6 @@ public class SkyWalkerTemplate {
 
         try {
             processor.process(request, result, others);
-
         } catch (Throwable e) {
 
             log.error("processor.process error", e);

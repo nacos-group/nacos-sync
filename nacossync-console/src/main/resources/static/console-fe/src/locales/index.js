@@ -1,4 +1,4 @@
-import enUS from './en-US'
-import zhCN from './zh-CN'
+import enUS from './en-US';
+import zhCN from './zh-CN';
 
-export default {enUS, zhCN}
+export default { enUS, zhCN };

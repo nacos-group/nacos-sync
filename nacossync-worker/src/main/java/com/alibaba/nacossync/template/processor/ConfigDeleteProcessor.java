@@ -24,7 +24,7 @@ import com.alibaba.nacossync.template.Processor;
 
 /**
  * @author NacosSync
- * @version $Id: ConfigDeleteProcessor.java, v 0.1 2018-09-30 下午5:01 NacosSync Exp $$
+ * @version $Id: ConfigDeleteProcessor.java, v 0.1 2018-09-30 PM5:01 NacosSync Exp $$
  */
 @Service
 public class ConfigDeleteProcessor implements Processor<ConfigDeleteRequest, ConfigDeleteResult> {

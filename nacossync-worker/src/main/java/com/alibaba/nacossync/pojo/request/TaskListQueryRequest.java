@@ -20,13 +20,16 @@ import lombok.Data;
 
 /**
  * @author NacosSync
- * @version $Id: TaskListRequest.java, v 0.1 2018-09-30 下午12:58 NacosSync Exp $$
+ * @version $Id: TaskListRequest.java, v 0.1 2018-09-30 PM12:58 NacosSync Exp $$
  */
 @Data
 public class TaskListQueryRequest extends BaseRequest {
 
     private Integer pageNum;
     private Integer pageSize;
-    /** 查询服务列表时， 如果这个值不为空，则作为服务名的模糊匹配查询字段 */
-    private String  serviceName;
+    /**
+     * When querying the service list, if this value is not empty then the fuzzy match query field
+     * of service name
+     */
+    private String serviceName;
 }

@@ -16,48 +16,50 @@
  */
 package com.alibaba.nacossync.timer;
 
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
-import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.stereotype.Service;
-
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
+import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.TaskAccessService;
 import com.alibaba.nacossync.event.DeleteTaskEvent;
 import com.alibaba.nacossync.event.SyncTaskEvent;
+import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.eventbus.EventBus;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Service;
+
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author NacosSync
- * @version $Id: SkyWalkerServices.java, v 0.1 2018-09-26 上午1:39 NacosSync Exp $$
+ * @version $Id: SkyWalkerServices.java, v 0.1 2018-09-26 AM1:39 NacosSync Exp $$
  */
 @Slf4j
 @Service
 public class QuerySyncTaskTimer implements CommandLineRunner {
+    @Autowired
+    private MetricsManager metricsManager;
 
     @Autowired
-    private SkyWalkerCacheServices   skyWalkerCacheServices;
+    private SkyWalkerCacheServices skyWalkerCacheServices;
 
     @Autowired
-    private TaskAccessService        taskAccessService;
+    private TaskAccessService taskAccessService;
 
     @Autowired
-    private EventBus                 eventBus;
+    private EventBus eventBus;
 
     @Autowired
     private ScheduledExecutorService scheduledExecutorService;
 
     @Override
     public void run(String... args) {
-        /** 3s去数据库捞一次任务列表 */
+        /** Fetch the task list from the database every 3 seconds */
         scheduledExecutorService.scheduleWithFixedDelay(new CheckRunningStatusThread(), 0, 3000,
-            TimeUnit.MILLISECONDS);
+                TimeUnit.MILLISECONDS);
 
     }
 
@@ -66,6 +68,7 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
         @Override
         public void run() {
 
+            Long start = System.currentTimeMillis();
             try {
 
                 Iterable<TaskDO> taskDOS = taskAccessService.findAll();
@@ -94,6 +97,7 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
                 log.warn("CheckRunningStatusThread Exception", e);
             }
 
+            metricsManager.record(MetricsStatisticsType.DISPATCHER_TASK, System.currentTimeMillis() - start);
         }
     }
 }

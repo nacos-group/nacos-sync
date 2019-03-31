@@ -18,6 +18,8 @@ package com.alibaba.nacossync.event.listener;
 
 import javax.annotation.PostConstruct;
 
+import com.alibaba.nacossync.constant.MetricsStatisticsType;
+import com.alibaba.nacossync.monitor.MetricsManager;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,17 +34,20 @@ import com.google.common.eventbus.Subscribe;
 
 /**
  * @author NacosSync
- * @version $Id: EventListener.java, v 0.1 2018-09-27 上午1:21 NacosSync Exp $$
+ * @version $Id: EventListener.java, v 0.1 2018-09-27 AM1:21 NacosSync Exp $$
  */
 @Slf4j
 @Service
 public class EventListener {
 
     @Autowired
-    private SyncManagerService     syncManagerService;
+    private MetricsManager metricsManager;
 
     @Autowired
-    private EventBus               eventBus;
+    private SyncManagerService syncManagerService;
+
+    @Autowired
+    private EventBus eventBus;
 
     @Autowired
     private SkyWalkerCacheServices skyWalkerCacheServices;
@@ -56,10 +61,10 @@ public class EventListener {
     public void listenerSyncTaskEvent(SyncTaskEvent syncTaskEvent) {
 
         try {
-
+            long start = System.currentTimeMillis();
             syncManagerService.sync(syncTaskEvent.getTaskDO());
             skyWalkerCacheServices.addFinishedTask(syncTaskEvent.getTaskDO());
-
+            metricsManager.record(MetricsStatisticsType.SYNC_TASK_RT, System.currentTimeMillis() - start);
         } catch (Exception e) {
             log.warn("listenerSyncTaskEvent process error", e);
         }
@@ -70,10 +75,10 @@ public class EventListener {
     public void listenerDeleteTaskEvent(DeleteTaskEvent deleteTaskEvent) {
 
         try {
-
+            long start = System.currentTimeMillis();
             syncManagerService.delete(deleteTaskEvent.getTaskDO());
             skyWalkerCacheServices.addFinishedTask(deleteTaskEvent.getTaskDO());
-
+            metricsManager.record(MetricsStatisticsType.DELETE_TASK_RT, System.currentTimeMillis() - start);
         } catch (Exception e) {
             log.warn("listenerDeleteTaskEvent process error", e);
         }

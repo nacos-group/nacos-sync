@@ -1,18 +1,16 @@
-import React from 'react'
-import './index.scss'
+import React from 'react';
+import './index.scss';
 
 class FuncHead extends React.Component {
-    render() {
-        const {title, subtitle} = this.props
-        return (
-            <div className="function-header">
-                <h4 className="main-title">{title}</h4>
-                {
-                    subtitle ? <span className="subtitle">{subtitle}</span> : null
-                }
-            </div>
-        )
-    }
+  render() {
+    const { title, subtitle } = this.props;
+    return (
+      <div className="function-header">
+        <h4 className="main-title">{title}</h4>
+        {subtitle && <span className="subtitle">{subtitle}</span>}
+      </div>
+    );
+  }
 }
 
-export default FuncHead
+export default FuncHead;

@@ -39,7 +39,7 @@ import com.alibaba.nacossync.util.SkyWalkerUtil;
 
 /**
  * @author NacosSync
- * @version $Id: SkyWalkerCacheServices.java, v 0.1 2018-09-27 上午2:47 NacosSync Exp $$
+ * @version $Id: SkyWalkerCacheServices.java, v 0.1 2018-09-27 AM2:47 NacosSync Exp $$
  */
 @Service
 public class SkyWalkerCacheServices {
@@ -50,7 +50,13 @@ public class SkyWalkerCacheServices {
     private static Map<String, FinishedTask> finishedTaskMap = new ConcurrentHashMap<>();
 
     public String getClusterConnectKey(String clusterId) {
+        List<String> allClusterConnectKey = getAllClusterConnectKey(clusterId);
 
+        Random random = new Random();
+        return allClusterConnectKey.get(random.nextInt(allClusterConnectKey.size()));
+    }
+
+    public List<String> getAllClusterConnectKey(String clusterId){
         ClusterDO clusterDOS = clusterAccessService.findByClusterId(clusterId);
 
         List<String> connectKeyList = JSONObject.parseObject(clusterDOS.getConnectKeyList(),
@@ -60,9 +66,7 @@ public class SkyWalkerCacheServices {
         if (CollectionUtils.isEmpty(connectKeyList)) {
             throw new SkyWalkerException("getClusterConnectKey empty, clusterId:" + clusterId);
         }
-
-        Random random = new Random();
-        return connectKeyList.get(random.nextInt(connectKeyList.size()));
+        return connectKeyList;
     }
 
     public ClusterTypeEnum getClusterType(String clusterId) {
@@ -80,7 +84,6 @@ public class SkyWalkerCacheServices {
         finishedTask.setOperationId(operationId);
 
         finishedTaskMap.put(operationId, finishedTask);
-
     }
 
     public FinishedTask getFinishedTask(TaskDO taskDO) {
@@ -92,7 +95,6 @@ public class SkyWalkerCacheServices {
         }
 
         return finishedTaskMap.get(operationId);
-
     }
 
     public Map<String, FinishedTask> getFinishedTaskMap() {

@@ -20,7 +20,7 @@ import lombok.Data;
 
 /**
  * @author NacosSync
- * @version $Id: ConfigAddRequest.java, v 0.1 2018-09-30 下午5:03 NacosSync Exp $$
+ * @version $Id: ConfigAddRequest.java, v 0.1 2018-09-30 PM5:03 NacosSync Exp $$
  */
 @Data
 public class ConfigAddRequest extends BaseRequest {

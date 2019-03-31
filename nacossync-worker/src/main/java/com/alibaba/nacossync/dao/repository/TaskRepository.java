@@ -28,7 +28,7 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 
 /**
  * @author NacosSync
- * @version $Id: TaskRepository.java, v 0.1 2018-09-25 上午12:04 NacosSync Exp $$
+ * @version $Id: TaskRepository.java, v 0.1 2018-09-25 AM12:04 NacosSync Exp $$
  */
 public interface TaskRepository extends CrudRepository<TaskDO, Integer>, JpaRepository<TaskDO, Integer>,
         JpaSpecificationExecutor<TaskDO> {

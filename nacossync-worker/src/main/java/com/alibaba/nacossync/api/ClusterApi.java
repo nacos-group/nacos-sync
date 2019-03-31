@@ -38,7 +38,7 @@ import com.alibaba.nacossync.template.processor.ClusterListQueryProcessor;
 
 /**
  * @author NacosSync
- * @version $Id: ClusterApi.java, v 0.1 2018-09-25 下午9:30 NacosSync Exp $$
+ * @version $Id: ClusterApi.java, v 0.1 2018-09-25 PM9:30 NacosSync Exp $$
  */
 @Slf4j
 @RestController
@@ -71,7 +71,7 @@ public class ClusterApi {
     }
 
     @RequestMapping(path = "/v1/cluster/delete", method = RequestMethod.DELETE)
-    public ClusterDeleteResult deleteTask(@RequestBody ClusterDeleteRequest clusterDeleteRequest) {
+    public ClusterDeleteResult deleteCluster(ClusterDeleteRequest clusterDeleteRequest) {
 
         return SkyWalkerTemplate.run(clusterDeleteProcessor, clusterDeleteRequest,
                 new ClusterDeleteResult());
