@@ -84,7 +84,6 @@ public class SkyWalkerCacheServices {
         finishedTask.setOperationId(operationId);
 
         finishedTaskMap.put(operationId, finishedTask);
-
     }
 
     public FinishedTask getFinishedTask(TaskDO taskDO) {
@@ -96,7 +95,6 @@ public class SkyWalkerCacheServices {
         }
 
         return finishedTaskMap.get(operationId);
-
     }
 
     public Map<String, FinishedTask> getFinishedTaskMap() {

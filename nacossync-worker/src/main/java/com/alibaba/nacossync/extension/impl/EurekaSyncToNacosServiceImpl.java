@@ -16,12 +16,14 @@ import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
+import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.extension.event.SpecialSyncEventBus;
 import com.alibaba.nacossync.extension.holder.EurekaServerHolder;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
+import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.discovery.shared.Application;
@@ -45,6 +47,9 @@ import java.util.Objects;
 @Slf4j
 @NacosSyncService(sourceCluster = ClusterTypeEnum.EUREKA, destinationCluster = ClusterTypeEnum.NACOS)
 public class EurekaSyncToNacosServiceImpl implements SyncService {
+
+    @Autowired
+    private MetricsManager metricsManager;
 
     private final EurekaServerHolder eurekaServerHolder;
     private final SkyWalkerCacheServices skyWalkerCacheServices;
@@ -76,6 +81,7 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
 
         } catch (Exception e) {
             log.error("delete task from eureka to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
+            metricsManager.recordError(MetricsStatisticsType.DELETE_ERROR);
             return false;
         }
         return true;
@@ -103,11 +109,13 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
 
                 }
             } else {
+                metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
                 throw new RuntimeException("trying to connect to the server failed");
             }
             specialSyncEventBus.subscribe(taskDO, this::sync);
         } catch (Exception e) {
             log.error("sync task from eureka to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
+            metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
             return false;
         }
         return true;

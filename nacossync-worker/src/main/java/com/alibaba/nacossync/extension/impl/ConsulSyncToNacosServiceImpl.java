@@ -16,12 +16,14 @@ import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
+import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.extension.event.SpecialSyncEventBus;
 import com.alibaba.nacossync.extension.holder.ConsulServerHolder;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
+import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.ecwid.consul.v1.ConsulClient;
 import com.ecwid.consul.v1.QueryParams;
@@ -41,6 +43,9 @@ import java.util.*;
 @Slf4j
 @NacosSyncService(sourceCluster = ClusterTypeEnum.CONSUL, destinationCluster = ClusterTypeEnum.NACOS)
 public class ConsulSyncToNacosServiceImpl implements SyncService {
+
+    @Autowired
+    private MetricsManager metricsManager;
 
     private final ConsulServerHolder consulServerHolder;
     private final SkyWalkerCacheServices skyWalkerCacheServices;
@@ -74,6 +79,7 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
 
         } catch (Exception e) {
             log.error("delete task from consul to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
+            metricsManager.recordError(MetricsStatisticsType.DELETE_ERROR);
             return false;
         }
         return true;
@@ -107,6 +113,7 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
             specialSyncEventBus.subscribe(taskDO, this::sync);
         } catch (Exception e) {
             log.error("sync task from consul to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
+            metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
             return false;
         }
         return true;

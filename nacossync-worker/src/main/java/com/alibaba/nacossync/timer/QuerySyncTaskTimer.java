@@ -17,10 +17,12 @@
 package com.alibaba.nacossync.timer;
 
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
+import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.TaskAccessService;
 import com.alibaba.nacossync.event.DeleteTaskEvent;
 import com.alibaba.nacossync.event.SyncTaskEvent;
+import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.eventbus.EventBus;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +40,8 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 public class QuerySyncTaskTimer implements CommandLineRunner {
+    @Autowired
+    private MetricsManager metricsManager;
 
     @Autowired
     private SkyWalkerCacheServices skyWalkerCacheServices;
@@ -64,6 +68,7 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
         @Override
         public void run() {
 
+            Long start = System.currentTimeMillis();
             try {
 
                 Iterable<TaskDO> taskDOS = taskAccessService.findAll();
@@ -92,6 +97,7 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
                 log.warn("CheckRunningStatusThread Exception", e);
             }
 
+            metricsManager.record(MetricsStatisticsType.DISPATCHER_TASK, System.currentTimeMillis() - start);
         }
     }
 }

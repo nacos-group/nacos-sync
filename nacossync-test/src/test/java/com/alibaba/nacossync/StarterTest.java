@@ -16,20 +16,14 @@
 package com.alibaba.nacossync;
 
 import org.junit.Before;
-import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
-
 
 /**
  * @author <a href="mailto:zpf.073@gmail.com">nkorange</a>
  */
 
 @RunWith(SpringRunner.class)
-//@SpringBootTest(classes = com.alibaba.nacossync.NacosSyncMain.class,
-//    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class StarterTest {
 
     @Before
@@ -37,8 +31,5 @@ public class StarterTest {
 
     }
 
-    @Test
-    public void test() {
-        System.out.println("=======================");
-    }
+
 }
