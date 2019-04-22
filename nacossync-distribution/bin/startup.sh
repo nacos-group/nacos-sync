@@ -67,10 +67,8 @@ echo "=============BASE_DIR:"$BASE_DIR
 echo "=============JAVA:"$JAVA
 
 
-
-
-if [ ! -f "${BASE_DIR}/logs/nacossync_start.out" ]; then
-        touch "${BASE_DIR}/logs/nacossync_start.out"
+if [  ! -d "${BASE_DIR}/logs" ]; then
+        mkdir "${BASE_DIR}/logs"
 fi
 
 
