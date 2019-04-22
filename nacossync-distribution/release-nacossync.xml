@@ -62,6 +62,7 @@
         <file>
             <source>../nacossync-worker/target/nacosSync-server.${parent.version}.jar</source>
             <outputDirectory></outputDirectory>
+            <destName>nacosSync-server.jar</destName>
         </file>
     </files>
 </assembly>
