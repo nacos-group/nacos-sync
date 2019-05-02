@@ -81,7 +81,7 @@ The path to the target file:
 
 ``` xml
 
-nacos-sync/nacossync-distribution/target/nacosSync.0.1.0.zip
+nacos-sync/nacossync-distribution/target/nacosSync.0.3.0.zip
 
 ```
 
@@ -100,7 +100,7 @@ nacosSync
 │   ├── application.properties
 │   └── logback-spring.xml
 ├── logs
-└── nacosSync-server.0.1.0.jar
+└── nacosSync-server.jar
 
 ```
 
@@ -129,7 +129,7 @@ spring.datasource.password=root
 ``` xml
 
 $ nacosSync/bin:
-sh startup.sh  restart
+sh startup.sh  start
 
 ```
 
