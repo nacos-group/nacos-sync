@@ -26,6 +26,7 @@
         <curator.version>4.1.0</curator.version>
         <cloud.version>Finchley.SR2</cloud.version>
         <mockito.version>1.10.19</mockito.version>
+        <nacos.client.verison>1.0.0</nacos.client.verison>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -104,7 +105,7 @@
         <dependency>
             <groupId>com.alibaba.nacos</groupId>
             <artifactId>nacos-client</artifactId>
-            <version>0.5.0</version>
+            <version>${nacos.client.verison}</version>
         </dependency>
 
         <!--zookeeper-->
