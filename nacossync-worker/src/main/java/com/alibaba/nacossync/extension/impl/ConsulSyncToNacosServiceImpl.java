@@ -25,6 +25,7 @@ import com.alibaba.nacossync.extension.holder.ConsulServerHolder;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
+import com.alibaba.nacossync.util.ConsulUtils;
 import com.ecwid.consul.v1.ConsulClient;
 import com.ecwid.consul.v1.QueryParams;
 import com.ecwid.consul.v1.Response;
@@ -95,7 +96,7 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
             List<HealthService> healthServiceList = response.getValue();
             Set<String> instanceKeySet = new HashSet<>();
             for (HealthService healthService : healthServiceList) {
-                if (needSync(healthService.getNode().getMeta())) {
+                if (needSync(ConsulUtils.transferMetadata(healthService.getService().getTags()))) {
 
                     destNamingService.registerInstance(taskDO.getServiceName(),
                         buildSyncInstance(healthService, taskDO));
@@ -123,8 +124,7 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
         Instance temp = new Instance();
         temp.setIp(instance.getService().getAddress());
         temp.setPort(instance.getService().getPort());
-
-        Map<String, String> metaData = new HashMap<>(instance.getNode().getMeta());
+        Map<String, String> metaData = new HashMap<>(ConsulUtils.transferMetadata(instance.getService().getTags()));
         metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
             skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());

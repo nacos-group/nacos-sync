@@ -12,15 +12,14 @@
  */
 package com.alibaba.nacossync.extension.holder;
 
-import java.util.function.Supplier;
-import org.springframework.cloud.netflix.eureka.http.RestTemplateTransportClientFactory;
-import org.springframework.stereotype.Service;
-
 import com.netflix.discovery.shared.resolver.DefaultEndpoint;
 import com.netflix.discovery.shared.resolver.EurekaEndpoint;
 import com.netflix.discovery.shared.transport.EurekaHttpClient;
-
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cloud.netflix.eureka.http.RestTemplateTransportClientFactory;
+import org.springframework.stereotype.Service;
+
+import java.util.function.Supplier;
 
 /**
  * @author paderlol
