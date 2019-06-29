@@ -48,6 +48,9 @@ public class TaskApi {
 
     @Autowired
     private TaskDeleteProcessor taskDeleteProcessor;
+    
+    @Autowired
+    private TaskDeleteInBatchProcessor taskDeleteInBatchProcessor;
 
     @Autowired
     private TaskListQueryProcessor taskListQueryProcessor;
@@ -73,6 +76,16 @@ public class TaskApi {
     public BaseResult deleteTask(TaskDeleteRequest taskDeleteRequest) {
 
         return SkyWalkerTemplate.run(taskDeleteProcessor, taskDeleteRequest, new BaseResult());
+    }
+    
+    /**
+     * @author yongchao9
+     * @param taskBatchDeleteRequest
+     * @return
+     */
+    @RequestMapping(path = "/v1/task/deleteInBatch", method = RequestMethod.DELETE)
+    public BaseResult batchDeleteTask(TaskDeleteInBatchRequest taskBatchDeleteRequest) {
+        return SkyWalkerTemplate.run(taskDeleteInBatchProcessor, taskBatchDeleteRequest, new BaseResult());
     }
 
     @RequestMapping(path = "/v1/task/add", method = RequestMethod.POST)
