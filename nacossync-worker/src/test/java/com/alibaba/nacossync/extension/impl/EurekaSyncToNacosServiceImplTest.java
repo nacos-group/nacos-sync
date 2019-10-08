@@ -5,6 +5,7 @@ import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
+import com.alibaba.nacossync.extension.eureka.EurekaNamingService;
 import com.alibaba.nacossync.extension.event.SpecialSyncEventBus;
 import com.alibaba.nacossync.extension.holder.EurekaServerHolder;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
@@ -13,7 +14,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.discovery.shared.Application;
-import com.netflix.discovery.shared.transport.EurekaHttpClient;
 import com.netflix.discovery.shared.transport.EurekaHttpResponse;
 import org.junit.Assert;
 import org.junit.Test;
@@ -44,7 +44,7 @@ public class EurekaSyncToNacosServiceImplTest {
     @Mock
     private EurekaServerHolder eurekaServerHolder;
     @Mock
-    private EurekaHttpClient eurekaHttpClient;
+    private EurekaNamingService eurekaNamingService;
     @Mock
     private NamingService destNamingService;
     @Mock
@@ -85,17 +85,17 @@ public class EurekaSyncToNacosServiceImplTest {
         EurekaHttpResponse<Application> eurekaHttpResponse = mock(EurekaHttpResponse.class);
         Application application = mock(Application.class);
         InstanceInfo instanceInfoUp = InstanceInfo.Builder.newBuilder().setIPAddr("127.0.0.1").setPort(8080)
-            .setStatus(InstanceInfo.InstanceStatus.UP).setAppName("SPRING-CLOUD-EUREKA-CLIENT").build();
+                .setStatus(InstanceInfo.InstanceStatus.UP).setAppName("SPRING-CLOUD-EUREKA-CLIENT").build();
         InstanceInfo instanceInfoDown = InstanceInfo.Builder.newBuilder().setIPAddr("127.0.0.1").setPort(8081)
-            .setStatus(InstanceInfo.InstanceStatus.DOWN).setAppName("SPRING-CLOUD-EUREKA-CLIENT").build();
+                .setStatus(InstanceInfo.InstanceStatus.DOWN).setAppName("SPRING-CLOUD-EUREKA-CLIENT").build();
         List<InstanceInfo> allInstanceInfo = Lists.newArrayList(instanceInfoUp, instanceInfoDown);
         when(taskDO.getTaskId()).thenReturn(TEST_TASK_ID);
         when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
         when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
 
         doReturn(destNamingService).when(nacosServerHolder).get(anyString(), any());
-        doReturn(eurekaHttpClient).when(eurekaServerHolder).get(anyString(), any());
-        doReturn(eurekaHttpResponse).when(eurekaHttpClient).getApplication(any());
+        doReturn(eurekaNamingService).when(eurekaServerHolder).get(anyString(), any());
+        doReturn(eurekaHttpResponse).when(eurekaNamingService).getApplications(any());
         doReturn(200).when(eurekaHttpResponse).getStatusCode();
         doReturn(application).when(eurekaHttpResponse).getEntity();
         when(application.getInstances()).thenReturn(allInstanceInfo);

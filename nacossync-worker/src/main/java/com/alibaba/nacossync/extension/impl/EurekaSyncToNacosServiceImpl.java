@@ -20,23 +20,19 @@ import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
+import com.alibaba.nacossync.extension.eureka.EurekaNamingService;
 import com.alibaba.nacossync.extension.event.SpecialSyncEventBus;
 import com.alibaba.nacossync.extension.holder.EurekaServerHolder;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.netflix.appinfo.InstanceInfo;
-import com.netflix.discovery.shared.Application;
-import com.netflix.discovery.shared.transport.EurekaHttpClient;
-import com.netflix.discovery.shared.transport.EurekaHttpResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * eureka
@@ -71,7 +67,7 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
 
         try {
             specialSyncEventBus.unsubscribe(taskDO);
-            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getNameSpace());
             List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName());
             for (Instance instance : allInstances) {
                 if (needDelete(instance.getMetadata(), taskDO)) {
@@ -90,13 +86,12 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
     @Override
     public boolean sync(TaskDO taskDO) {
         try {
-            EurekaHttpClient eurekaHttpClient = eurekaServerHolder.get(taskDO.getSourceClusterId(), null);
+            EurekaNamingService eurekaNamingService = eurekaServerHolder.get(taskDO.getSourceClusterId(), null);
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
-            EurekaHttpResponse<Application> eurekaHttpResponse =
-                eurekaHttpClient.getApplication(taskDO.getServiceName());
-            if (Objects.requireNonNull(HttpStatus.resolve(eurekaHttpResponse.getStatusCode())).is2xxSuccessful()) {
-                Application application = eurekaHttpResponse.getEntity();
-                for (InstanceInfo instanceInfo : application.getInstances()) {
+            List<InstanceInfo> instanceInfos =
+                    eurekaNamingService.getApplications(taskDO.getServiceName());
+            if (instanceInfos != null) {
+                for (InstanceInfo instanceInfo : instanceInfos) {
                     if (needSync(instanceInfo.getMetadata())) {
                         if (InstanceInfo.InstanceStatus.UP.equals(instanceInfo.getStatus())) {
                             destNamingService.registerInstance(taskDO.getServiceName(),

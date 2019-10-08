@@ -12,6 +12,7 @@
  */
 package com.alibaba.nacossync.extension.holder;
 
+import com.alibaba.nacossync.extension.eureka.EurekaNamingService;
 import com.netflix.discovery.shared.resolver.DefaultEndpoint;
 import com.netflix.discovery.shared.resolver.EurekaEndpoint;
 import com.netflix.discovery.shared.transport.EurekaHttpClient;
@@ -21,18 +22,20 @@ import org.springframework.stereotype.Service;
 
 import java.util.function.Supplier;
 
+
 /**
  * @author paderlol
  * @date: 2018-12-31 16:26
  */
 @Service
 @Slf4j
-public class EurekaServerHolder extends AbstractServerHolder<EurekaHttpClient>{
+public class EurekaServerHolder extends AbstractServerHolder<EurekaNamingService> {
     @Override
-    EurekaHttpClient createServer(String clusterId, Supplier<String> serverAddressSupplier, String namespace) {
+    EurekaNamingService createServer(String clusterId, Supplier<String> serverAddressSupplier, String namespace) throws Exception {
         RestTemplateTransportClientFactory restTemplateTransportClientFactory =
                 new RestTemplateTransportClientFactory();
         EurekaEndpoint eurekaEndpoint = new DefaultEndpoint(serverAddressSupplier.get());
-        return restTemplateTransportClientFactory.newClient(eurekaEndpoint);
+        EurekaHttpClient eurekaHttpClient = restTemplateTransportClientFactory.newClient(eurekaEndpoint);
+        return new EurekaNamingService(eurekaHttpClient);
     }
 }
