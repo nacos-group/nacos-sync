@@ -22,18 +22,16 @@ import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
+import com.alibaba.nacossync.extension.eureka.EurekaNamingService;
 import com.alibaba.nacossync.extension.holder.EurekaServerHolder;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.netflix.appinfo.DataCenterInfo;
 import com.netflix.appinfo.InstanceInfo;
+import com.netflix.appinfo.LeaseInfo;
 import com.netflix.appinfo.MyDataCenterInfo;
-import com.netflix.discovery.shared.Application;
-import com.netflix.discovery.shared.transport.EurekaHttpClient;
-import com.netflix.discovery.shared.transport.EurekaHttpResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,14 +45,12 @@ public class NacosSyncToEurekaServiceImpl implements SyncService {
     private Map<String, EventListener> nacosListenerMap = new ConcurrentHashMap<>();
 
     private final MetricsManager metricsManager;
-
     private final SkyWalkerCacheServices skyWalkerCacheServices;
-
     private final NacosServerHolder nacosServerHolder;
     private final EurekaServerHolder eurekaServerHolder;
 
     public NacosSyncToEurekaServiceImpl(MetricsManager metricsManager, SkyWalkerCacheServices skyWalkerCacheServices,
-        NacosServerHolder nacosServerHolder, EurekaServerHolder eurekaServerHolder) {
+                                        NacosServerHolder nacosServerHolder, EurekaServerHolder eurekaServerHolder) {
         this.metricsManager = metricsManager;
         this.skyWalkerCacheServices = skyWalkerCacheServices;
         this.nacosServerHolder = nacosServerHolder;
@@ -64,22 +60,18 @@ public class NacosSyncToEurekaServiceImpl implements SyncService {
     @Override
     public boolean delete(TaskDO taskDO) {
         try {
-
             NamingService sourceNamingService =
-                nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
-            EurekaHttpClient eurekaHttpClient =
-                eurekaServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
+                    nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
+            EurekaNamingService destNamingService =
+                    eurekaServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
 
             sourceNamingService.unsubscribe(taskDO.getServiceName(), nacosListenerMap.get(taskDO.getTaskId()));
-
             // 删除目标集群中同步的实例列表
-            EurekaHttpResponse<Application> eurekaHttpResponse =
-                eurekaHttpClient.getApplication(taskDO.getServiceName());
-            if (Objects.requireNonNull(HttpStatus.resolve(eurekaHttpResponse.getStatusCode())).is2xxSuccessful()) {
-                List<InstanceInfo> allInstances = eurekaHttpResponse.getEntity().getInstances();
+            List<InstanceInfo> allInstances = destNamingService.getApplications(taskDO.getServiceName());
+            if (allInstances != null) {
                 for (InstanceInfo instance : allInstances) {
                     if (needDelete(instance.getMetadata(), taskDO)) {
-                        eurekaHttpClient.cancel(instance.getAppName(), instance.getId());
+                        destNamingService.deregisterInstance(instance);
                     }
                 }
             }
@@ -95,37 +87,33 @@ public class NacosSyncToEurekaServiceImpl implements SyncService {
     public boolean sync(TaskDO taskDO) {
         try {
             NamingService sourceNamingService =
-                nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
-            EurekaHttpClient eurekaHttpClient =
-                eurekaServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
+                    nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
+            EurekaNamingService destNamingService =
+                    eurekaServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
 
             nacosListenerMap.putIfAbsent(taskDO.getTaskId(), event -> {
                 if (event instanceof NamingEvent) {
                     try {
-                        Set<String> instanceKeySet = new HashSet();
+                        Set<String> instanceKeySet = new HashSet<>();
                         List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName());
                         // 先将新的注册一遍
                         for (Instance instance : sourceInstances) {
                             if (needSync(instance.getMetadata())) {
-
-                                eurekaHttpClient.register(buildSyncInstance(instance, taskDO));
-                                instance.getInstanceId();
+                                destNamingService.registerInstance(buildSyncInstance(instance, taskDO));
                                 instanceKeySet.add(composeInstanceKey(instance.getIp(), instance.getPort()));
                             }
                         }
-                        EurekaHttpResponse<Application> eurekaHttpResponse =
-                                eurekaHttpClient.getApplication(taskDO.getServiceName());
-                        if (Objects.requireNonNull(HttpStatus.resolve(eurekaHttpResponse.getStatusCode())).is2xxSuccessful()) {
-                            List<InstanceInfo> allInstances = eurekaHttpResponse.getEntity().getInstances();
+                        // 再将不存在的删掉
+                        List<InstanceInfo> allInstances = destNamingService.getApplications(taskDO.getServiceName());
+                        if (allInstances != null){
                             for (InstanceInfo instance : allInstances) {
-                                if (needDelete(instance.getMetadata(), taskDO)&&!instanceKeySet.contains(composeInstanceKey(instance.getIPAddr(),
+                                if (needDelete(instance.getMetadata(), taskDO) && !instanceKeySet.contains(composeInstanceKey(instance.getIPAddr(),
                                         instance.getPort()))) {
-                                    eurekaHttpClient.cancel(instance.getAppName(), instance.getId());
+                                    destNamingService.deregisterInstance(instance);
                                 }
+
                             }
                         }
-                        // 再将不存在的删掉
-
                     } catch (Exception e) {
                         log.error("event process fail, taskId:{}", taskDO.getTaskId(), e);
                         metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
@@ -135,7 +123,7 @@ public class NacosSyncToEurekaServiceImpl implements SyncService {
 
             sourceNamingService.subscribe(taskDO.getServiceName(), nacosListenerMap.get(taskDO.getTaskId()));
         } catch (Exception e) {
-            log.error("sync task from nacos to eureka was failed, taskId:{}", taskDO.getTaskId(), e);
+            log.error("sync task from eureka to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
             metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
             return false;
         }
@@ -146,18 +134,44 @@ public class NacosSyncToEurekaServiceImpl implements SyncService {
         return ip + ":" + port;
     }
 
-    public InstanceInfo buildSyncInstance(Instance instance, TaskDO taskDO) {
+    private InstanceInfo buildSyncInstance(Instance instance, TaskDO taskDO) {
         DataCenterInfo dataCenterInfo = new MyDataCenterInfo(DataCenterInfo.Name.MyOwn);
-        InstanceInfo instanceInfo = InstanceInfo.Builder.newBuilder().setAppName(taskDO.getServiceName())
-            .setActionType(InstanceInfo.ActionType.ADDED).setIPAddr(instance.getIp()).setPort(instance.getPort())
-            .setStatus(InstanceInfo.InstanceStatus.UP).add(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId())
-                .setHostName(instance.getInstanceId()).setInstanceId(instance.getInstanceId())
-                .setDataCenterInfo(dataCenterInfo)
-                .add(SkyWalkerConstants.SYNC_SOURCE_KEY,
-                skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode())
-            .add(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId()).build();
+        HashMap<String, String> metadata = new HashMap<>(16);
+        metadata.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
+        metadata.put(SkyWalkerConstants.SYNC_SOURCE_KEY, skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
+        metadata.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
+        String homePageUrl = "http://" + instance.getIp() + ":" + instance.getPort();
+        String serviceName = taskDO.getServiceName();
 
-        return instanceInfo;
+        return new InstanceInfo(
+                instance.getIp() + ":" + serviceName + ":" + instance.getPort(),
+                serviceName,
+                null,
+                instance.getIp(),
+                null,
+                new InstanceInfo.PortWrapper(true, instance.getPort()),
+                null,
+                homePageUrl,
+                homePageUrl + "/info",
+                homePageUrl + "/health",
+                null,
+                serviceName,
+                serviceName,
+                1,
+                dataCenterInfo,
+                instance.getIp(),
+                InstanceInfo.InstanceStatus.UP,
+                InstanceInfo.InstanceStatus.UNKNOWN,
+                null,
+                new LeaseInfo(30, 90,
+                        0L, 0L, 0L, 0L, 0L),
+                false,
+                metadata,
+                System.currentTimeMillis(),
+                System.currentTimeMillis(),
+                null,
+                null
+        );
     }
 
 }
