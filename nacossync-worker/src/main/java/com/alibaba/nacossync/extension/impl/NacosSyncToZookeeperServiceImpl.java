@@ -196,14 +196,14 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
             skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
         metaData.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
-        int weight = Integer.parseInt(new DecimalFormat("0").format(Math.ceil(instance.getWeight())));
-        metaData.put(DubboConstants.WEIGHT_KEY, Integer.toString(weight));
 
         String servicePath = monitorPath.computeIfAbsent(taskDO.getTaskId(),
             key -> convertDubboProvidersPath(metaData.get(DubboConstants.INTERFACE_KEY)));
 
         return convertDubboFullPathForZk(metaData, servicePath, instance.getIp(), instance.getPort());
     }
+
+
 
     /**
      * 获取zk path child 监听缓存类
