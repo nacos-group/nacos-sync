@@ -42,12 +42,34 @@ Info |      +------------+                   ^
      - NacosCluster target will dedup the synchronization information from Nacos.
      
 
+
+
+
+
+
+
 ## Quick Start:
  - Swagger API: http://127.0.0.1:8081/swagger-ui.html#/
  - Web Console: http://127.0.0.1:8081/
  - Others: TBD
 
 # NacosSync Migration User Guide
+
+## Support migration type
+
+| Source    | Target    | Support | Note                                                         |
+| --------- | --------- | ------- | ------------------------------------------------------------ |
+| Nacos     | Nacos     | Yes     | Only supports the same version of Nacos migration,**especially** the version of **0.8** migrates to 1.0 or above. |
+| Nacos     | Zookeeper | Yes     | Only support registery center of **Dubbo**                   |
+| Nacos     | Consul    | Yes     | Only support  registery center of **Spring Cloud**           |
+| Nacos     | Eureka    | Yes     | Only support  registery center of **Spring Cloud**           |
+| Zookeeper | Nacos     | Yes     | Only support registery center of **Dubbo**                   |
+| Consul    | Nacos     | Yes     | Only support  registery center of **Spring Cloud**           |
+| Eureka    | Nacos     | Yes     | Only support  registery center of **Spring Cloud**           |
+
+
+
+
 
 ## Manual Goal
 
@@ -140,6 +162,7 @@ sh startup.sh  start
 http://127.0.0.1:8081/#/serviceSync
 
 ```
+
 
 
 
