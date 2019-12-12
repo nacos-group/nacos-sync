@@ -16,7 +16,7 @@
     <parent>
         <artifactId>nacossync-parent</artifactId>
         <groupId>com.alibaba.nacossync</groupId>
-        <version>0.3.2</version>
+        <version>0.3.3</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 

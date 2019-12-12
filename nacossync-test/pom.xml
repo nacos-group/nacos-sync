@@ -17,7 +17,7 @@
     <parent>
         <artifactId>nacossync-parent</artifactId>
         <groupId>com.alibaba.nacossync</groupId>
-        <version>0.3.2</version>
+        <version>0.3.3</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
@@ -40,7 +40,7 @@
         <dependency>
             <groupId>com.alibaba.nacossync</groupId>
             <artifactId>nacossync-worker</artifactId>
-            <version>0.3.2</version>
+            <version>0.3.3</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
