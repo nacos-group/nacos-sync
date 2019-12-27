@@ -16,17 +16,6 @@
  */
 package com.alibaba.nacossync.cache;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
-
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.TypeReference;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
@@ -36,6 +25,16 @@ import com.alibaba.nacossync.pojo.FinishedTask;
 import com.alibaba.nacossync.pojo.model.ClusterDO;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
+import org.jboss.netty.util.internal.ThreadLocalRandom;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author NacosSync
@@ -52,7 +51,7 @@ public class SkyWalkerCacheServices {
     public String getClusterConnectKey(String clusterId) {
         List<String> allClusterConnectKey = getAllClusterConnectKey(clusterId);
 
-        Random random = new Random();
+        Random random = new ThreadLocalRandom();
         return allClusterConnectKey.get(random.nextInt(allClusterConnectKey.size()));
     }
 

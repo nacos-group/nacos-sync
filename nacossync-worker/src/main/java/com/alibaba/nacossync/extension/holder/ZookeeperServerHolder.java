@@ -28,7 +28,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @Slf4j
-public class ZookeeperServerHolder extends AbstractServerHolder<CuratorFramework> {
+public class ZookeeperServerHolder extends AbstractServerHolderImpl<CuratorFramework> {
 
 
     @Override
