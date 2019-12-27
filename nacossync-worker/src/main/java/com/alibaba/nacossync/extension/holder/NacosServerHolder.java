@@ -27,7 +27,7 @@ import java.util.Properties;
  */
 @Service
 @Slf4j
-public class NacosServerHolder extends AbstractServerHolder<NamingService> {
+public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
 
     @Override
     NamingService createServer(String clusterId, Supplier<String> serverAddressSupplier, String namespace) throws Exception {

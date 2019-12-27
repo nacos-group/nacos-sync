@@ -86,7 +86,7 @@ public class NacosSyncToConsulServiceImpl implements SyncService {
                 }
             }
         } catch (Exception e) {
-            log.error("delete task from nacos to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
+            log.error("delete a task from nacos to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
             metricsManager.recordError(MetricsStatisticsType.DELETE_ERROR);
             return false;
         }

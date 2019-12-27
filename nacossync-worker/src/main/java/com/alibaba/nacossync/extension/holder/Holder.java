@@ -13,7 +13,7 @@
 package com.alibaba.nacossync.extension.holder;
 
 /**
- * cluster client service
+ * Cluster client service
  * @author paderlol
  * @date 2018-12-24 21:59
  */

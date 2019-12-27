@@ -25,7 +25,7 @@ import java.net.URL;
  */
 @Service
 @Slf4j
-public class ConsulServerHolder extends AbstractServerHolder<ConsulClient> {
+public class ConsulServerHolder extends AbstractServerHolderImpl<ConsulClient> {
 
     public static final String HTTP = "http://";
 
