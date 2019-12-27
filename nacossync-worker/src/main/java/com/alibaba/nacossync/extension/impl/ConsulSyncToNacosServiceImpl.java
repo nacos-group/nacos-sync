@@ -74,6 +74,7 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
             List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName());
             for (Instance instance : allInstances) {
                 if (needDelete(instance.getMetadata(), taskDO)) {
+
                     destNamingService.deregisterInstance(taskDO.getServiceName(), instance.getIp(), instance.getPort());
                 }
             }
@@ -94,26 +95,26 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
             Response<List<HealthService>> response =
                 consulClient.getHealthServices(taskDO.getServiceName(), true, QueryParams.DEFAULT);
             List<HealthService> healthServiceList = response.getValue();
-            Set<String> instanceKeySet = new HashSet<>();
+            Set<String> instanceKeys = new HashSet<>();
             for (HealthService healthService : healthServiceList) {
                 if (needSync(ConsulUtils.transferMetadata(healthService.getService().getTags()))) {
-
                     destNamingService.registerInstance(taskDO.getServiceName(),
                         buildSyncInstance(healthService, taskDO));
-                    instanceKeySet.add(composeInstanceKey(healthService.getService().getAddress(),
+                    instanceKeys.add(composeInstanceKey(healthService.getService().getAddress(),
                         healthService.getService().getPort()));
                 }
             }
             List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName());
             for (Instance instance : allInstances) {
                 if (needDelete(instance.getMetadata(), taskDO)
-                    && !instanceKeySet.contains(composeInstanceKey(instance.getIp(), instance.getPort()))) {
+                    && !instanceKeys.contains(composeInstanceKey(instance.getIp(), instance.getPort()))) {
+
                     destNamingService.deregisterInstance(taskDO.getServiceName(), instance.getIp(), instance.getPort());
                 }
             }
             specialSyncEventBus.subscribe(taskDO, this::sync);
         } catch (Exception e) {
-            log.error("sync task from consul to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
+            log.error("Sync task from consul to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
             metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
             return false;
         }

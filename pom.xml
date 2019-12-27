@@ -18,7 +18,7 @@
 
     <groupId>com.alibaba.nacossync</groupId>
     <artifactId>nacossync-parent</artifactId>
-    <version>0.3.3</version>
+    <version>0.3.4</version>
     <modules>
         <module>nacossync-console</module>
         <module>nacossync-worker</module>
@@ -37,7 +37,7 @@
         <url>git@github.com:nacos-group/nacos-sync.git</url>
         <connection>scm:git@github.com:nacos-group/nacos-sync.git</connection>
         <developerConnection>scm:git@github.com:nacos-group/nacos-sync.git</developerConnection>
-        <tag>nacossync-0.3.3</tag>
+        <tag>nacossync-0.3.4</tag>
     </scm>
     <developers>
         <developer>
@@ -73,7 +73,7 @@
             <dependency>
                 <groupId>com.alibaba.nacossync</groupId>
                 <artifactId>nacossync-worker</artifactId>
-                <version>0.3.3</version>
+                <version>0.3.4</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

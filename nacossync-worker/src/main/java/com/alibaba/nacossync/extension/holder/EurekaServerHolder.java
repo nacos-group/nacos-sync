@@ -29,7 +29,7 @@ import java.util.function.Supplier;
  */
 @Service
 @Slf4j
-public class EurekaServerHolder extends AbstractServerHolder<EurekaNamingService> {
+public class EurekaServerHolder extends AbstractServerHolderImpl<EurekaNamingService> {
     @Override
     EurekaNamingService createServer(String clusterId, Supplier<String> serverAddressSupplier, String namespace) throws Exception {
         RestTemplateTransportClientFactory restTemplateTransportClientFactory =

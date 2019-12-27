@@ -14,19 +14,21 @@ package com.alibaba.nacossync.extension.holder;
 
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.google.common.base.Joiner;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.util.Strings;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * @author paderlol
  * @date 2018-12-24 22:08
  */
 @Slf4j
-public abstract class AbstractServerHolder<T> implements Holder {
+public abstract class AbstractServerHolderImpl<T> implements Holder {
 
     private final Map<String, T> serviceMap = new ConcurrentHashMap<>();
     @Autowired
@@ -34,16 +36,16 @@ public abstract class AbstractServerHolder<T> implements Holder {
 
     @Override
     public T get(String clusterId, String namespace) {
-        final String finalNamespace = Optional.ofNullable(namespace).orElse("");
-        String key = Joiner.on("_").join(clusterId,finalNamespace);
-        log.info("starting create cluster server,clusterId={}", clusterId);
+        final String finalNamespace = Optional.ofNullable(namespace).orElse(Strings.EMPTY);
+        String key = Joiner.on("_").join(clusterId, finalNamespace);
+
         serviceMap.computeIfAbsent(key, clusterKey -> {
             try {
-                return createServer(clusterId,
-                        () -> skyWalkerCacheServices.getClusterConnectKey(clusterId),
-                        finalNamespace);
+                log.info("Starting create cluster server, clusterId={}", clusterId);
+                return createServer(clusterId, () -> skyWalkerCacheServices.getClusterConnectKey(clusterId),
+                    finalNamespace);
             } catch (Exception e) {
-                log.error(String.format("clusterId=%s,start server failed", clusterId), e);
+                log.error(String.format("clusterId=%s, start server failed", clusterId), e);
                 return null;
             }
         });
@@ -52,16 +54,14 @@ public abstract class AbstractServerHolder<T> implements Holder {
     }
 
     /**
-     * create real cluster client instance
+     * Create real cluster client instance
      *
      * @param clusterId cluster id
      * @param serverAddressSupplier server address
      * @param namespace name space
      * @return cluster client instance
      */
-    abstract T createServer(String clusterId, Supplier<String> serverAddressSupplier,
-            String namespace)
-            throws Exception;
-
+    abstract T createServer(String clusterId, Supplier<String> serverAddressSupplier, String namespace)
+        throws Exception;
 
 }
