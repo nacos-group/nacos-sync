@@ -130,7 +130,7 @@ nacosSync
 
 The default is Mysql database, which can support other relational databases
 
-- Build db schema, the default schema name nacos_Sync.
+- Build db schema, the default schema name nacos_sync.
 - Tables do not need to be created separately, which is conducive to hibernate's automatic table creation function.
 - If the automatic table creation fails, you can build the table nacosSync.sql, the table statement is in the bin folder.
 

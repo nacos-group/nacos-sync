@@ -1,5 +1,5 @@
 /******************************************/
-/*   DB name = nacos_Sync   */
+/*   DB name = nacos_sync   */
 /*   Table name = cluster   */
 /******************************************/
 CREATE TABLE `cluster` (
@@ -11,7 +11,7 @@ CREATE TABLE `cluster` (
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 /******************************************/
-/*   DB name = nacos_Sync   */
+/*   DB name = nacos_sync   */
 /*   Table name = system_config   */
 /******************************************/
 CREATE TABLE `system_config` (
@@ -22,7 +22,7 @@ CREATE TABLE `system_config` (
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 /******************************************/
-/*   DB name = nacos_Sync   */
+/*   DB name = nacos_sync   */
 /*   Table name = task   */
 /******************************************/
 CREATE TABLE `task` (
