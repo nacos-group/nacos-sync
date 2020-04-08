@@ -82,7 +82,7 @@ public class EurekaSyncToNacosServiceImplTest {
 
     public void mockSync(TaskDO taskDO) throws Exception {
 
-        EurekaHttpResponse<Application> eurekaHttpResponse = mock(EurekaHttpResponse.class);
+
         Application application = mock(Application.class);
         InstanceInfo instanceInfoUp = InstanceInfo.Builder.newBuilder().setIPAddr("127.0.0.1").setPort(8080)
                 .setStatus(InstanceInfo.InstanceStatus.UP).setAppName("SPRING-CLOUD-EUREKA-CLIENT").build();
@@ -95,9 +95,7 @@ public class EurekaSyncToNacosServiceImplTest {
 
         doReturn(destNamingService).when(nacosServerHolder).get(anyString(), any());
         doReturn(eurekaNamingService).when(eurekaServerHolder).get(anyString(), any());
-        doReturn(eurekaHttpResponse).when(eurekaNamingService).getApplications(any());
-        doReturn(200).when(eurekaHttpResponse).getStatusCode();
-        doReturn(application).when(eurekaHttpResponse).getEntity();
+        doReturn(allInstanceInfo).when(eurekaNamingService).getApplications(any());
         when(application.getInstances()).thenReturn(allInstanceInfo);
         doReturn(ClusterTypeEnum.EUREKA).when(skyWalkerCacheServices).getClusterType(any());
     }

@@ -12,6 +12,7 @@
  */
 package com.alibaba.nacossync.extension.impl;
 
+import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
@@ -28,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.curator.framework.recipes.cache.ChildData;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
+import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
 import org.apache.curator.utils.CloseableUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -85,60 +87,68 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
 
             PathChildrenCache pathChildrenCache = getPathCache(taskDO);
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
-            List<ChildData> currentData = pathChildrenCache.getCurrentData();
-            for (ChildData childData : currentData) {
-                String path = childData.getPath();
-                Map<String, String> queryParam = parseQueryString(childData.getPath());
-                if (isMatch(taskDO, queryParam) && needSync(queryParam)) {
-                    Map<String, String> ipAndPortParam = parseIpAndPortString(path);
-                    Instance instance = buildSyncInstance(queryParam, ipAndPortParam, taskDO);
-                    destNamingService.registerInstance(getServiceNameFromCache(taskDO.getTaskId(), queryParam),
-                        instance);
-                }
-            }
+            // 初次执行任务统一注册所有实例
+            registerAllInstances(taskDO, pathChildrenCache, destNamingService);
+            //注册ZK监听
             Objects.requireNonNull(pathChildrenCache).getListenable().addListener((client, event) -> {
                 try {
 
                     String path = event.getData().getPath();
                     Map<String, String> queryParam = parseQueryString(path);
-
                     if (isMatch(taskDO, queryParam) && needSync(queryParam)) {
-                        Map<String, String> ipAndPortParam = parseIpAndPortString(path);
-                        Instance instance = buildSyncInstance(queryParam, ipAndPortParam, taskDO);
-                        switch (event.getType()) {
-                            case CHILD_ADDED:
-                                destNamingService.registerInstance(
-                                    getServiceNameFromCache(taskDO.getTaskId(), queryParam), instance);
-                                break;
-                            case CHILD_UPDATED:
-
-                                destNamingService.registerInstance(
-                                    getServiceNameFromCache(taskDO.getTaskId(), queryParam), instance);
-                                break;
-                            case CHILD_REMOVED:
-
-                                destNamingService.deregisterInstance(
-                                    getServiceNameFromCache(taskDO.getTaskId(), queryParam),
-                                    ipAndPortParam.get(INSTANCE_IP_KEY),
-                                    Integer.parseInt(ipAndPortParam.get(INSTANCE_PORT_KEY)));
-                                nacosServiceNameMap.remove(taskDO.getTaskId());
-                                break;
-                            default:
-                                break;
-                        }
+                        processEvent(taskDO, destNamingService, event, path, queryParam);
                     }
                 } catch (Exception e) {
-                    log.error("event process from zookeeper to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
+                    log.error("event process from Zookeeper to Nacos was failed, taskId:{}", taskDO.getTaskId(), e);
                     metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
                 }
 
             });
         } catch (Exception e) {
-            log.error("sync task from zookeeper to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
+            log.error("sync task from Zookeeper to Nacos was failed, taskId:{}", taskDO.getTaskId(), e);
             metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
             return false;
         }
         return true;
+    }
+
+    private void processEvent(TaskDO taskDO, NamingService destNamingService, PathChildrenCacheEvent event, String path,
+        Map<String, String> queryParam) throws NacosException {
+        Map<String, String> ipAndPortParam = parseIpAndPortString(path);
+        Instance instance = buildSyncInstance(queryParam, ipAndPortParam, taskDO);
+        switch (event.getType()) {
+            case CHILD_ADDED:
+            case CHILD_UPDATED:
+
+                destNamingService.registerInstance(
+                    getServiceNameFromCache(taskDO.getTaskId(), queryParam), instance);
+                break;
+            case CHILD_REMOVED:
+
+                destNamingService.deregisterInstance(
+                    getServiceNameFromCache(taskDO.getTaskId(), queryParam),
+                    ipAndPortParam.get(INSTANCE_IP_KEY),
+                    Integer.parseInt(ipAndPortParam.get(INSTANCE_PORT_KEY)));
+                nacosServiceNameMap.remove(taskDO.getTaskId());
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void registerAllInstances(TaskDO taskDO, PathChildrenCache pathChildrenCache,
+        NamingService destNamingService) throws NacosException {
+        List<ChildData> currentData = pathChildrenCache.getCurrentData();
+        for (ChildData childData : currentData) {
+            String path = childData.getPath();
+            Map<String, String> queryParam = parseQueryString(childData.getPath());
+            if (isMatch(taskDO, queryParam) && needSync(queryParam)) {
+                Map<String, String> ipAndPortParam = parseIpAndPortString(path);
+                Instance instance = buildSyncInstance(queryParam, ipAndPortParam, taskDO);
+                destNamingService.registerInstance(getServiceNameFromCache(taskDO.getTaskId(), queryParam),
+                    instance);
+            }
+        }
     }
 
     @Override
