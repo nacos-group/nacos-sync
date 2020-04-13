@@ -29,15 +29,24 @@ import com.alibaba.nacossync.util.ConsulUtils;
 import com.ecwid.consul.v1.ConsulClient;
 import com.ecwid.consul.v1.QueryParams;
 import com.ecwid.consul.v1.Response;
+import com.ecwid.consul.v1.coordinate.model.Datacenter;
 import com.ecwid.consul.v1.health.model.HealthService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * Consul 同步 Nacos
- * 
+ *
  * @author paderlol
  * @date: 2018-12-31 16:25
  */
@@ -57,8 +66,8 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
 
     @Autowired
     public ConsulSyncToNacosServiceImpl(ConsulServerHolder consulServerHolder,
-        SkyWalkerCacheServices skyWalkerCacheServices, NacosServerHolder nacosServerHolder,
-        SpecialSyncEventBus specialSyncEventBus) {
+                                        SkyWalkerCacheServices skyWalkerCacheServices, NacosServerHolder nacosServerHolder,
+                                        SpecialSyncEventBus specialSyncEventBus) {
         this.consulServerHolder = consulServerHolder;
         this.skyWalkerCacheServices = skyWalkerCacheServices;
         this.nacosServerHolder = nacosServerHolder;
@@ -92,31 +101,51 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
         try {
             ConsulClient consulClient = consulServerHolder.get(taskDO.getSourceClusterId(), null);
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
-            Response<List<HealthService>> response =
-                consulClient.getHealthServices(taskDO.getServiceName(), true, QueryParams.DEFAULT);
-            List<HealthService> healthServiceList = response.getValue();
+
+            Response<List<Datacenter>> datacenters = consulClient.getDatacenters();
+            List allInstances = datacenters.getValue().stream().map(datacenter -> CompletableFuture.supplyAsync(() -> {
+                List<HealthService> healthServiceList = null;
+                try {
+                    QueryParams queryParams = QueryParams.Builder.builder().setDatacenter(datacenter.getDatacenter()).build();
+                    Response<List<HealthService>> response =
+                            consulClient.getHealthServices(taskDO.getServiceName(), true, queryParams);
+                    healthServiceList = response.getValue();
+
+                } catch (Exception e) {
+                    log.error("Get task from consul failed, taskId:{}, dataCenter:{}", taskDO.getTaskId(), datacenter, e);
+                    metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
+                }
+                return healthServiceList;
+            })).map(future -> {
+                try {
+                    return future.get();
+                } catch (Exception e) {
+                    log.error("Call get method on CompletableFuture failed taskId:{}", taskDO.getTaskId(), e);
+                }
+                return Collections.emptyList();
+            }).flatMap(Collection::stream).collect(Collectors.toList());
+
             Set<String> instanceKeys = new HashSet<>();
-            for (HealthService healthService : healthServiceList) {
+            for (Object obj : allInstances) {
+                HealthService healthService = (HealthService) obj;
                 if (needSync(ConsulUtils.transferMetadata(healthService.getService().getTags()))) {
                     destNamingService.registerInstance(taskDO.getServiceName(),
-                        buildSyncInstance(healthService, taskDO));
+                            buildSyncInstance(healthService, taskDO));
                     instanceKeys.add(composeInstanceKey(healthService.getService().getAddress(),
-                        healthService.getService().getPort()));
+                            healthService.getService().getPort()));
                 }
             }
-            List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName());
-            for (Instance instance : allInstances) {
+            List<Instance> originalInstances = destNamingService.getAllInstances(taskDO.getServiceName());
+            for (Instance instance : originalInstances) {
                 if (needDelete(instance.getMetadata(), taskDO)
-                    && !instanceKeys.contains(composeInstanceKey(instance.getIp(), instance.getPort()))) {
-
+                        && !instanceKeys.contains(composeInstanceKey(instance.getIp(), instance.getPort()))) {
                     destNamingService.deregisterInstance(taskDO.getServiceName(), instance.getIp(), instance.getPort());
                 }
             }
             specialSyncEventBus.subscribe(taskDO, this::sync);
         } catch (Exception e) {
             log.error("Sync task from consul to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
-            metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
-            return false;
+
         }
         return true;
     }
@@ -128,7 +157,7 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
         Map<String, String> metaData = new HashMap<>(ConsulUtils.transferMetadata(instance.getService().getTags()));
         metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
-            skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
+                skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
         metaData.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
         temp.setMetadata(metaData);
         return temp;

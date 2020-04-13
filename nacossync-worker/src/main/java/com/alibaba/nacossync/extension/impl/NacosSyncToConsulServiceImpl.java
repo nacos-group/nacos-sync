@@ -133,6 +133,7 @@ public class NacosSyncToConsulServiceImpl implements SyncService {
                 }
             });
 
+
             sourceNamingService.subscribe(taskDO.getServiceName(), nacosListenerMap.get(taskDO.getTaskId()));
         } catch (Exception e) {
             log.error("sync task from nacos to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
