@@ -14,32 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.nacossync.dao.repository;
+package com.alibaba.nacossync.pojo.request;
 
 import java.util.List;
 
-import javax.transaction.Transactional;
-
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-import org.springframework.data.repository.CrudRepository;
-
-import com.alibaba.nacossync.pojo.model.TaskDO;
+import lombok.Data;
 
 /**
- * @author NacosSync
- * @version $Id: TaskRepository.java, v 0.1 2018-09-25 AM12:04 NacosSync Exp $$
+ * @author yongchao9
+ * @version $Id: TaskBatchDeleteRequest.java, v 0.3.1 2019-06-27 PM14:03 NacosSync Exp $$
  */
-public interface TaskRepository extends CrudRepository<TaskDO, Integer>, JpaRepository<TaskDO, Integer>,
-        JpaSpecificationExecutor<TaskDO> {
 
-    TaskDO findByTaskId(String taskId);
-
-    @Transactional
-    int deleteByTaskId(String taskId);
-    
-    List<TaskDO> findAllByTaskIdIn(List<String> taskIds);
-    
-    List<TaskDO> getAllByWorkerIp(String workerIp);
-
+@Data
+public class TaskDeleteInBatchRequest extends BaseRequest {
+    private List<String> taskIds;
 }
