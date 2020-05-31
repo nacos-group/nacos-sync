@@ -12,6 +12,9 @@
  */
 package com.alibaba.nacossync.extension.impl;
 
+import static com.alibaba.nacossync.util.StringUtils.convertDubboFullPathForZk;
+import static com.alibaba.nacossync.util.StringUtils.convertDubboProvidersPath;
+
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.listener.NamingEvent;
@@ -29,24 +32,20 @@ import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.DubboConstants;
 import com.google.common.collect.Sets;
+import java.io.UnsupportedEncodingException;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.framework.listen.ListenerContainer;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
-import org.apache.curator.framework.recipes.cache.PathChildrenCacheListener;
 import org.apache.curator.utils.CloseableUtils;
 import org.apache.zookeeper.CreateMode;
-import org.apache.zookeeper.KeeperException.NodeExistsException;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.io.UnsupportedEncodingException;
-import java.text.DecimalFormat;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-
-import static com.alibaba.nacossync.util.StringUtils.convertDubboFullPathForZk;
-import static com.alibaba.nacossync.util.StringUtils.convertDubboProvidersPath;
 
 /**
  * Nacos 同步 Zk 数据
@@ -131,6 +130,7 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
             nacosListenerMap.putIfAbsent(taskDO.getTaskId(), event -> {
                 if (event instanceof NamingEvent) {
                     try {
+
                         List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName());
                         Set<String> newInstanceUrlSet = getWaitingToAddInstance(taskDO, client, sourceInstances);
 

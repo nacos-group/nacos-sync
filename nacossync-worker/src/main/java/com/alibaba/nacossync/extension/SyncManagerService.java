@@ -12,22 +12,20 @@
  */
 package com.alibaba.nacossync.extension;
 
+import static com.alibaba.nacossync.util.SkyWalkerUtil.generateSyncKey;
+
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.pojo.model.TaskDO;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Service;
-
-import java.util.Hashtable;
-
-import static com.alibaba.nacossync.util.SkyWalkerUtil.generateSyncKey;
 
 /**
  * @author NacosSync
@@ -37,12 +35,16 @@ import static com.alibaba.nacossync.util.SkyWalkerUtil.generateSyncKey;
 @Service
 public class SyncManagerService implements InitializingBean, ApplicationContextAware {
 
-    @Autowired
-    protected SkyWalkerCacheServices skyWalkerCacheServices;
+    protected final SkyWalkerCacheServices skyWalkerCacheServices;
 
-    private Hashtable<String, SyncService> syncServiceMap = new Hashtable<String, SyncService>();
+    private ConcurrentHashMap<String, SyncService> syncServiceMap = new ConcurrentHashMap<String, SyncService>();
 
     private ApplicationContext applicationContext;
+
+    public SyncManagerService(
+        SkyWalkerCacheServices skyWalkerCacheServices) {
+        this.skyWalkerCacheServices = skyWalkerCacheServices;
+    }
 
     public boolean delete(TaskDO taskDO) throws NacosException {
 

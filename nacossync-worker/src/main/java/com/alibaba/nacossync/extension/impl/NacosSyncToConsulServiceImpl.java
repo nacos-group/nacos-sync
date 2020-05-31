@@ -33,6 +33,8 @@ import com.ecwid.consul.v1.Response;
 import com.ecwid.consul.v1.agent.model.NewService;
 import com.ecwid.consul.v1.health.model.HealthService;
 import com.google.common.collect.Lists;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashSet;
@@ -123,7 +125,8 @@ public class NacosSyncToConsulServiceImpl implements SyncService {
                             if (needDelete(ConsulUtils.transferMetadata(healthService.getService().getTags()), taskDO)
                                 && !instanceKeySet.contains(composeInstanceKey(healthService.getService().getAddress(),
                                     healthService.getService().getPort()))) {
-                                consulClient.agentServiceDeregister(healthService.getService().getId());
+                                consulClient.agentServiceDeregister(URLEncoder
+                                    .encode(healthService.getService().getId(), StandardCharsets.UTF_8.toString()));
                             }
                         }
                     } catch (Exception e) {
@@ -150,7 +153,7 @@ public class NacosSyncToConsulServiceImpl implements SyncService {
         NewService newService = new NewService();
         newService.setAddress(instance.getIp());
         newService.setPort(instance.getPort());
-        newService.setName(instance.getServiceName());
+        newService.setName(taskDO.getServiceName());
         newService.setId(instance.getInstanceId());
         List<String> tags = Lists.newArrayList();
         tags.addAll(instance.getMetadata().entrySet().stream()
@@ -162,6 +165,5 @@ public class NacosSyncToConsulServiceImpl implements SyncService {
         newService.setTags(tags);
         return newService;
     }
-
 
 }
