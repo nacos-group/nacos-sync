@@ -12,6 +12,17 @@
  */
 package com.alibaba.nacossync.extension.impl;
 
+import static com.alibaba.nacossync.util.DubboConstants.GROUP_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.INSTANCE_IP_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.INSTANCE_PORT_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.PROTOCOL_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.VERSION_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.WEIGHT_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.createServiceName;
+import static com.alibaba.nacossync.util.StringUtils.convertDubboProvidersPath;
+import static com.alibaba.nacossync.util.StringUtils.parseIpAndPortString;
+import static com.alibaba.nacossync.util.StringUtils.parseQueryString;
+
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
@@ -25,6 +36,12 @@ import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.extension.holder.ZookeeperServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.curator.framework.recipes.cache.ChildData;
@@ -32,16 +49,6 @@ import org.apache.curator.framework.recipes.cache.PathChildrenCache;
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
 import org.apache.curator.utils.CloseableUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Predicate;
-
-import static com.alibaba.nacossync.util.DubboConstants.*;
-import static com.alibaba.nacossync.util.StringUtils.*;
 
 /**
  * @author paderlol
@@ -221,7 +228,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         temp.setIp(ipAndPortMap.get(INSTANCE_IP_KEY));
         temp.setPort(Integer.parseInt(ipAndPortMap.get(INSTANCE_PORT_KEY)));
         temp.setServiceName(getServiceNameFromCache(taskDO.getTaskId(), queryParam));
-        temp.setWeight(Double.valueOf(queryParam.get(WEIGHT_KEY) == null ? "1.0" : queryParam.get(WEIGHT_KEY)));
+        temp.setWeight(Double.parseDouble(queryParam.get(WEIGHT_KEY) == null ? "1.0" : queryParam.get(WEIGHT_KEY)));
         temp.setHealthy(true);
 
         Map<String, String> metaData = new HashMap<>(queryParam);
