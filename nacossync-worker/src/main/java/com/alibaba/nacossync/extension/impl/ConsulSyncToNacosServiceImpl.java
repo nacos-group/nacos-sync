@@ -12,6 +12,7 @@
  */
 package com.alibaba.nacossync.extension.impl;
 
+import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
@@ -96,22 +97,8 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
                 consulClient.getHealthServices(taskDO.getServiceName(), true, QueryParams.DEFAULT);
             List<HealthService> healthServiceList = response.getValue();
             Set<String> instanceKeys = new HashSet<>();
-            for (HealthService healthService : healthServiceList) {
-                if (needSync(ConsulUtils.transferMetadata(healthService.getService().getTags()))) {
-                    destNamingService.registerInstance(taskDO.getServiceName(),
-                        buildSyncInstance(healthService, taskDO));
-                    instanceKeys.add(composeInstanceKey(healthService.getService().getAddress(),
-                        healthService.getService().getPort()));
-                }
-            }
-            List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName());
-            for (Instance instance : allInstances) {
-                if (needDelete(instance.getMetadata(), taskDO)
-                    && !instanceKeys.contains(composeInstanceKey(instance.getIp(), instance.getPort()))) {
-
-                    destNamingService.deregisterInstance(taskDO.getServiceName(), instance.getIp(), instance.getPort());
-                }
-            }
+            overrideAllInstance(taskDO, destNamingService, healthServiceList, instanceKeys);
+            cleanAllOldInstance(taskDO, destNamingService, instanceKeys);
             specialSyncEventBus.subscribe(taskDO, this::sync);
         } catch (Exception e) {
             log.error("Sync task from consul to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
@@ -119,6 +106,30 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
             return false;
         }
         return true;
+    }
+
+    private void cleanAllOldInstance(TaskDO taskDO, NamingService destNamingService, Set<String> instanceKeys)
+        throws NacosException {
+        List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName());
+        for (Instance instance : allInstances) {
+            if (needDelete(instance.getMetadata(), taskDO)
+                && !instanceKeys.contains(composeInstanceKey(instance.getIp(), instance.getPort()))) {
+
+                destNamingService.deregisterInstance(taskDO.getServiceName(), instance.getIp(), instance.getPort());
+            }
+        }
+    }
+
+    private void overrideAllInstance(TaskDO taskDO, NamingService destNamingService,
+        List<HealthService> healthServiceList, Set<String> instanceKeys) throws NacosException {
+        for (HealthService healthService : healthServiceList) {
+            if (needSync(ConsulUtils.transferMetadata(healthService.getService().getTags()))) {
+                destNamingService.registerInstance(taskDO.getServiceName(),
+                    buildSyncInstance(healthService, taskDO));
+                instanceKeys.add(composeInstanceKey(healthService.getService().getAddress(),
+                    healthService.getService().getPort()));
+            }
+        }
     }
 
     private Instance buildSyncInstance(HealthService instance, TaskDO taskDO) {

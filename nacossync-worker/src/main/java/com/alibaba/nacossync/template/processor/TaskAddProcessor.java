@@ -16,7 +16,6 @@
  */
 package com.alibaba.nacossync.template.processor;
 
-import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.ClusterAccessService;
 import com.alibaba.nacossync.dao.TaskAccessService;
@@ -29,7 +28,6 @@ import com.alibaba.nacossync.pojo.result.TaskAddResult;
 import com.alibaba.nacossync.template.Processor;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -40,14 +38,18 @@ import org.springframework.stereotype.Service;
 @Service
 public class TaskAddProcessor implements Processor<TaskAddRequest, TaskAddResult> {
 
-    @Autowired
-    private SyncManagerService syncManagerService;
+    private final SyncManagerService syncManagerService;
 
-    @Autowired
-    private TaskAccessService taskAccessService;
+    private final TaskAccessService taskAccessService;
 
-    @Autowired
-    private ClusterAccessService clusterAccessService;
+    private final ClusterAccessService clusterAccessService;
+
+    public TaskAddProcessor(SyncManagerService syncManagerService,
+        TaskAccessService taskAccessService, ClusterAccessService clusterAccessService) {
+        this.syncManagerService = syncManagerService;
+        this.taskAccessService = taskAccessService;
+        this.clusterAccessService = clusterAccessService;
+    }
 
     @Override
     public void process(TaskAddRequest taskAddRequest, TaskAddResult taskAddResult,
