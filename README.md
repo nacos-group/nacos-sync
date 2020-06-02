@@ -1,4 +1,4 @@
-# NacosSync
+# Nacos Sync
 
 ## Function
 
