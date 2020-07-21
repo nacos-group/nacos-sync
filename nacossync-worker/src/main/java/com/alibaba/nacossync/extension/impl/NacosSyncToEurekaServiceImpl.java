@@ -136,11 +136,13 @@ public class NacosSyncToEurekaServiceImpl implements SyncService {
 
     private InstanceInfo buildSyncInstance(Instance instance, TaskDO taskDO) {
         DataCenterInfo dataCenterInfo = new MyDataCenterInfo(DataCenterInfo.Name.MyOwn);
+        final Map<String, String> instanceMetadata = instance.getMetadata();
         HashMap<String, String> metadata = new HashMap<>(16);
         metadata.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
         metadata.put(SkyWalkerConstants.SYNC_SOURCE_KEY, skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
         metadata.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
-        String homePageUrl = "http://" + instance.getIp() + ":" + instance.getPort();
+        metadata.putAll(instanceMetadata);
+        String homePageUrl = obtainHomePageUrl(instance, instanceMetadata);
         String serviceName = taskDO.getServiceName();
 
         return new InstanceInfo(
@@ -151,9 +153,9 @@ public class NacosSyncToEurekaServiceImpl implements SyncService {
                 null,
                 new InstanceInfo.PortWrapper(true, instance.getPort()),
                 null,
-                homePageUrl,
-                homePageUrl + "/info",
-                homePageUrl + "/health",
+                homePageUrl+"/actuator/env",
+                homePageUrl + "/actuator/info",
+                homePageUrl + "/actuator/health",
                 null,
                 serviceName,
                 serviceName,
@@ -173,5 +175,23 @@ public class NacosSyncToEurekaServiceImpl implements SyncService {
                 null
         );
     }
+
+    private String obtainHomePageUrl(Instance instance, Map<String, String> instanceMetadata) {
+        final String managementContextPath =
+            obtainManagementContextPath(instanceMetadata);
+        final String managementPort = instanceMetadata.getOrDefault(SkyWalkerConstants.MANAGEMENT_PORT_KEY,
+            String.valueOf(instance.getPort()));
+        return String.format("http://%s:%s%s",instance.getIp(),managementPort,managementContextPath);
+    }
+
+    private String obtainManagementContextPath(Map<String, String> instanceMetadata) {
+        final String path = instanceMetadata.getOrDefault(SkyWalkerConstants.MANAGEMENT_CONTEXT_PATH_KEY, "");
+        if (path.endsWith("/")) {
+            return path.substring(0, path.length() - 1);
+        }
+        return path;
+    }
+
+
 
 }
