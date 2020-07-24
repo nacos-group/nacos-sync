@@ -15,11 +15,12 @@ package com.alibaba.nacossync.extension.holder;
 import com.alibaba.nacos.api.PropertyKeyConst;
 import com.alibaba.nacos.api.naming.NamingFactory;
 import com.alibaba.nacos.api.naming.NamingService;
+import com.google.common.base.Joiner;
+import java.util.List;
+import java.util.Properties;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import java.util.Properties;
 
 /**
  * @author paderlol
@@ -30,9 +31,13 @@ import java.util.Properties;
 public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
 
     @Override
-    NamingService createServer(String clusterId, Supplier<String> serverAddressSupplier, String namespace) throws Exception {
+    NamingService createServer(String clusterId, Supplier<String> serverAddressSupplier, String namespace)
+        throws Exception {
+        List<String> allClusterConnectKey = skyWalkerCacheServices
+            .getAllClusterConnectKey(clusterId);
+        String serverList = Joiner.on(",").join(allClusterConnectKey);
         Properties properties = new Properties();
-        properties.setProperty(PropertyKeyConst.SERVER_ADDR, serverAddressSupplier.get());
+        properties.setProperty(PropertyKeyConst.SERVER_ADDR, serverList);
         properties.setProperty(PropertyKeyConst.NAMESPACE, namespace);
         return NamingFactory.createNamingService(properties);
     }

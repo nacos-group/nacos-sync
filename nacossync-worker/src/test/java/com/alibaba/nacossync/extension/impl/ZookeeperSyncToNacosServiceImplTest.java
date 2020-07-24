@@ -12,9 +12,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.listen.ListenerContainer;
-import org.apache.curator.framework.recipes.cache.ChildData;
-import org.apache.curator.framework.recipes.cache.PathChildrenCache;
-import org.apache.curator.framework.recipes.cache.PathChildrenCacheListener;
+import org.apache.curator.framework.recipes.cache.*;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -53,7 +51,7 @@ public class ZookeeperSyncToNacosServiceImplTest {
     @Mock
     private NamingService destNamingService;
     @Mock
-    private PathChildrenCache pathChildrenCache;
+    private TreeCache treeCache;
     @InjectMocks
     @Spy
     private ZookeeperSyncToNacosServiceImpl zookeeperSyncToNacosService;
@@ -86,24 +84,23 @@ public class ZookeeperSyncToNacosServiceImplTest {
     }
 
     public boolean mockSync(TaskDO taskDO) throws Exception {
-        List<ChildData> childDataList = spy(ArrayList.class);
-        ListenerContainer<PathChildrenCacheListener> listeners = mock(ListenerContainer.class);
-        childDataList.add(new ChildData(TEST_PATH, null, null));
+        ChildData childData = new ChildData(TEST_PATH, null, null);
+        ListenerContainer<TreeCacheListener> listeners = mock(ListenerContainer.class);
         when(taskDO.getTaskId()).thenReturn(TEST_TASK_ID);
         when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
         when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
         CuratorFramework curatorFramework = mock(CuratorFramework.class);
         doReturn(curatorFramework).when(zookeeperServerHolder).get(any(), any());
         doReturn(destNamingService).when(nacosServerHolder).get(any(), any());
-        doReturn(pathChildrenCache).when(zookeeperSyncToNacosService).getPathCache(any());
-        when(pathChildrenCache.getCurrentData()).thenReturn(childDataList);
+        doReturn(treeCache).when(zookeeperSyncToNacosService).getTreeCache(any());
+        when(treeCache.getCurrentData(any())).thenReturn(childData);
         doReturn(ClusterTypeEnum.ZK).when(skyWalkerCacheServices).getClusterType(any());
-        when(pathChildrenCache.getListenable()).thenReturn(listeners);
+        when(treeCache.getListenable()).thenReturn(listeners);
         return zookeeperSyncToNacosService.sync(taskDO);
     }
 
     public boolean mockDelete(TaskDO taskDO) throws Exception {
-        doNothing().when(pathChildrenCache).close();
+        doNothing().when(treeCache).close();
         Instance instance = mock(Instance.class);
         Map<String, String> metadata = Maps.newHashMap();
         metadata.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, TEST_SOURCE_CLUSTER_ID);
