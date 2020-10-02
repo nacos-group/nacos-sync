@@ -16,15 +16,16 @@
  */
 package com.alibaba.nacossync.template.processor;
 
+import com.alibaba.nacossync.dao.TaskAccessService;
+import com.alibaba.nacossync.event.DeleteTaskEvent;
+import com.alibaba.nacossync.pojo.model.TaskDO;
+import com.alibaba.nacossync.pojo.request.TaskDeleteRequest;
+import com.alibaba.nacossync.pojo.result.BaseResult;
+import com.alibaba.nacossync.template.Processor;
+import com.google.common.eventbus.EventBus;
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import com.alibaba.nacossync.dao.TaskAccessService;
-import com.alibaba.nacossync.pojo.result.BaseResult;
-import com.alibaba.nacossync.pojo.request.TaskDeleteRequest;
-import com.alibaba.nacossync.template.Processor;
 
 /**
  * @author NacosSync
@@ -36,11 +37,15 @@ public class TaskDeleteProcessor implements Processor<TaskDeleteRequest, BaseRes
 
     @Autowired
     private TaskAccessService taskAccessService;
+    @Autowired
+    private EventBus eventBus;
 
     @Override
     public void process(TaskDeleteRequest taskDeleteRequest, BaseResult baseResult,
                         Object... others) {
-
+        TaskDO taskDO = taskAccessService.findByTaskId(taskDeleteRequest.getTaskId());
+        eventBus.post(new DeleteTaskEvent(taskDO));
+        log.info("删除同步任务数据之前，发出一个同步事件:" + taskDO);
         taskAccessService.deleteTaskById(taskDeleteRequest.getTaskId());
     }
 }
