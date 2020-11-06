@@ -1,4 +1,5 @@
 # Except this file !.gitignore 
+.log
 .classpath
 .project
 .settings

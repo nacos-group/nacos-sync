@@ -40,6 +40,7 @@ const I18N_CONF = {
     addSync: '新增同步',
     serviceName: '服务名',
     groupName: '分组',
+    nameSpace: '命名空间',
     sourceCluster: '源集群',
     destCluster: '目标集群',
     instancesCount: '实例数',
@@ -57,6 +58,8 @@ const I18N_CONF = {
   AddSyncDialog: {
     title: '新增同步',
     serviceName: '服务名',
+    nameSpace: '命名空间',
+    nameSpacePlaceholder: '请输入命名空间',
     serviceNamePlaceholder: '请输入服务名',
     groupName: '分组名',
     groupNamePlaceholder: '请输入分组名',
