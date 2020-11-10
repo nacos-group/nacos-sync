@@ -16,17 +16,17 @@
     <parent>
         <artifactId>nacossync-parent</artifactId>
         <groupId>com.alibaba.nacossync</groupId>
-        <version>0.3.8</version>
+        <version>0.4.1</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>nacossync-worker</artifactId>
-    <version>0.3.8</version>
+    <version>0.4.1</version>
     <properties>
         <zookeeper.version>3.4.9</zookeeper.version>
         <curator.version>4.1.0</curator.version>
         <cloud.version>Finchley.SR2</cloud.version>
         <mockito.version>1.10.19</mockito.version>
-        <nacos.client.verison>1.1.4</nacos.client.verison>
+        <nacos.client.verison>1.3.1</nacos.client.verison>
     </properties>
     <dependencyManagement>
         <dependencies>

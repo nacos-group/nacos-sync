@@ -47,6 +47,9 @@ public final class DubboConstants {
     public static final String RELEASE_SEPARATOR_KEY = ".";
     public static final BigDecimal COMPARE_NUMBER = new BigDecimal("7.2");
 
+    public static final String DUBBO_ROOT_PATH = "/dubbo";
+    public static final String ALL_SERVICE_NAME_PATTERN = "*";
+
     /**
      *  if Dubbo version greater than 2.7.2, service name is providers:interface:version:
      *  if Dubbo version less than 2.7.2, service name is providers:interface:version

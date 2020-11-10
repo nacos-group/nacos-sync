@@ -22,11 +22,13 @@ package com.alibaba.nacossync.constant;
  */
 public class SkyWalkerConstants {
 
-    public final static String UNDERLINE            = "_";
+    public static final  String UNDERLINE            = "_";
 
-    public final static String DEST_CLUSTERID_KEY   = "destClusterId";
-    public final static String GROUP_NAME           = "groupName";
-    public final static String SYNC_SOURCE_KEY      = "syncSource";
-    public final static String SOURCE_CLUSTERID_KEY = "sourceClusterId";
+    public static final  String DEST_CLUSTERID_KEY   = "destClusterId";
+    public static final  String GROUP_NAME           = "groupName";
+    public static final String SYNC_SOURCE_KEY      = "syncSource";
+    public static final String SOURCE_CLUSTERID_KEY = "sourceClusterId";
+    public static final String MANAGEMENT_PORT_KEY="management.port";
+    public static final String MANAGEMENT_CONTEXT_PATH_KEY="management.context-path";
 
 }
