@@ -39,7 +39,7 @@ public final class StringUtils {
     private static final Pattern IP_PORT_PATTERN = Pattern
             .compile(".*/(.*)://(\\d+\\.\\d+\\.\\d+\\.\\d+):(\\d+)");
 	private static final Pattern DUBBO_PROVIDER_PATTERN = Pattern
-            .compile("/dubbo/(.*)/providers/");
+            .compile("/dubbo/(.*)/providers/(.*)");
 
     /**
      * parse key-value pair.
