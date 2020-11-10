@@ -37,7 +37,9 @@ public interface TaskRepository extends CrudRepository<TaskDO, Integer>, JpaRepo
 
     @Transactional
     int deleteByTaskId(String taskId);
-
+    
+    List<TaskDO> findAllByTaskIdIn(List<String> taskIds);
+    
     List<TaskDO> getAllByWorkerIp(String workerIp);
 
 }

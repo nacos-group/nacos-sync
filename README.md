@@ -1,4 +1,4 @@
-# NacosSync
+# Nacos Sync
 
 ## Function
 
@@ -103,7 +103,7 @@ The path to the target file:
 
 ``` xml
 
-nacos-sync/nacossync-distribution/target/nacosSync.0.3.0.zip
+nacos-sync/nacossync-distribution/target/nacosSync.0.3.8.zip
 
 ```
 

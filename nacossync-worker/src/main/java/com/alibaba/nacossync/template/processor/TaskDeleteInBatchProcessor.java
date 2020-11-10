@@ -16,36 +16,44 @@
  */
 package com.alibaba.nacossync.template.processor;
 
-import com.alibaba.nacossync.dao.TaskAccessService;
-import com.alibaba.nacossync.event.DeleteTaskEvent;
-import com.alibaba.nacossync.pojo.model.TaskDO;
-import com.alibaba.nacossync.pojo.request.TaskDeleteRequest;
-import com.alibaba.nacossync.pojo.result.BaseResult;
-import com.alibaba.nacossync.template.Processor;
-import com.google.common.eventbus.EventBus;
-import lombok.extern.slf4j.Slf4j;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.alibaba.nacossync.dao.TaskAccessService;
+import com.alibaba.nacossync.pojo.model.TaskDO;
+import com.alibaba.nacossync.pojo.request.TaskDeleteInBatchRequest;
+import com.alibaba.nacossync.pojo.result.BaseResult;
+import com.alibaba.nacossync.template.Processor;
+
+import lombok.extern.slf4j.Slf4j;
+
+
 /**
- * @author NacosSync
- * @version $Id: TaskDeleteProcessor.java, v 0.1 2018-09-30 PM12:52 NacosSync Exp $$
+ * @author yongchao9
+ * @version $Id: TaskBatchDeleteProcessor.java, v 0.3.1 2019-06-27 PM14:33 NacosSync Exp $$
  */
+
 @Slf4j
 @Service
-public class TaskDeleteProcessor implements Processor<TaskDeleteRequest, BaseResult> {
+public class TaskDeleteInBatchProcessor implements Processor<TaskDeleteInBatchRequest, BaseResult> {
 
     @Autowired
     private TaskAccessService taskAccessService;
-    @Autowired
-    private EventBus eventBus;
 
     @Override
-    public void process(TaskDeleteRequest taskDeleteRequest, BaseResult baseResult,
+    public void process(TaskDeleteInBatchRequest taskBatchDeleteRequest, BaseResult baseResult,
                         Object... others) {
-        TaskDO taskDO = taskAccessService.findByTaskId(taskDeleteRequest.getTaskId());
-        eventBus.post(new DeleteTaskEvent(taskDO));
-        log.info("删除同步任务数据之前，发出一个同步事件:" + taskDO);
-        taskAccessService.deleteTaskById(taskDeleteRequest.getTaskId());
+//    	
+//    	String[] taskIds= taskBatchDeleteRequest.getTaskIds();
+//    	List<TaskDO> taskDOs = new ArrayList<TaskDO>();
+//    	for (String taskId : taskIds) {
+//    		TaskDO taskDO = new TaskDO();
+//    		taskDO.setTaskId(taskId);
+//    		taskDOs.add(taskDO);
+//		}
+        taskAccessService.deleteTaskInBatch(taskBatchDeleteRequest.getTaskIds());
     }
 }

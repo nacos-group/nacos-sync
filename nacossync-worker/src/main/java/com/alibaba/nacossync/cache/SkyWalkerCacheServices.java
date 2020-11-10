@@ -16,17 +16,6 @@
  */
 package com.alibaba.nacossync.cache;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
-
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.TypeReference;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
@@ -36,6 +25,14 @@ import com.alibaba.nacossync.pojo.FinishedTask;
 import com.alibaba.nacossync.pojo.model.ClusterDO;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import org.jboss.netty.util.internal.ThreadLocalRandom;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 /**
  * @author NacosSync
@@ -52,16 +49,15 @@ public class SkyWalkerCacheServices {
     public String getClusterConnectKey(String clusterId) {
         List<String> allClusterConnectKey = getAllClusterConnectKey(clusterId);
 
-        Random random = new Random();
-        return allClusterConnectKey.get(random.nextInt(allClusterConnectKey.size()));
+        return allClusterConnectKey.get(ThreadLocalRandom.current().nextInt(allClusterConnectKey.size()));
     }
 
-    public List<String> getAllClusterConnectKey(String clusterId){
+    public List<String> getAllClusterConnectKey(String clusterId) {
         ClusterDO clusterDOS = clusterAccessService.findByClusterId(clusterId);
 
         List<String> connectKeyList = JSONObject.parseObject(clusterDOS.getConnectKeyList(),
-                new TypeReference<List<String>>() {
-                });
+            new TypeReference<List<String>>() {
+            });
 
         if (CollectionUtils.isEmpty(connectKeyList)) {
             throw new SkyWalkerException("getClusterConnectKey empty, clusterId:" + clusterId);

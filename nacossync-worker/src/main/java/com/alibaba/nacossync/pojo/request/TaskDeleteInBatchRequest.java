@@ -14,21 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.nacossync.constant;
+package com.alibaba.nacossync.pojo.request;
+
+import java.util.List;
+
+import lombok.Data;
 
 /**
- * @author NacosSync
- * @version $Id: SkyWalkerConstants.java, v 0.1 2018-09-26 AM12:07 NacosSync Exp $$
+ * @author yongchao9
+ * @version $Id: TaskBatchDeleteRequest.java, v 0.3.1 2019-06-27 PM14:03 NacosSync Exp $$
  */
-public class SkyWalkerConstants {
 
-    public static final  String UNDERLINE            = "_";
-
-    public static final  String DEST_CLUSTERID_KEY   = "destClusterId";
-    public static final  String GROUP_NAME           = "groupName";
-    public static final String SYNC_SOURCE_KEY      = "syncSource";
-    public static final String SOURCE_CLUSTERID_KEY = "sourceClusterId";
-    public static final String MANAGEMENT_PORT_KEY="management.port";
-    public static final String MANAGEMENT_CONTEXT_PATH_KEY="management.context-path";
-
+@Data
+public class TaskDeleteInBatchRequest extends BaseRequest {
+    private List<String> taskIds;
 }

@@ -13,6 +13,7 @@
 package com.alibaba.nacossync.extension.impl;
 
 import com.alibaba.nacos.api.naming.NamingService;
+import com.alibaba.nacos.api.naming.listener.Event;
 import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.listener.NamingEvent;
 import com.alibaba.nacos.api.naming.pojo.Instance;
@@ -42,7 +43,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @NacosSyncService(sourceCluster = ClusterTypeEnum.NACOS, destinationCluster = ClusterTypeEnum.EUREKA)
 public class NacosSyncToEurekaServiceImpl implements SyncService {
-    private Map<String, EventListener> nacosListenerMap = new ConcurrentHashMap<>();
+    private final Map<String, EventListener> nacosListenerMap = new ConcurrentHashMap<>();
 
     private final MetricsManager metricsManager;
     private final SkyWalkerCacheServices skyWalkerCacheServices;
@@ -92,33 +93,7 @@ public class NacosSyncToEurekaServiceImpl implements SyncService {
                     eurekaServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
 
             nacosListenerMap.putIfAbsent(taskDO.getTaskId(), event -> {
-                if (event instanceof NamingEvent) {
-                    try {
-                        Set<String> instanceKeySet = new HashSet<>();
-                        List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName());
-                        // 先将新的注册一遍
-                        for (Instance instance : sourceInstances) {
-                            if (needSync(instance.getMetadata())) {
-                                destNamingService.registerInstance(buildSyncInstance(instance, taskDO));
-                                instanceKeySet.add(composeInstanceKey(instance.getIp(), instance.getPort()));
-                            }
-                        }
-                        // 再将不存在的删掉
-                        List<InstanceInfo> allInstances = destNamingService.getApplications(taskDO.getServiceName());
-                        if (allInstances != null){
-                            for (InstanceInfo instance : allInstances) {
-                                if (needDelete(instance.getMetadata(), taskDO) && !instanceKeySet.contains(composeInstanceKey(instance.getIPAddr(),
-                                        instance.getPort()))) {
-                                    destNamingService.deregisterInstance(instance);
-                                }
-
-                            }
-                        }
-                    } catch (Exception e) {
-                        log.error("event process fail, taskId:{}", taskDO.getTaskId(), e);
-                        metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
-                    }
-                }
+                processNamingEvent(taskDO, sourceNamingService, destNamingService, event);
             });
 
             sourceNamingService.subscribe(taskDO.getServiceName(), nacosListenerMap.get(taskDO.getTaskId()));
@@ -130,17 +105,59 @@ public class NacosSyncToEurekaServiceImpl implements SyncService {
         return true;
     }
 
+    private void processNamingEvent(TaskDO taskDO, NamingService sourceNamingService,
+        EurekaNamingService destNamingService, Event event) {
+        if (event instanceof NamingEvent) {
+            try {
+                Set<String> instanceKeySet = new HashSet<>();
+                List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName());
+                // 先将新的注册一遍
+                addAllNewInstance(taskDO, destNamingService, instanceKeySet, sourceInstances);
+                // 再将不存在的删掉
+                ifNecessaryDelete(taskDO, destNamingService, instanceKeySet);
+            } catch (Exception e) {
+                log.error("event process fail, taskId:{}", taskDO.getTaskId(), e);
+                metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
+            }
+        }
+    }
+
+    private void ifNecessaryDelete(TaskDO taskDO, EurekaNamingService destNamingService, Set<String> instanceKeySet) {
+        List<InstanceInfo> allInstances = destNamingService.getApplications(taskDO.getServiceName());
+        if (allInstances != null){
+            for (InstanceInfo instance : allInstances) {
+                if (needDelete(instance.getMetadata(), taskDO) && !instanceKeySet.contains(composeInstanceKey(instance.getIPAddr(),
+                        instance.getPort()))) {
+                    destNamingService.deregisterInstance(instance);
+                }
+
+            }
+        }
+    }
+
+    private void addAllNewInstance(TaskDO taskDO, EurekaNamingService destNamingService, Set<String> instanceKeySet,
+        List<Instance> sourceInstances) {
+        for (Instance instance : sourceInstances) {
+            if (needSync(instance.getMetadata())) {
+                destNamingService.registerInstance(buildSyncInstance(instance, taskDO));
+                instanceKeySet.add(composeInstanceKey(instance.getIp(), instance.getPort()));
+            }
+        }
+    }
+
     private String composeInstanceKey(String ip, int port) {
         return ip + ":" + port;
     }
 
     private InstanceInfo buildSyncInstance(Instance instance, TaskDO taskDO) {
         DataCenterInfo dataCenterInfo = new MyDataCenterInfo(DataCenterInfo.Name.MyOwn);
+        final Map<String, String> instanceMetadata = instance.getMetadata();
         HashMap<String, String> metadata = new HashMap<>(16);
         metadata.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
         metadata.put(SkyWalkerConstants.SYNC_SOURCE_KEY, skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
         metadata.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
-        String homePageUrl = "http://" + instance.getIp() + ":" + instance.getPort();
+        metadata.putAll(instanceMetadata);
+        String homePageUrl = obtainHomePageUrl(instance, instanceMetadata);
         String serviceName = taskDO.getServiceName();
 
         return new InstanceInfo(
@@ -151,9 +168,9 @@ public class NacosSyncToEurekaServiceImpl implements SyncService {
                 null,
                 new InstanceInfo.PortWrapper(true, instance.getPort()),
                 null,
-                homePageUrl,
-                homePageUrl + "/info",
-                homePageUrl + "/health",
+                homePageUrl+"/actuator/env",
+                homePageUrl + "/actuator/info",
+                homePageUrl + "/actuator/health",
                 null,
                 serviceName,
                 serviceName,
@@ -173,5 +190,23 @@ public class NacosSyncToEurekaServiceImpl implements SyncService {
                 null
         );
     }
+
+    private String obtainHomePageUrl(Instance instance, Map<String, String> instanceMetadata) {
+        final String managementContextPath =
+            obtainManagementContextPath(instanceMetadata);
+        final String managementPort = instanceMetadata.getOrDefault(SkyWalkerConstants.MANAGEMENT_PORT_KEY,
+            String.valueOf(instance.getPort()));
+        return String.format("http://%s:%s%s",instance.getIp(),managementPort,managementContextPath);
+    }
+
+    private String obtainManagementContextPath(Map<String, String> instanceMetadata) {
+        final String path = instanceMetadata.getOrDefault(SkyWalkerConstants.MANAGEMENT_CONTEXT_PATH_KEY, "");
+        if (path.endsWith("/")) {
+            return path.substring(0, path.length() - 1);
+        }
+        return path;
+    }
+
+
 
 }

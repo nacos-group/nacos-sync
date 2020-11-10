@@ -16,25 +16,26 @@
  */
 package com.alibaba.nacossync.api;
 
-import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
-
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
-import com.alibaba.nacossync.pojo.result.*;
 import com.alibaba.nacossync.pojo.request.ClusterAddRequest;
 import com.alibaba.nacossync.pojo.request.ClusterDeleteRequest;
 import com.alibaba.nacossync.pojo.request.ClusterDetailQueryRequest;
 import com.alibaba.nacossync.pojo.request.ClusterListQueryRequest;
+import com.alibaba.nacossync.pojo.result.ClusterAddResult;
+import com.alibaba.nacossync.pojo.result.ClusterDeleteResult;
+import com.alibaba.nacossync.pojo.result.ClusterDetailQueryResult;
+import com.alibaba.nacossync.pojo.result.ClusterListQueryResult;
+import com.alibaba.nacossync.pojo.result.ClusterTypeResult;
 import com.alibaba.nacossync.template.SkyWalkerTemplate;
 import com.alibaba.nacossync.template.processor.ClusterAddProcessor;
 import com.alibaba.nacossync.template.processor.ClusterDeleteProcessor;
 import com.alibaba.nacossync.template.processor.ClusterDetailQueryProcessor;
 import com.alibaba.nacossync.template.processor.ClusterListQueryProcessor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * @author NacosSync
@@ -44,17 +45,22 @@ import com.alibaba.nacossync.template.processor.ClusterListQueryProcessor;
 @RestController
 public class ClusterApi {
 
-    @Autowired
-    private ClusterAddProcessor clusterAddProcessor;
+    private final ClusterAddProcessor clusterAddProcessor;
 
-    @Autowired
-    private ClusterDeleteProcessor clusterDeleteProcessor;
+    private final ClusterDeleteProcessor clusterDeleteProcessor;
 
-    @Autowired
-    private ClusterDetailQueryProcessor clusterDetailQueryProcessor;
+    private final ClusterDetailQueryProcessor clusterDetailQueryProcessor;
 
-    @Autowired
-    private ClusterListQueryProcessor clusterListQueryProcessor;
+    private final ClusterListQueryProcessor clusterListQueryProcessor;
+
+    public ClusterApi(
+        ClusterAddProcessor clusterAddProcessor, ClusterDeleteProcessor clusterDeleteProcessor,
+        ClusterDetailQueryProcessor clusterDetailQueryProcessor, ClusterListQueryProcessor clusterListQueryProcessor) {
+        this.clusterAddProcessor = clusterAddProcessor;
+        this.clusterDeleteProcessor = clusterDeleteProcessor;
+        this.clusterDetailQueryProcessor = clusterDetailQueryProcessor;
+        this.clusterListQueryProcessor = clusterListQueryProcessor;
+    }
 
     @RequestMapping(path = "/v1/cluster/list", method = RequestMethod.GET)
     public ClusterListQueryResult clusters(ClusterListQueryRequest clusterListQueryRequest) {
