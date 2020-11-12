@@ -4,12 +4,14 @@ import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.client.naming.utils.NetUtils;
 import com.alibaba.nacossync.extension.SyncManagerService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
+import com.alibaba.nacossync.extension.impl.NacosSyncToZookeeperServiceImpl;
 import com.alibaba.nacossync.extension.sharding.ConsistentHashServiceSharding;
 import com.alibaba.nacossync.extension.sharding.ServiceSharding;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.DubboConstants;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
@@ -162,12 +164,14 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
         while (!serviceSharding.getaAddServices(SHARDING_KEY_NAME).isEmpty()) {
             String serviceName = serviceSharding.getaAddServices(SHARDING_KEY_NAME).poll();
             if (taskDOMap.containsKey(DubboConstants.ALL_SERVICE_NAME_PATTERN)) {//如果有配置为* 的 则不用处理单独配置serviceName的task
-                syncManagerService.syncChangeService(taskDOMap.get(DubboConstants.ALL_SERVICE_NAME_PATTERN), serviceName);
+                TaskDO taskDO = buildNewTaskDo(taskDOMap.get(DubboConstants.ALL_SERVICE_NAME_PATTERN), serviceName);
+                ((NacosSyncToZookeeperServiceImpl) syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId())).addSynService(taskDO);
                 log.info("reSubscribe ,{} is add", serviceName);
                 continue;
             }
             if (taskDOMap.containsKey(serviceName)) {//如果有配置变更的serviceName，而且sharding到本server则处理
-                syncManagerService.syncChangeService(taskDOMap.get(serviceName), serviceName);
+                TaskDO taskDO = buildNewTaskDo(taskDOMap.get(serviceName), serviceName);
+                ((NacosSyncToZookeeperServiceImpl) syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId())).addSynService(taskDO);
                 log.info("reSubscribe ,{} is add", serviceName);
             }
         }
@@ -176,13 +180,15 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
     private void synRemoveServices() {
         while (!serviceSharding.getRemoveServices(SHARDING_KEY_NAME).isEmpty()) {
             String serviceName = serviceSharding.getRemoveServices(SHARDING_KEY_NAME).poll();
-            if (taskDOMap.containsKey(DubboConstants.ALL_SERVICE_NAME_PATTERN)) {
-                syncManagerService.deleteChangeService(taskDOMap.get(DubboConstants.ALL_SERVICE_NAME_PATTERN), serviceName);
+            if (taskDOMap.containsKey(DubboConstants.ALL_SERVICE_NAME_PATTERN)) {//如果有配置为* 的 则不用处理单独配置serviceName的task
+                TaskDO taskDO = buildNewTaskDo(taskDOMap.get(DubboConstants.ALL_SERVICE_NAME_PATTERN), serviceName);
+                syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId()).delete(taskDO);
                 log.info("reSubscribe ,{} is remove", serviceName);
                 continue;
             }
-            if (taskDOMap.containsKey(serviceName)) {
-                syncManagerService.deleteChangeService(taskDOMap.get(serviceName), serviceName);
+            if (taskDOMap.containsKey(serviceName)) {//如果有配置变更的serviceName，而且sharding到本server则处理
+                TaskDO taskDO = buildNewTaskDo(taskDOMap.get(serviceName), serviceName);
+                syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId()).delete(taskDO);
                 log.info("reSubscribe ,{} is remove", serviceName);
             }
         }
@@ -193,5 +199,13 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
         if (taskDOMap.containsKey(taskDO.getServiceName())) {
             taskDOMap.remove(taskDO.getServiceName());
         }
+    }
+
+    private TaskDO buildNewTaskDo(TaskDO taskDO, String serviceName) {
+        TaskDO taskDO1 = new TaskDO();
+        BeanUtils.copyProperties(taskDO, taskDO1);
+        taskDO1.setTaskId(serviceName);//需要一个key替换以前的taskid很多封装维度，暂时使用serviceName
+        taskDO1.setServiceName(serviceName);
+        return taskDO1;
     }
 }

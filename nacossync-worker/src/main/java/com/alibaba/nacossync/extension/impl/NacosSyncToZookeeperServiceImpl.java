@@ -25,6 +25,8 @@ import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.extension.holder.ZookeeperServerHolder;
+import com.alibaba.nacossync.extension.impl.extend.NacosSyncToZookeeperServicesSharding;
+import com.alibaba.nacossync.extension.impl.extend.Sharding;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.DubboConstants;
@@ -38,6 +40,7 @@ import org.apache.curator.utils.CloseableUtils;
 import org.apache.zookeeper.CreateMode;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import javax.annotation.Resource;
 import java.io.UnsupportedEncodingException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -94,6 +97,9 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
 
     private static ExecutorService EXECUTOR = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
+    @Resource(type = NacosSyncToZookeeperServicesSharding.class)
+    private Sharding sharding;
+
     @Autowired
     public NacosSyncToZookeeperServiceImpl(SkyWalkerCacheServices skyWalkerCacheServices,
                                            NacosServerHolder nacosServerHolder, ZookeeperServerHolder zookeeperServerHolder) {
@@ -105,9 +111,8 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
     @Override
     public boolean delete(TaskDO taskDO) {
         try {
-
             NamingService sourceNamingService =
-                    //nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
+                    //nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());//
                     nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());//fix with no nameSpaceName
             EventListener eventListener = nacosListenerMap.remove(taskDO.getTaskId());
             PathChildrenCache pathChildrenCache = pathChildrenCacheMap.get(taskDO.getTaskId());
@@ -118,6 +123,7 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
             for (String instanceUrl : instanceUrlSet) {
                 client.delete().quietly().forPath(instanceUrl);
             }
+            sharding.stop(taskDO);
         } catch (Exception e) {
             log.error("delete task from nacos to zk was failed, taskId:{}", taskDO.getTaskId(), e);
             metricsManager.recordError(MetricsStatisticsType.DELETE_ERROR);
@@ -128,42 +134,7 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
 
     @Override
     public boolean sync(TaskDO taskDO) {
-        try {
-            NamingService sourceNamingService =
-                    //nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
-                    nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());//fix with no nameSpaceName
-            CuratorFramework client = zookeeperServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
-            nacosListenerMap.putIfAbsent(taskDO.getTaskId(), event -> {
-                if (event instanceof NamingEvent) {
-                    if (serviceNameSet.set(((NamingEvent) event).getServiceName())) {// add event merge
-                        EXECUTOR.execute(new SyncThread(sourceNamingService, taskDO, client));
-                    /*
-                    try {
-
-                        List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName());
-                        Set<String> newInstanceUrlSet = getWaitingToAddInstance(taskDO, client, sourceInstances);
-
-                        // 获取之前的备份 删除无效实例
-                        deleteInvalidInstances(taskDO, client, newInstanceUrlSet);
-                        // 替换当前备份为最新备份
-                        instanceBackupMap.put(taskDO.getTaskId(), newInstanceUrlSet);
-                        // 尝试恢复因为zk客户端意外断开导致的实例数据
-                        tryToCompensate(taskDO, sourceNamingService, sourceInstances);
-                    } catch (Exception e) {
-                        log.error("event process fail, taskId:{}", taskDO.getTaskId(), e);
-                        metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
-
-                    }*/
-                    }
-                }
-            });
-
-            sourceNamingService.subscribe(taskDO.getServiceName(), nacosListenerMap.get(taskDO.getTaskId()));
-        } catch (Exception e) {
-            log.error("sync task from nacos to zk was failed, taskId:{}", taskDO.getTaskId(), e);
-            metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
-            return false;
-        }
+        sharding.start(taskDO);
         return true;
     }
 
@@ -256,6 +227,7 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
 
     }
 
+
     private class SyncThread implements Runnable {
 
         NamingService sourceNamingService;
@@ -302,6 +274,28 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
             }
         }
         return sourceInstances;
+    }
+
+    public boolean addSynService(TaskDO taskDO) {
+        try {
+            NamingService sourceNamingService =
+                    //nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
+                    nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());//fix with no nameSpaceName
+            CuratorFramework client = zookeeperServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
+            nacosListenerMap.putIfAbsent(taskDO.getTaskId(), event -> {
+                if (event instanceof NamingEvent) {
+                    if (serviceNameSet.set(((NamingEvent) event).getServiceName())) {// add event merge
+                        EXECUTOR.execute(new SyncThread(sourceNamingService, taskDO, client));
+                    }
+                }
+            });
+            sourceNamingService.subscribe(taskDO.getServiceName(), nacosListenerMap.get(taskDO.getTaskId()));
+        } catch (Exception e) {
+            log.error("sync task from nacos to zk was failed, taskId:{}", taskDO.getTaskId(), e);
+            metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
+            return false;
+        }
+        return true;
     }
 
 }
