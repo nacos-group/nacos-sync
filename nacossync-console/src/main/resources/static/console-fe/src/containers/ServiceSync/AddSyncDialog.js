@@ -19,6 +19,7 @@ class AddSyncDialog extends React.Component {
       visible: false,
       destClusterId: '',
       groupName: '',
+      nameSpace: '',
       serviceName: '',
       sourceClusterId: '',
       version: '',
