@@ -2,11 +2,13 @@ package com.alibaba.nacossync.extension.impl.extend;
 
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.client.naming.utils.NetUtils;
+import com.alibaba.nacossync.constant.ShardingLogTypeEnum;
 import com.alibaba.nacossync.extension.SyncManagerService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.extension.impl.NacosSyncToZookeeperServiceImpl;
 import com.alibaba.nacossync.extension.sharding.ConsistentHashServiceSharding;
 import com.alibaba.nacossync.extension.sharding.ServiceSharding;
+import com.alibaba.nacossync.pojo.ShardingLog;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.DubboConstants;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
@@ -80,7 +82,8 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
         return false;
     }
 
-    protected void reSubscribeService(TaskDO taskDO) {
+    protected synchronized void reSubscribeService(TaskDO taskDO) {
+        log.error("reSubscribe start");
         if (taskDO == null) return;
         try {
             NamingService sourceNamingService =
@@ -90,18 +93,9 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
         } catch (Exception e) {
             log.error("reSubscribe faild,task id:{}", taskDO.getId(), e);
         }
-        if (!serviceSharding.getaAddServices(SHARDING_KEY_NAME).isEmpty()) {
-            log.info("reSubscribe ,local ip: {},add sharding service:{},current sharding service:{}", NetUtils.localIP() + ":serverPort", serviceSharding.getaAddServices(SHARDING_KEY_NAME).toArray(), serviceSharding.getLoacalServices(SHARDING_KEY_NAME).toString());
+        if (!serviceSharding.getChangeServices(SHARDING_KEY_NAME).isEmpty()) {
             try {
-                synAddServices();
-            } catch (Exception e) {
-                log.error("reSubscribe -->sync change service faild,task id:{}", taskDO.getId(), e);
-            }
-        }
-        if (!serviceSharding.getRemoveServices(SHARDING_KEY_NAME).isEmpty()) {
-            log.info("reSubscribe ,local ip: {},delete sharding service:{},current sharding service:{}", NetUtils.localIP() + ":serverPort", serviceSharding.getRemoveServices(SHARDING_KEY_NAME).toArray(), serviceSharding.getLoacalServices(SHARDING_KEY_NAME).toString());
-            try {
-                synRemoveServices();
+                synChangeServices();
             } catch (Exception e) {
                 log.error("reSubscribe -->delete service faild,task id:{}", taskDO.getId(), e);
             }
@@ -141,13 +135,8 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
     }
 
     @Override
-    public Queue<String> getaAddServices() {
-        return serviceSharding.getaAddServices(SHARDING_KEY_NAME);
-    }
-
-    @Override
-    public Queue<String> getRemoveServices() {
-        return serviceSharding.getRemoveServices(SHARDING_KEY_NAME);
+    public Queue<ShardingLog> getChangeService() {
+        return serviceSharding.getChangeServices(SHARDING_KEY_NAME);
     }
 
     @Override
@@ -157,39 +146,49 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
 
     @Override
     public TreeSet<String> getLocalServices(String key) {
-        return serviceSharding.getLoacalServices(key);
+        return serviceSharding.getLocalServices(key);
     }
 
-    private void synAddServices() {
-        while (!serviceSharding.getaAddServices(SHARDING_KEY_NAME).isEmpty()) {
-            String serviceName = serviceSharding.getaAddServices(SHARDING_KEY_NAME).poll();
-            if (taskDOMap.containsKey(DubboConstants.ALL_SERVICE_NAME_PATTERN)) {//如果有配置为* 的 则不用处理单独配置serviceName的task
-                TaskDO taskDO = buildNewTaskDo(taskDOMap.get(DubboConstants.ALL_SERVICE_NAME_PATTERN), serviceName);
-                ((NacosSyncToZookeeperServiceImpl) syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId())).addSynService(taskDO);
-                log.info("reSubscribe ,{} is add", serviceName);
-                continue;
-            }
-            if (taskDOMap.containsKey(serviceName)) {//如果有配置变更的serviceName，而且sharding到本server则处理
-                TaskDO taskDO = buildNewTaskDo(taskDOMap.get(serviceName), serviceName);
-                ((NacosSyncToZookeeperServiceImpl) syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId())).addSynService(taskDO);
-                log.info("reSubscribe ,{} is add", serviceName);
-            }
+
+    private void synAddServices(String serviceName) {
+        if (taskDOMap.containsKey(DubboConstants.ALL_SERVICE_NAME_PATTERN)) {//如果有配置为* 的 则不用处理单独配置serviceName的task
+            TaskDO taskDO = buildNewTaskDo(taskDOMap.get(DubboConstants.ALL_SERVICE_NAME_PATTERN), serviceName);
+            ((NacosSyncToZookeeperServiceImpl) syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId())).addSynService(taskDO);
+            log.info("reSubscribe ,{} is add", serviceName);
+            return;
         }
+        if (taskDOMap.containsKey(serviceName)) {//如果有配置变更的serviceName，而且sharding到本server则处理
+            TaskDO taskDO = buildNewTaskDo(taskDOMap.get(serviceName), serviceName);
+            ((NacosSyncToZookeeperServiceImpl) syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId())).addSynService(taskDO);
+            log.info("reSubscribe ,{} is add", serviceName);
+        }
+
     }
 
-    private void synRemoveServices() {
-        while (!serviceSharding.getRemoveServices(SHARDING_KEY_NAME).isEmpty()) {
-            String serviceName = serviceSharding.getRemoveServices(SHARDING_KEY_NAME).poll();
-            if (taskDOMap.containsKey(DubboConstants.ALL_SERVICE_NAME_PATTERN)) {//如果有配置为* 的 则不用处理单独配置serviceName的task
-                TaskDO taskDO = buildNewTaskDo(taskDOMap.get(DubboConstants.ALL_SERVICE_NAME_PATTERN), serviceName);
-                syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId()).delete(taskDO);
-                log.info("reSubscribe ,{} is remove", serviceName);
-                continue;
+    private void synRemoveServices(String serviceName) {
+        if (taskDOMap.containsKey(DubboConstants.ALL_SERVICE_NAME_PATTERN)) {
+            TaskDO taskDO = buildNewTaskDo(taskDOMap.get(DubboConstants.ALL_SERVICE_NAME_PATTERN), serviceName);
+            syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId()).delete(taskDO);
+            log.info("reSubscribe ,{} is remove", serviceName);
+            return;
+        }
+        if (taskDOMap.containsKey(serviceName)) {
+            TaskDO taskDO = buildNewTaskDo(taskDOMap.get(serviceName), serviceName);
+            syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId()).delete(taskDO);
+            log.info("reSubscribe ,{} is remove", serviceName);
+        }
+
+    }
+
+    private void synChangeServices() {
+        log.info("reSubscribe ,local ip: {},current sharding service:{}", NetUtils.localIP() + ":"+serverPort, serviceSharding.getLocalServices(SHARDING_KEY_NAME).toString());
+        while (!serviceSharding.getChangeServices(SHARDING_KEY_NAME).isEmpty()) {
+            ShardingLog shardingLog = serviceSharding.getChangeServices(SHARDING_KEY_NAME).poll();
+            if (shardingLog.getType().equals(ShardingLogTypeEnum.ADD.getType())) {
+                synAddServices(shardingLog.getServiceName());
             }
-            if (taskDOMap.containsKey(serviceName)) {//如果有配置变更的serviceName，而且sharding到本server则处理
-                TaskDO taskDO = buildNewTaskDo(taskDOMap.get(serviceName), serviceName);
-                syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId()).delete(taskDO);
-                log.info("reSubscribe ,{} is remove", serviceName);
+            if (shardingLog.getType().equals(ShardingLogTypeEnum.DELETE.getType())) {
+                synRemoveServices(shardingLog.getServiceName());
             }
         }
     }

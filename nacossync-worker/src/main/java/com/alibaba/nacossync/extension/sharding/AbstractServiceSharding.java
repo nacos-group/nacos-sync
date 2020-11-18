@@ -3,7 +3,9 @@ package com.alibaba.nacossync.extension.sharding;
 import com.alibaba.nacos.api.naming.listener.Event;
 import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.client.naming.utils.NetUtils;
+import com.alibaba.nacossync.constant.ShardingLogTypeEnum;
 import com.alibaba.nacossync.extension.impl.extend.Sharding;
+import com.alibaba.nacossync.pojo.ShardingLog;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
@@ -23,11 +25,9 @@ public abstract class AbstractServiceSharding implements ServiceSharding, Initia
 
     protected volatile List<String> servers = new LinkedList<String>();
 
-    private Map<String, ConcurrentLinkedQueue<String>> localServicesAddMap = new ConcurrentHashMap<String, ConcurrentLinkedQueue<String>>();
+    private Map<String, ConcurrentLinkedQueue<ShardingLog>> localServicesChangeMap = new ConcurrentHashMap<String, ConcurrentLinkedQueue<ShardingLog>>();
 
-    private Map<String, ConcurrentLinkedQueue<String>> localServicesRemoveMap = new ConcurrentHashMap<String, ConcurrentLinkedQueue<String>>();
-
-    private Map<String, TreeSet<String>> localServicesMap = new ConcurrentHashMap<String, TreeSet<String>>();
+    private volatile Map<String, TreeSet<String>> localServicesMap = new ConcurrentHashMap<String, TreeSet<String>>();
 
     private final static String LOCAL_IP = NetUtils.localIP();
 
@@ -80,18 +80,15 @@ public abstract class AbstractServiceSharding implements ServiceSharding, Initia
 
     }
 
+    //need fix: 暂时同步话解决
     protected void shadingServices(String key, List<String> serviceNames) {
         if (!localServicesMap.containsKey(key)) {
             TreeSet<String> localServicesSet = new TreeSet<String>();
             localServicesMap.putIfAbsent(key, localServicesSet);
         }
-        if (!localServicesAddMap.containsKey(key)) {
-            ConcurrentLinkedQueue<String> addQueue = new ConcurrentLinkedQueue<String>();
-            localServicesAddMap.putIfAbsent(key, addQueue);
-        }
-        if (!localServicesRemoveMap.containsKey(key)) {
-            ConcurrentLinkedQueue<String> removeQueue = new ConcurrentLinkedQueue<String>();
-            localServicesRemoveMap.putIfAbsent(key, removeQueue);
+        if (!localServicesChangeMap.containsKey(key)) {
+            ConcurrentLinkedQueue<ShardingLog> removeQueue = new ConcurrentLinkedQueue<ShardingLog>();
+            localServicesChangeMap.putIfAbsent(key, removeQueue);
         }
         TreeSet<String> localServices = localServicesMap.get(key);
         try {
@@ -99,12 +96,12 @@ public abstract class AbstractServiceSharding implements ServiceSharding, Initia
                 if (getShardingServer(serviceName).equals(LOCAL_IP + ":" + serverPort)) {
                     if (!localServices.contains(serviceName)) {
                         localServicesMap.get(key).add(serviceName);
-                        localServicesAddMap.get(key).offer(serviceName);
+                        localServicesChangeMap.get(key).offer(new ShardingLog(serviceName, ShardingLogTypeEnum.ADD.getType()));
                     }
                 } else {
                     if (localServices.contains(serviceName)) {
                         localServicesMap.get(key).remove(serviceName);
-                        localServicesRemoveMap.get(key).offer(serviceName);
+                        localServicesChangeMap.get(key).offer(new ShardingLog(serviceName, ShardingLogTypeEnum.DELETE.getType()));
                     }
                 }
 
@@ -114,7 +111,7 @@ public abstract class AbstractServiceSharding implements ServiceSharding, Initia
         }
     }
 
-    //目前遗留的问题：按照service维度做sharding，但是在service维度存在zk->nacos nacos->zk两种service，而目前避免环的处理在instance维度的metadata中，如果每次做sharding都去判断instance消耗太大，而且也不能完全避免service中存在多种源的instance，故目前做法是按照zk和nacos注册上的所有
+    //need fix：按照service维度做sharding，但是在service维度存在zk->nacos nacos->zk两种service，而目前避免环的处理在instance维度的metadata中，如果每次做sharding都去判断instance消耗太大，而且也不能完全避免service中存在多种源的instance，故目前做法是按照zk和nacos注册上的所有
     //serviceName List做sharding,可能存在sharding不均衡问题，如导致大部分的service都落在一个node上的可能
     @Override
     public void sharding(String key, List<String> serviceNames) {
@@ -131,17 +128,7 @@ public abstract class AbstractServiceSharding implements ServiceSharding, Initia
     }
 
     @Override
-    public Queue<String> getaAddServices(String key) {
-        return localServicesAddMap.get(key);
-    }
-
-    @Override
-    public Queue<String> getRemoveServices(String key) {
-        return localServicesRemoveMap.get(key);
-    }
-
-    @Override
-    public TreeSet<String> getLoacalServices(String key) {
+    public TreeSet<String> getLocalServices(String key) {
         return localServicesMap.get(key);
     }
 
@@ -152,5 +139,10 @@ public abstract class AbstractServiceSharding implements ServiceSharding, Initia
     @Override
     public void afterPropertiesSet() throws Exception {
         listenServer();
+    }
+
+    @Override
+    public Queue<ShardingLog> getChangeServices(String key) {
+        return localServicesChangeMap.get(key);
     }
 }

@@ -2,6 +2,7 @@ package com.alibaba.nacossync.extension.impl.extend;
 
 import com.alibaba.nacossync.extension.sharding.ConsistentHashServiceSharding;
 import com.alibaba.nacossync.extension.sharding.ServiceSharding;
+import com.alibaba.nacossync.pojo.ShardingLog;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -42,14 +43,10 @@ public class ZookeeperSyncToNacosServiceSharding implements Sharding {
         serviceSharding.addServerChange(SHARDING_KEY_NAME, this);
     }
 
-    @Override
-    public Queue<String> getaAddServices() {
-        return serviceSharding.getaAddServices(SHARDING_KEY_NAME);
-    }
 
     @Override
-    public Queue<String> getRemoveServices() {
-        return serviceSharding.getRemoveServices(SHARDING_KEY_NAME);
+    public Queue<ShardingLog> getChangeService() {
+        return serviceSharding.getChangeServices(SHARDING_KEY_NAME);
     }
 
     @Override
@@ -67,7 +64,7 @@ public class ZookeeperSyncToNacosServiceSharding implements Sharding {
 
     @Override
     public TreeSet<String> getLocalServices(String key) {
-        return serviceSharding.getLoacalServices(SHARDING_KEY_NAME);
+        return serviceSharding.getLocalServices(SHARDING_KEY_NAME);
     }
 
     protected boolean servicesIschanged(List<String> serviceNames) throws Exception {//zk区分不了是service变化还是instance变化
