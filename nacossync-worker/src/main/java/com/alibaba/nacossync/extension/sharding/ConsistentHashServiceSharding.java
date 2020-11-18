@@ -1,6 +1,7 @@
 package com.alibaba.nacossync.extension.sharding;
 
 import com.alibaba.nacos.common.utils.StringUtils;
+import com.alibaba.nacossync.util.SkyWalkerUtil;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
@@ -47,7 +48,7 @@ public class ConsistentHashServiceSharding extends AbstractServiceSharding {
 
     @Override
     public String getShardingServer(String key) {
-        int hash = getHash(key);
+        int hash = getHash(SkyWalkerUtil.StringToMd5(key));
         SortedMap<Integer, String> subMap = virtualNodes.tailMap(hash);
         String virtualNode;
         if (subMap.isEmpty()) {
