@@ -276,7 +276,7 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
         return sourceInstances;
     }
 
-    public boolean addSynService(TaskDO taskDO) {
+    public boolean addSyncService(TaskDO taskDO) {
         try {
             NamingService sourceNamingService =
                     //nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());

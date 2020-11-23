@@ -72,7 +72,7 @@ public abstract class AbstractServiceSharding implements ServiceSharding, Initia
         List<String> serversList = serversManager.getServers();
         Collections.sort(serversList);
         String md5 = SkyWalkerUtil.StringToMd5(serversList.toString());
-        if (!(md5).equals(serverListMd5)) {
+        if (!md5.equals(serverListMd5)) {
             servers = serversList;
             serverListMd5 = md5;
             doSharding();
