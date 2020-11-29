@@ -33,14 +33,14 @@ import java.util.Enumeration;
 import java.util.UUID;
 
 /**
-* @author NacosSync
-* @version $Id: SkyWalkerUtil.java, v 0.1 2018-09-26 AM12:10 NacosSync Exp $$
-*/
+ * @author NacosSync
+ * @version $Id: SkyWalkerUtil.java, v 0.1 2018-09-26 AM12:10 NacosSync Exp $$
+ */
 public class SkyWalkerUtil {
 
     /**
-     *
      * Gets the string md5
+     *
      * @param value
      * @return
      */
@@ -69,6 +69,7 @@ public class SkyWalkerUtil {
 
     /**
      * The rules of generating taskId
+     *
      * @param addTaskRequest
      * @return
      */
@@ -116,6 +117,7 @@ public class SkyWalkerUtil {
 
     /**
      * Avoid getting a return address
+     *
      * @return
      * @throws Exception
      */
@@ -152,5 +154,12 @@ public class SkyWalkerUtil {
     public static String generateOperationId() {
 
         return UUID.randomUUID().toString();
+    }
+
+    public static String getGroupName(String groupName) {
+        if (StringUtils.isEmpty(groupName)) {
+            return "DEFAULT_GROUP";
+        }
+        return groupName;
     }
 }
