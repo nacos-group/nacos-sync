@@ -160,13 +160,18 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
 
     private void registerAllInstances(TaskDO taskDO, NamingService destNamingService) throws Exception {
         CuratorFramework zk = zookeeperServerHolder.get(taskDO.getSourceClusterId(), "");
+        sharding.start(taskDO);//幂等 可重复添加
         if (!ALL_SERVICE_NAME_PATTERN.equals(taskDO.getServiceName())) {
-            registerALLInstances0(taskDO, destNamingService, zk, taskDO.getServiceName());
+            List<String> serviceList = new ArrayList<>();
+            serviceList.add(taskDO.getServiceName());
+            sharding.doSharding(null, serviceList);
+            TreeSet<String> shardingServices = sharding.getLocalServices(null);
+            if (shardingServices.contains(taskDO.getServiceName())) {
+                registerALLInstances0(taskDO, destNamingService, zk, taskDO.getServiceName());
+            }
         } else {
             // 同步全部
             List<String> serviceList = zk.getChildren().forPath(DUBBO_ROOT_PATH);
-            //add
-            sharding.start(taskDO);//幂等 可重复添加
             sharding.doSharding(null, filterNoProviderPath(serviceList));
             TreeSet<String> shardingServices = sharding.getLocalServices(null);
             for (String serviceName : serviceList) {
@@ -364,8 +369,9 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
      */
     private boolean isProcess(TaskDO taskDO, NamingService destNamingService, String serviceName) {
         try {
-            CuratorFramework zk = zookeeperServerHolder.get(taskDO.getSourceClusterId(), "");
-            sharding.doSharding(null, filterNoProviderPath(zk.getChildren().forPath(DUBBO_ROOT_PATH)));
+            List<String> serviceList = new ArrayList<String>();
+            serviceList.add(serviceName);
+            sharding.doSharding(null, serviceList);
             deregisterService(destNamingService, sharding.getChangeService(), taskDO);
             if (sharding.getLocalServices(null).contains(serviceName)) {
                 return true;
