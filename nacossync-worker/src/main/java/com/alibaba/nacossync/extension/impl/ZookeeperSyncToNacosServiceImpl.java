@@ -162,9 +162,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         CuratorFramework zk = zookeeperServerHolder.get(taskDO.getSourceClusterId(), "");
         sharding.start(taskDO);//幂等 可重复添加
         if (!ALL_SERVICE_NAME_PATTERN.equals(taskDO.getServiceName())) {
-            List<String> serviceList = new ArrayList<>();
-            serviceList.add(taskDO.getServiceName());
-            sharding.doSharding(null, serviceList);
+            sharding.doSharding(null, new ArrayList<>(Arrays.asList(taskDO.getServiceName())));
             TreeSet<String> shardingServices = sharding.getLocalServices(null);
             if (shardingServices.contains(taskDO.getServiceName())) {
                 registerALLInstances0(taskDO, destNamingService, zk, taskDO.getServiceName());
@@ -369,9 +367,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
      */
     private boolean isProcess(TaskDO taskDO, NamingService destNamingService, String serviceName) {
         try {
-            List<String> serviceList = new ArrayList<String>();
-            serviceList.add(serviceName);
-            sharding.doSharding(null, serviceList);
+            sharding.doSharding(null, Arrays.asList(serviceName));
             deregisterService(destNamingService, sharding.getChangeService(), taskDO);
             if (sharding.getLocalServices(null).contains(serviceName)) {
                 return true;
