@@ -367,6 +367,8 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
      */
     private boolean isProcess(TaskDO taskDO, NamingService destNamingService, String serviceName) {
         try {
+            if (IGNORED_DUBBO_PATH.contains(serviceName))
+                return false;
             sharding.doSharding(null, new ArrayList<>(Arrays.asList(serviceName)));
             deregisterService(destNamingService, sharding.getChangeService(), taskDO);
             if (sharding.getLocalServices(null).contains(serviceName)) {
