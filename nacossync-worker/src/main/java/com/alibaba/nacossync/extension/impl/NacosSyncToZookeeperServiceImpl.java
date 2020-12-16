@@ -181,10 +181,11 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
             if (needSync(instance.getMetadata())) {
                 log.info("nacos->zk ,real sync service :{},and instance :{}", instance.getServiceName(), instance.getIp());
                 String instanceUrl = buildSyncInstance(instance, taskDO);
-                if (null == client.checkExists().forPath(instanceUrl)) {
-                    client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL)
-                            .forPath(instanceUrl);
+                if (null != client.checkExists().forPath(instanceUrl)) {
+                    client.delete().quietly().forPath(instanceUrl);
                 }
+                client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL)
+                        .forPath(instanceUrl);
                 waitingToAddInstance.add(instanceUrl);
             }
         }
