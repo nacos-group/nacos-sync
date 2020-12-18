@@ -31,5 +31,6 @@ public class TaskModel {
     private String serviceName;
     private String groupName;
     private String taskStatus;
+    private String nameSpace;
 
 }

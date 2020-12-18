@@ -12,20 +12,21 @@
  */
 package com.alibaba.nacossync.extension;
 
-import static com.alibaba.nacossync.util.SkyWalkerUtil.generateSyncKey;
-
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.pojo.model.TaskDO;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Service;
+
+import java.util.concurrent.ConcurrentHashMap;
+
+import static com.alibaba.nacossync.util.SkyWalkerUtil.generateSyncKey;
 
 /**
  * @author NacosSync
@@ -42,20 +43,17 @@ public class SyncManagerService implements InitializingBean, ApplicationContextA
     private ApplicationContext applicationContext;
 
     public SyncManagerService(
-        SkyWalkerCacheServices skyWalkerCacheServices) {
+            SkyWalkerCacheServices skyWalkerCacheServices) {
         this.skyWalkerCacheServices = skyWalkerCacheServices;
     }
 
     public boolean delete(TaskDO taskDO) throws NacosException {
-
         return getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId()).delete(taskDO);
 
     }
 
     public boolean sync(TaskDO taskDO) {
-
         return getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId()).sync(taskDO);
-
     }
 
     @Override
@@ -80,5 +78,4 @@ public class SyncManagerService implements InitializingBean, ApplicationContextA
 
         return syncServiceMap.get(generateSyncKey(sourceClusterType, destClusterType));
     }
-
 }
