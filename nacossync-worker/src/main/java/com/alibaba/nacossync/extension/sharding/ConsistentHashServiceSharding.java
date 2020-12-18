@@ -5,10 +5,7 @@ import com.alibaba.nacossync.util.SkyWalkerUtil;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
-import java.util.LinkedList;
-import java.util.List;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 
 /**
  * Created by maj on 2020/10/27.
@@ -23,7 +20,7 @@ public class ConsistentHashServiceSharding extends AbstractServiceSharding {
 
     private SortedMap<Integer, String> virtualNodes = new TreeMap<Integer, String>();
 
-    private static final int VIRTUAL_COUNT = 5;
+    private static final int VIRTUAL_COUNT = 100;
 
     public ConsistentHashServiceSharding() {
         super();
