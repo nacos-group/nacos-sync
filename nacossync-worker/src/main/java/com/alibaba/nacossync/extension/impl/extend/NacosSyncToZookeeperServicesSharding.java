@@ -13,7 +13,6 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.DubboConstants;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
@@ -53,7 +52,7 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
     private static final long DEFAULT_SERVICES_CHANGE_THREAD_INTERVAL = 5;
 
     //add cache taskDO
-    private Map<String, TaskDO> taskDOMap = new ConcurrentHashMap<>();
+    private volatile Map<String, TaskDO> taskDOMap = new ConcurrentHashMap<>();
 
     @Value("${server.port}")
     private String serverPort;
@@ -64,12 +63,12 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
         public Thread newThread(Runnable r) {
             Thread thread = new Thread(r);
             thread.setDaemon(true);
-            thread.setName(" com.alibaba.nacossync.sharding.getServiceName");
+            thread.setName("com.dmall.dmnacos.sync.getServiceName");
             return thread;
         }
     });
 
-    protected boolean servicesIschanged(TaskDO taskDO) throws Exception {
+    protected List<String> servicesIschanged(TaskDO taskDO) throws Exception {
         NamingService sourceNamingService =
                 nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
         List<String> serviceNames = sourceNamingService.getServicesOfServer(DEFAULT_SERVICE_PAGENO, DEFAULT_SERVICE_PAGE_SIZE, SkyWalkerUtil.getGroupName(taskDO.getGroupName())).getData();
@@ -77,25 +76,26 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
         String md5 = SkyWalkerUtil.StringToMd5(serviceNames.toString());
         if (!md5.equals(serviceListMd5)) {
             serviceListMd5 = md5;
-            return true;
+            return serviceNames;
         }
-        return false;
+        return null;
     }
 
-    protected synchronized void reSubscribeService(TaskDO taskDO) {
-        log.error("reSubscribe start");
-        if (Objects.isNull(taskDO)) return;
+    protected synchronized void reSubscribeService(TaskDO taskDO, List<String> serviceNames) {
+        if (taskDO == null) return;
         try {
             NamingService sourceNamingService =
                     nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
-            List<String> serviceNames = sourceNamingService.getServicesOfServer(DEFAULT_SERVICE_PAGENO, DEFAULT_SERVICE_PAGE_SIZE, taskDO.getGroupName()).getData();//如果使用同一个groupName暂时没问题，如果配置了多个group，需要升级sdk1.4+,支持按照*的group查询
+            if (serviceNames == null) {
+                serviceNames = sourceNamingService.getServicesOfServer(DEFAULT_SERVICE_PAGENO, DEFAULT_SERVICE_PAGE_SIZE, taskDO.getGroupName()).getData();//如果使用同一个groupName暂时没问题，如果配置了多个group，需要升级sdk1.4+,支持按照*的group查询
+            }
             serviceSharding.sharding(SHARDING_KEY_NAME, serviceNames);
         } catch (Exception e) {
             log.error("reSubscribe faild,task id:{}", taskDO.getId(), e);
         }
         if (!serviceSharding.getChangeServices(SHARDING_KEY_NAME).isEmpty()) {
             try {
-                syncChangedServices();
+                synChangeServices();
             } catch (Exception e) {
                 log.error("reSubscribe -->delete service faild,task id:{}", taskDO.getId(), e);
             }
@@ -113,8 +113,9 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
             @Override
             public void run() {
                 try {
-                    if (servicesIschanged(taskDO)) {
-                        reSubscribeService(taskDO);
+                    List<String> changeList = servicesIschanged(taskDO);
+                    if (changeList != null) {
+                        reSubscribeService(taskDO, changeList);
                     }
                 } catch (Exception e) {
                     log.error("schedule reSubscribe service thread faild ,task id :", taskDO.getId(), e);
@@ -127,7 +128,7 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
     public void onServerChange() {
         if (taskDOMap.size() > 0) {
             for (TaskDO taskDO : taskDOMap.values()) {//任意取一个taskDo
-                reSubscribeService(taskDO);
+                reSubscribeService(taskDO, null);
                 return;
             }
 
@@ -150,45 +151,41 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
     }
 
 
-    private void syncAddedServices(String serviceName) {
+    private void synAddServices(String serviceName) {
         if (taskDOMap.containsKey(DubboConstants.ALL_SERVICE_NAME_PATTERN)) {//如果有配置为* 的 则不用处理单独配置serviceName的task
-            TaskDO taskDO = buildNewTaskDo(taskDOMap.get(DubboConstants.ALL_SERVICE_NAME_PATTERN), serviceName);
-            ((NacosSyncToZookeeperServiceImpl) syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId())).addSyncService(taskDO);
-            log.info("reSubscribe ,{} is add", serviceName);
+            TaskDO taskDO = SkyWalkerUtil.buildNewTaskDo(taskDOMap.get(DubboConstants.ALL_SERVICE_NAME_PATTERN), serviceName);
+            ((NacosSyncToZookeeperServiceImpl) syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId())).addSynService(taskDO);
             return;
         }
         if (taskDOMap.containsKey(serviceName)) {//如果有配置变更的serviceName，而且sharding到本server则处理
-            TaskDO taskDO = buildNewTaskDo(taskDOMap.get(serviceName), serviceName);
-            ((NacosSyncToZookeeperServiceImpl) syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId())).addSyncService(taskDO);
-            log.info("reSubscribe ,{} is add", serviceName);
+            TaskDO taskDO = SkyWalkerUtil.buildNewTaskDo(taskDOMap.get(serviceName), serviceName);
+            ((NacosSyncToZookeeperServiceImpl) syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId())).addSynService(taskDO);
         }
 
     }
 
-    private void syncRemovedServices(String serviceName) {
+    private void synRemoveServices(String serviceName) {
         if (taskDOMap.containsKey(DubboConstants.ALL_SERVICE_NAME_PATTERN)) {
-            TaskDO taskDO = buildNewTaskDo(taskDOMap.get(DubboConstants.ALL_SERVICE_NAME_PATTERN), serviceName);
-            syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId()).delete(taskDO);
-            log.info("reSubscribe ,{} is remove", serviceName);
+            TaskDO taskDO = SkyWalkerUtil.buildNewTaskDo(taskDOMap.get(DubboConstants.ALL_SERVICE_NAME_PATTERN), serviceName);
+            ((NacosSyncToZookeeperServiceImpl) syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId())).removeSyncServices(taskDO);
             return;
         }
         if (taskDOMap.containsKey(serviceName)) {
-            TaskDO taskDO = buildNewTaskDo(taskDOMap.get(serviceName), serviceName);
-            syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId()).delete(taskDO);
-            log.info("reSubscribe ,{} is remove", serviceName);
+            TaskDO taskDO = SkyWalkerUtil.buildNewTaskDo(taskDOMap.get(serviceName), serviceName);
+            ((NacosSyncToZookeeperServiceImpl) syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId())).removeSyncServices(taskDO);
         }
 
     }
 
-    private void syncChangedServices() {
-        log.info("reSubscribe ,local ip: {},current sharding service:{}", NetUtils.localIP() + ":" + serverPort, serviceSharding.getLocalServices(SHARDING_KEY_NAME).toString());
+    private void synChangeServices() {
+        log.info("nacos->zk reSubscribe ,local ip: {},current sharding service:{} service count:{} change  service count:{}", NetUtils.localIP() + ":" + serverPort, serviceSharding.getLocalServices(SHARDING_KEY_NAME).toString(), serviceSharding.getLocalServices(SHARDING_KEY_NAME).size(), serviceSharding.getChangeServices(SHARDING_KEY_NAME).size());
         while (!serviceSharding.getChangeServices(SHARDING_KEY_NAME).isEmpty()) {
             ShardingLog shardingLog = serviceSharding.getChangeServices(SHARDING_KEY_NAME).poll();
             if (shardingLog.getType().equals(ShardingLogTypeEnum.ADD.getType())) {
-                syncAddedServices(shardingLog.getServiceName());
+                synAddServices(shardingLog.getServiceName());
             }
             if (shardingLog.getType().equals(ShardingLogTypeEnum.DELETE.getType())) {
-                syncRemovedServices(shardingLog.getServiceName());
+                synRemoveServices(shardingLog.getServiceName());
             }
         }
     }
@@ -200,11 +197,8 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
         }
     }
 
-    private TaskDO buildNewTaskDo(TaskDO taskDO, String serviceName) {
-        TaskDO taskDO1 = new TaskDO();
-        BeanUtils.copyProperties(taskDO, taskDO1);
-        taskDO1.setTaskId(serviceName);//需要一个key替换以前的taskid很多封装维度，暂时使用serviceName
-        taskDO1.setServiceName(serviceName);
-        return taskDO1;
+    @Override
+    public void reShardingIfNeed(boolean isServerChange) {
+
     }
 }

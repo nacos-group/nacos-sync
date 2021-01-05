@@ -23,4 +23,6 @@ public interface Sharding {
     public TreeSet<String> getLocalServices(String key);
 
     public Queue<ShardingLog> getChangeService();
+
+    public void reShardingIfNeed(boolean isServerChange);
 }
