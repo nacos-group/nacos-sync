@@ -13,7 +13,6 @@
 package com.alibaba.nacossync.extension.impl;
 
 import com.alibaba.nacos.api.naming.NamingService;
-import com.alibaba.nacos.api.naming.listener.Event;
 import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.listener.NamingEvent;
 import com.alibaba.nacos.api.naming.pojo.Instance;
@@ -31,12 +30,10 @@ import com.alibaba.nacossync.extension.impl.extend.Sharding;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.DubboConstants;
-import com.alibaba.nacossync.util.ExpirySet;
 import com.google.common.collect.Sets;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
-import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
 import org.apache.zookeeper.CreateMode;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -47,6 +44,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static com.alibaba.nacossync.constant.SkyWalkerConstants.SOURCE_CLUSTERID_KEY;
 import static com.alibaba.nacossync.util.StringUtils.convertDubboFullPathForZk;
 import static com.alibaba.nacossync.util.StringUtils.convertDubboProvidersPath;
 
@@ -93,16 +91,10 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
 
     private final ZookeeperServerHolder zookeeperServerHolder;
 
-    private static ExpirySet<String> serviceNameSet = new ExpirySet<String>();
-
-    private static ExecutorService EXECUTOR = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-
-    private final Map<String, Event> eventTmp = new ConcurrentHashMap<>();
+    private static ExecutorService EXECUTOR = Executors.newFixedThreadPool(100);
 
     @Resource(type = NacosSyncToZookeeperServicesSharding.class)
     private Sharding sharding;
-
-    // int count = 0;
 
     @Autowired
     public NacosSyncToZookeeperServiceImpl(SkyWalkerCacheServices skyWalkerCacheServices,
@@ -116,14 +108,14 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
     public boolean delete(TaskDO taskDO) {
         try {
             NamingService sourceNamingService =
-                    //nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());//
                     nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());//fix with no nameSpaceName
             EventListener eventListener = nacosListenerMap.remove(taskDO.getTaskId());
-            //PathChildrenCache pathChildrenCache = pathChildrenCacheMap.get(taskDO.getTaskId());
             sourceNamingService.unsubscribe(taskDO.getServiceName(), eventListener);
-            //CloseableUtils.closeQuietly(pathChildrenCache);
             Set<String> instanceUrlSet = instanceBackupMap.get(taskDO.getTaskId());
             CuratorFramework client = zookeeperServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
+            if (CollectionUtils.isEmpty(instanceUrlSet)) {
+                return true;
+            }
             for (String instanceUrl : instanceUrlSet) {
                 client.delete().quietly().forPath(instanceUrl);
             }
@@ -142,30 +134,6 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
         return true;
     }
 
-    private void tryToCompensate(TaskDO taskDO, NamingService sourceNamingService, List<Instance> sourceInstances) {
-        if (!CollectionUtils.isEmpty(sourceInstances)) {
-            final PathChildrenCache pathCache = getPathCache(taskDO);
-            if (pathCache.getListenable().size() == 0) { // 防止重复注册
-                pathCache.getListenable().addListener((zkClient, zkEvent) -> {
-                    if (zkEvent.getType() == PathChildrenCacheEvent.Type.CHILD_REMOVED) {
-                        List<Instance> allInstances =
-                                sourceNamingService.getAllInstances(taskDO.getServiceName());
-                        for (Instance instance : allInstances) {
-                            String instanceUrl = buildSyncInstance(instance, taskDO);
-                            String zkInstancePath = zkEvent.getData().getPath();
-                            if (zkInstancePath.equals(instanceUrl)) {
-                                zkClient.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL)
-                                        .forPath(zkInstancePath);
-                                break;
-                            }
-                        }
-                    }
-                });
-            }
-
-        }
-    }
-
     private void deleteInvalidInstances(TaskDO taskDO, CuratorFramework client, Set<String> newInstanceUrlSet)
             throws Exception {
         Set<String> instanceBackup =
@@ -181,23 +149,28 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
     private HashSet<String> getWaitingToAddInstance(TaskDO taskDO, CuratorFramework client,
                                                     List<Instance> sourceInstances) throws Exception {
         HashSet<String> waitingToAddInstance = new HashSet<>();
-        log.info("nacos->zk ,sourceInstances size:" + sourceInstances.size() + " taskDo:" + taskDO.getServiceName());
         for (Instance instance : sourceInstances) {
             if (needSync(instance.getMetadata())) {
-                log.info("nacos->zk ,real sync service :{},and instance :{}", taskDO.getServiceName(), instance.getIp());
                 String instanceUrl = buildSyncInstance(instance, taskDO);
-                if (null == client.checkExists().forPath(instanceUrl)) {
-                    client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL)
-                            .forPath(instanceUrl);
-                } else {
-                    client.delete().quietly().forPath(instanceUrl);
-                    client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL)
-                            .forPath(instanceUrl);
-                    log.info("nacos->zk ,frist delete:" + taskDO.getServiceName());
-                }
+                EXECUTOR.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            if (null == client.checkExists().forPath(instanceUrl)) {
+                                client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL)
+                                        .forPath(instanceUrl);
+                            } else {
+                                client.delete().quietly().forPath(instanceUrl);
+                                client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL)
+                                        .forPath(instanceUrl);
+                            }
+                        } catch (Exception e) {
+                            log.error("insert task from nacos to zk was failed, taskId:{}", taskDO.getTaskId(), e);
+                        }
+                    }
+                });
+
                 waitingToAddInstance.add(instanceUrl);
-            } else {
-                log.info("nacos->zk ,not need sync:" + taskDO.getServiceName());
             }
         }
         return waitingToAddInstance;
@@ -209,11 +182,9 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
         metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
                 skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
-        metaData.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
-
+        metaData.put(SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
         String servicePath = monitorPath.computeIfAbsent(taskDO.getTaskId(),
                 key -> convertDubboProvidersPath(metaData.get(DubboConstants.INTERFACE_KEY)));
-
         return convertDubboFullPathForZk(metaData, servicePath, instance.getIp(), instance.getPort());
     }
 
@@ -242,13 +213,11 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
     public boolean addSynService(TaskDO taskDO) {
         try {
             NamingService sourceNamingService =
-                    //nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
-                    nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());//fix with no nameSpaceName
+                    nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
             CuratorFramework client = zookeeperServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
             nacosListenerMap.putIfAbsent(taskDO.getTaskId(), event -> {
                 if (event instanceof NamingEvent) {
-                    //需要添加防抖策略和多线程支持，否则同步效率很低
-                    sync(sourceNamingService, taskDO, client, ((NamingEvent) event).getInstances());
+                    sync(taskDO, client, ((NamingEvent) event).getInstances(), ((NamingEvent) event).getServiceName());
                 }
             });
             sourceNamingService.subscribe(taskDO.getServiceName(), nacosListenerMap.get(taskDO.getTaskId()));
@@ -273,22 +242,18 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
         }
     }
 
-    private void sync(NamingService sourceNamingService, TaskDO taskDO, CuratorFramework client, List<Instance> sourceInstances) {
+    private void sync(TaskDO taskDO, CuratorFramework client, List<Instance> sourceInstances, String serviceName) {
         try {
             Set<String> newInstanceUrlSet = getWaitingToAddInstance(taskDO, client, sourceInstances);
             // 获取之前的备份 删除无效实例
             deleteInvalidInstances(taskDO, client, newInstanceUrlSet);
             // 替换当前备份为最新备份
             instanceBackupMap.put(taskDO.getTaskId(), newInstanceUrlSet);
-            // 尝试恢复因为zk客户端意外断开导致的实例数据
-            // tryToCompensate(taskDO, sourceNamingService, filterNeedSync(sourceInstances));
         } catch (Exception e) {
             log.error("event process fail, taskId:{}", taskDO.getTaskId(), e);
             metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
-
         } finally {
-            serviceNameSet.remove(taskDO.getServiceName());//如果考虑高实时性 可以手动remove 这样时间窗口的大小就不固定 依赖处理速度 窗口大小作为兜底
+            //serviceNameSet.remove(taskDO.getServiceName());//如果考虑高实时性 可以手动remove 这样时间窗口的大小就不固定 依赖处理速度 窗口大小作为兜底
         }
     }
-
 }

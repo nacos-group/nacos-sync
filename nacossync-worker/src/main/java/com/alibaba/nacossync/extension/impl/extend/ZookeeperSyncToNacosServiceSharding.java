@@ -1,5 +1,7 @@
 package com.alibaba.nacossync.extension.impl.extend;
 
+import com.alibaba.nacos.common.executor.ExecutorFactory;
+import com.alibaba.nacos.common.executor.NameThreadFactory;
 import com.alibaba.nacossync.constant.ShardingLogTypeEnum;
 import com.alibaba.nacossync.extension.SyncManagerService;
 import com.alibaba.nacossync.extension.impl.ZookeeperSyncToNacosServiceImpl;
@@ -17,6 +19,10 @@ import org.springframework.stereotype.Service;
 import javax.annotation.Resource;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+import static com.alibaba.nacossync.util.ZookeeperUtils.filterNoProviderPath;
 
 /**
  * Created by maj on 2020/10/30.
@@ -39,27 +45,46 @@ public class ZookeeperSyncToNacosServiceSharding implements Sharding {
     @Resource(type = ConsistentHashServiceSharding.class)
     private ServiceSharding serviceSharding;
 
+    private ScheduledExecutorService executor = null;
+
 
     @Override
     public void onServerChange() {
-        //log.info("zk->nacos server is change.....");
+        log.info("zk->nacos server is change.....");
         if (taskDOMap.size() > 0) {
             for (TaskDO taskDO : taskDOMap.values()) {//任意取一个taskDo
                 List<String> serviceNames = ((ZookeeperSyncToNacosServiceImpl) syncManagerService.getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId())).getAllServicesFromZk(taskDO);
-                reSubscribeService(taskDO, serviceNames, true);
+                reSubscribeService(filterNoProviderPath(serviceNames));
                 return;
             }
-
         }
+    }
 
+    @Override
+    public boolean isProcess(TaskDO taskDO, String serviceName) {
+        try {
+            if (getLocalServices().contains(serviceName)) {
+                return true;
+            }
+        } catch (Exception e) {
+            log.error("zk->nacos sharding faild ,taskid:{}", taskDO.getId(), e);
+        }
+        return false;
     }
 
     @Override
     public void start(TaskDO taskDO) {
         taskDOMap.putIfAbsent(taskDO.getServiceName(), taskDO);
-        if (!serviceSharding.addServerChange(SHARDING_KEY_NAME, this)) {
-            return;
-        }
+        serviceSharding.addServerChange(SHARDING_KEY_NAME, this);
+        executor = ExecutorFactory
+                .newSingleScheduledExecutorService(new NameThreadFactory("com.alibaba.nacossync.zktonacos.resharding.Thread"));
+
+        executor.scheduleWithFixedDelay(() -> {
+            if (!serviceSharding.getChangeServices(SHARDING_KEY_NAME).isEmpty()) {
+                synChangeServices();
+            }
+        }, 10, 1, TimeUnit.SECONDS);
+
     }
 
 
@@ -74,7 +99,7 @@ public class ZookeeperSyncToNacosServiceSharding implements Sharding {
     }
 
     @Override
-    public TreeSet<String> getLocalServices(String key) {
+    public TreeSet<String> getLocalServices() {
         return serviceSharding.getLocalServices(SHARDING_KEY_NAME);
     }
 
@@ -93,26 +118,19 @@ public class ZookeeperSyncToNacosServiceSharding implements Sharding {
 
     }
 
-    protected synchronized void reSubscribeService(TaskDO taskDO, List<String> serviceNames, boolean isServerChange) {
+    protected void reSubscribeService(List<String> serviceNames) {
         serviceSharding.sharding(SHARDING_KEY_NAME, serviceNames);
-        if (!serviceSharding.getChangeServices(SHARDING_KEY_NAME).isEmpty()) {
-            try {
-                synChangeServices(isServerChange);
-            } catch (Exception e) {
-                log.error("reSubscribe -->delete service faild,task id:{}", taskDO.getId(), e);
-            }
-        }
-
     }
 
-    private void synChangeServices(boolean isServerChange) {
-        // log.info("zk->nacos reSubscribe ,local ip: {},current sharding service:{} service count:{} change  service count:{}，local serviceNames:{}", NetUtils.localIP(), serviceSharding.getLocalServices(SHARDING_KEY_NAME).toString(), serviceSharding.getLocalServices(SHARDING_KEY_NAME).size(), serviceSharding.getChangeServices(SHARDING_KEY_NAME).size(), serviceSharding.getLocalServices(SHARDING_KEY_NAME));
+    protected void reSubscribeServiceWithOutChange(List<String> serviceNames) {
+        serviceSharding.shardingWithOutAddChange(SHARDING_KEY_NAME, serviceNames);
+    }
+
+    private void synChangeServices() {
         while (!serviceSharding.getChangeServices(SHARDING_KEY_NAME).isEmpty()) {
             ShardingLog shardingLog = serviceSharding.getChangeServices(SHARDING_KEY_NAME).poll();
             if (shardingLog.getType().equals(ShardingLogTypeEnum.ADD.getType())) {
-                if (isServerChange) {
-                    syncAddServices(shardingLog.getServiceName());
-                }
+                syncAddServices(shardingLog.getServiceName());
             }
             if (shardingLog.getType().equals(ShardingLogTypeEnum.DELETE.getType())) {
                 syncRemoveServices(shardingLog.getServiceName());
@@ -147,7 +165,7 @@ public class ZookeeperSyncToNacosServiceSharding implements Sharding {
     }
 
     @Override
-    public void reShardingIfNeed(boolean isServerChange) {
+    public void reShardingIfNeed() {
         try {
             if (taskDOMap.size() == 0) {
                 log.error("zk->nacos reshading error,cause by taskDo is null....");
@@ -160,7 +178,7 @@ public class ZookeeperSyncToNacosServiceSharding implements Sharding {
             }
             List<String> serviceNames = ((ZookeeperSyncToNacosServiceImpl) syncManagerService.getSyncService(taskDo.getSourceClusterId(), taskDo.getDestClusterId())).getAllServicesFromZk(taskDo);
             if (servicesIschanged(serviceNames)) {
-                reSubscribeService(taskDo, serviceNames, isServerChange);
+                reSubscribeServiceWithOutChange(serviceNames);
             }
         } catch (Exception e) {
             log.error("zk ->nacos reshading faild.", e);

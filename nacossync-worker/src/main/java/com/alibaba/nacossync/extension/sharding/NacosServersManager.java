@@ -59,7 +59,7 @@ public class NacosServersManager implements ServersManager<EventListener>, Initi
 
     @Override
     public List<String> getServers() throws Exception {
-        List<Instance> instanceList = namingService.getAllInstances(DEFAULT_SHARDING_NACOS_SERVICENAME, DEFAULT_SHARDING_NACOS_GOURPID);
+        List<Instance> instanceList = namingService.selectInstances(DEFAULT_SHARDING_NACOS_SERVICENAME, DEFAULT_SHARDING_NACOS_GOURPID, true);
         List<String> serverList = new LinkedList<String>();
         for (Instance instance : instanceList) {
             serverList.add(instance.getIp() + ":" + instance.getPort());

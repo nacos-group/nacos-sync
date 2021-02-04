@@ -102,7 +102,6 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
         }
     }
 
-    //暂时不支持多source_cluster_id，多nammespace维度（默认取第一个task的source_cluster_id和namespace）
     @Override
     public void start(TaskDO taskDO) {
         taskDOMap.putIfAbsent(taskDO.getServiceName(), taskDO);
@@ -131,7 +130,6 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
                 reSubscribeService(taskDO, null);
                 return;
             }
-
         }
     }
 
@@ -146,8 +144,20 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
     }
 
     @Override
-    public TreeSet<String> getLocalServices(String key) {
-        return serviceSharding.getLocalServices(key);
+    public TreeSet<String> getLocalServices() {
+        return serviceSharding.getLocalServices(SHARDING_KEY_NAME);
+    }
+
+    @Override
+    public boolean isProcess(TaskDO taskDO, String serviceName) {
+        try {
+            if (getLocalServices().contains(serviceName)) {
+                return true;
+            }
+        } catch (Exception e) {
+            log.error("zk->nacos sharding faild ,taskid:{}", taskDO.getId(), e);
+        }
+        return false;
     }
 
 
@@ -178,7 +188,6 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
     }
 
     private void synChangeServices() {
-        log.info("nacos->zk reSubscribe ,local ip: {},current sharding service:{} service count:{} change  service count:{}", NetUtils.localIP() + ":" + serverPort, serviceSharding.getLocalServices(SHARDING_KEY_NAME).toString(), serviceSharding.getLocalServices(SHARDING_KEY_NAME).size(), serviceSharding.getChangeServices(SHARDING_KEY_NAME).size());
         while (!serviceSharding.getChangeServices(SHARDING_KEY_NAME).isEmpty()) {
             ShardingLog shardingLog = serviceSharding.getChangeServices(SHARDING_KEY_NAME).poll();
             if (shardingLog.getType().equals(ShardingLogTypeEnum.ADD.getType())) {
@@ -198,7 +207,7 @@ public class NacosSyncToZookeeperServicesSharding implements Sharding {
     }
 
     @Override
-    public void reShardingIfNeed(boolean isServerChange) {
+    public void reShardingIfNeed() {
 
     }
 }

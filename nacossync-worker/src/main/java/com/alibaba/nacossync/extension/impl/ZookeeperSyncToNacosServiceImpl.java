@@ -12,7 +12,6 @@
  */
 package com.alibaba.nacossync.extension.impl;
 
-import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacos.client.naming.NacosNamingService;
@@ -33,18 +32,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.cache.TreeCache;
 import org.apache.curator.framework.recipes.cache.TreeCacheEvent;
-import org.apache.curator.utils.CloseableUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import javax.annotation.Resource;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.alibaba.nacossync.constant.SkyWalkerConstants.SOURCE_CLUSTERID_KEY;
 import static com.alibaba.nacossync.util.DubboConstants.*;
 import static com.alibaba.nacossync.util.StringUtils.parseIpAndPortString;
 import static com.alibaba.nacossync.util.StringUtils.parseQueryString;
+import static com.alibaba.nacossync.util.ZookeeperUtils.filterNoProviderPath;
 
 /**
  * @author paderlol
@@ -79,45 +79,73 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
     //排除/dobbo下面的所有非服务节点
     private static final List<String> IGNORED_DUBBO_PATH = Stream.of("mapping", "metadata", "yellow").collect(Collectors.toList());
 
+    private final BlockingQueue<EventWrapperPOJO> providersChangeEvent = new LinkedBlockingQueue<EventWrapperPOJO>();
+
+    private ExecutorService executor = null;
+
     @Autowired
     public ZookeeperSyncToNacosServiceImpl(ZookeeperServerHolder zookeeperServerHolder,
                                            NacosServerHolder nacosServerHolder, SkyWalkerCacheServices skyWalkerCacheServices) {
         this.zookeeperServerHolder = zookeeperServerHolder;
         this.nacosServerHolder = nacosServerHolder;
         this.skyWalkerCacheServices = skyWalkerCacheServices;
+
+        executor = Executors.newSingleThreadExecutor(new ThreadFactory() {
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r, "com.alibaba.nacossync.syncThread");
+                thread.setDaemon(true);
+                return thread;
+            }
+        });
+
+        executor.execute(new Runnable() {
+            @Override
+            public void run() {
+                while (true) {
+                    try {
+                        EventWrapperPOJO eventWrapperPOJO = providersChangeEvent.poll(5, TimeUnit.MINUTES);
+                        NamingService destNamingService = nacosServerHolder.get(eventWrapperPOJO.getTaskDO().getDestClusterId(), null);
+                        sync(eventWrapperPOJO.getTaskDO(), destNamingService, eventWrapperPOJO.getEvent());
+                    } catch (Exception e) {
+                        log.error("deal with zk->nacos event error.", e);
+                    }
+                }
+            }
+        });
     }
 
 
     @Override
     public boolean sync(TaskDO taskDO) {
-        sharding.start(taskDO);//幂等 可重复添加
-        addeSubscribe(taskDO);
+        sharding.start(taskDO);
+        addSubscribe(taskDO);
         return true;
     }
 
-    private void processEvent(TaskDO taskDO, NamingService destNamingService, TreeCacheEvent event, String path,
-                              Map<String, String> queryParam) throws NacosException {
-
+    private void processEvent(TaskDO taskDO, NamingService destNamingService, TreeCacheEvent event, String path, Map<String, String> queryParam) {
         Map<String, String> ipAndPortParam = parseIpAndPortString(path);
-        Instance instance = buildSyncInstance(queryParam, ipAndPortParam, taskDO);
         String serviceName = queryParam.get(INTERFACE_KEY);
-        switch (event.getType()) {
-            case NODE_ADDED:
-            case NODE_UPDATED:
-
-                destNamingService.registerInstance(
-                        getServiceNameFromCache(serviceName, queryParam), instance);
-                break;
-            case NODE_REMOVED:
-
-                destNamingService.deregisterInstance(
-                        getServiceNameFromCache(serviceName, queryParam),
-                        ipAndPortParam.get(INSTANCE_IP_KEY),
-                        Integer.parseInt(ipAndPortParam.get(INSTANCE_PORT_KEY)));
-                nacosServiceNameMap.remove(serviceName);
-                break;
-            default:
-                break;
+        try {
+            Instance instance = buildSyncInstance(queryParam, ipAndPortParam, taskDO);
+            switch (event.getType()) {
+                case NODE_ADDED:
+                case NODE_UPDATED:
+                    destNamingService.registerInstance(
+                            getServiceNameFromCache(serviceName, queryParam), instance);
+                    break;
+                case NODE_REMOVED:
+                    destNamingService.deregisterInstance(
+                            getServiceNameFromCache(serviceName, queryParam),
+                            ipAndPortParam.get(INSTANCE_IP_KEY),
+                            Integer.parseInt(ipAndPortParam.get(INSTANCE_PORT_KEY)));
+                    nacosServiceNameMap.remove(serviceName);
+                    break;
+                default:
+                    break;
+            }
+        } catch (Exception e) {
+            log.error("While process zk event occur error.", e);
         }
     }
 
@@ -145,8 +173,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
             return true;
         }
         try {
-
-            CloseableUtils.closeQuietly(treeCacheMap.get(taskDO.getTaskId()));
+            // CloseableUtils.closeQuietly(treeCacheMap.get(taskDO.getTaskId()));
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
             if (!ALL_SERVICE_NAME_PATTERN.equals(taskDO.getServiceName())) {
                 if (nacosServiceNameMap.containsKey(taskDO.getServiceName())) {
@@ -154,7 +181,6 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
                             destNamingService.getAllInstances(nacosServiceNameMap.get(taskDO.getServiceName()));
                     for (Instance instance : allInstances) {
                         if (needDelete(instance.getMetadata(), taskDO)) {
-                            log.info("zk->nacos,remove sync serviceName:{}.instance:{}", taskDO.getServiceName(), instance.getIp());
                             destNamingService.deregisterInstance(instance.getServiceName(), instance.getIp(),
                                     instance.getPort());
                         }
@@ -165,7 +191,6 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
             } else {
                 Set<String> serviceNames = nacosServiceNameMap.keySet();
                 for (String serviceName : serviceNames) {
-
                     if (nacosServiceNameMap.containsKey(serviceName)) {
                         List<Instance> allInstances =
                                 destNamingService.getAllInstances(serviceName);
@@ -244,7 +269,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
                 skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
-        metaData.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
+        metaData.put(SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
         temp.setMetadata(metaData);
         return temp;
     }
@@ -259,72 +284,47 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         //此处和社区不一致
         String name = Joiner.on(SEPARATOR_KEY).skipNulls().join(CATALOG_KEY, queryParam.get(INTERFACE_KEY),
                 queryParam.get(VERSION_KEY) == null ? "" : queryParam.get(VERSION_KEY), queryParam.get(GROUP_KEY) == null ? "" : queryParam.get(GROUP_KEY));
-        nacosServiceNameMap.computeIfAbsent(serviceName, (key) -> name);
+        nacosServiceNameMap.putIfAbsent(serviceName, name);
         return name;
     }
 
-    private List<String> filterNoProviderPath(List<String> sourceInstances) {
-        Iterator<String> iterator = sourceInstances.iterator();
-        while (iterator.hasNext()) {
-            if (IGNORED_DUBBO_PATH.contains(iterator.next())) {
-                iterator.remove();
-            }
-        }
-        return sourceInstances;
-    }
 
-    /**
-     * 判断是否本机处理的service
-     *
-     * @param taskDO
-     * @param destNamingService
-     * @param serviceName
-     * @return
-     */
-    private boolean isProcess(TaskDO taskDO, NamingService destNamingService, String serviceName) {
-        try {
-            if (sharding.getLocalServices(null).contains(serviceName)) {
-                return true;
-            }
-        } catch (Exception e) {
-            log.error("zk->nacos sharding faild ,taskid:{}", taskDO.getId(), e);
-        }
-        return false;
-    }
+    public void addSubscribe(TaskDO taskDO) {
 
-    public void addeSubscribe(TaskDO taskDO) {
         try {
-            try {
-                if (treeCacheMap.containsKey(taskDO.getTaskId())) {
-                    return;
+            if (treeCacheMap.containsKey(taskDO.getTaskId())) {
+                return;
+            }
+            TreeCache treeCache = getTreeCache(taskDO);
+            Objects.requireNonNull(treeCache).getListenable().addListener((client, event) -> {
+                try {
+                    if (event.getData() == null) {
+                        return;
+                    }
+                    String path = event.getData().getPath();
+                    Map<String, String> queryParam = parseQueryString(path);
+                    if (!needSync(queryParam)) {
+                        return;
+                    }
+                    if (com.alibaba.nacossync.util.StringUtils.isDubboProviderPath(path)) {
+                        sharding.reShardingIfNeed();
+                        if (sharding.isProcess(taskDO, queryParam.get(INTERFACE_KEY))) {
+                            providersChangeEvent.offer(new EventWrapperPOJO(event, taskDO));
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("sync task from Zookeeper to Nacos was failed, taskId:{}", taskDO.getTaskId(), e);
+                    metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
                 }
-                TreeCache treeCache = getTreeCache(taskDO);
-                NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
-                //registerAllInstances(taskDO, destNamingService);
-                Objects.requireNonNull(treeCache).getListenable().addListener((client, event) -> {
-                    sync(taskDO, destNamingService, event);
-
-                });
-            } catch (Exception e) {
-                log.error("sync task from Zookeeper to Nacos was failed, taskId:{}", taskDO.getTaskId(), e);
-                metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
-            }
-
+            });
         } catch (Exception e) {
-
+            log.error("zk->nacos subscribe faild ,taskid:{}", taskDO.getId(), e);
         }
-
     }
 
     private void sync(TaskDO taskDO, NamingService destNamingService, TreeCacheEvent event) throws Exception {
-        sharding.reShardingIfNeed(false);
         String path = event.getData().getPath();
-        if (!com.alibaba.nacossync.util.StringUtils.isDubboProviderPath(path)) {
-            return;
-        }
         Map<String, String> queryParam = parseQueryString(path);
-        if (!isProcess(taskDO, destNamingService, queryParam.get(INTERFACE_KEY)))
-            return;
         if (isMatch(taskDO, queryParam) && needSync(queryParam)) {
             processEvent(taskDO, destNamingService, event, path, queryParam);
         }
@@ -339,7 +339,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
                 registerALLInstances0(taskDO, destNamingService, zk, taskDO.getServiceName());
             }
         } catch (Exception e) {
-
+            log.error("zk->nacos addSyncService faild ,taskid:{}", taskDO.getId(), e);
         }
     }
 
@@ -350,11 +350,12 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
                     namingService.getAllInstances(nacosServiceNameMap.get(taskDO.getServiceName()));
             for (Instance instance : allInstances) {
                 if (needDelete(instance.getMetadata(), taskDO)) {
-                    ((NacosNamingService) namingService).getBeatReactor().removeBeatInfo(instance.getServiceName(), instance.getIp(), instance.getPort());
+                    ((NacosNamingService) namingService).getBeatReactor().removeBeatInfo(instance.getServiceName(), instance.getIp(), instance.getPort());//不能直接删除防止其他server注册的被删除
                 }
                 nacosServiceNameMap.remove(taskDO.getServiceName());
             }
         } catch (Exception e) {
+            log.error("zk->nacos removeSyncServices faild ,taskid:{}", taskDO.getId(), e);
         }
     }
 
@@ -367,9 +368,34 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
             List<String> serviceList = zk.getChildren().forPath(DUBBO_ROOT_PATH);
             return filterNoProviderPath(serviceList);
         } catch (Exception e) {
-
+            log.error("zk->nacos getAllServicesFromZk faild ,taskid:{}", taskDO.getId(), e);
         }
         return null;
     }
 
+    private class EventWrapperPOJO {
+        private TreeCacheEvent event;
+        private TaskDO taskDO;
+
+        EventWrapperPOJO(TreeCacheEvent event, TaskDO taskDO) {
+            this.event = event;
+            this.taskDO = taskDO;
+        }
+
+        public TreeCacheEvent getEvent() {
+            return event;
+        }
+
+        public void setEvent(TreeCacheEvent event) {
+            this.event = event;
+        }
+
+        public TaskDO getTaskDO() {
+            return taskDO;
+        }
+
+        public void setTaskDO(TaskDO taskDO) {
+            this.taskDO = taskDO;
+        }
+    }
 }
