@@ -12,9 +12,6 @@
  */
 package com.alibaba.nacossync.extension.impl;
 
-import static com.alibaba.nacossync.util.StringUtils.convertDubboFullPathForZk;
-import static com.alibaba.nacossync.util.StringUtils.convertDubboProvidersPath;
-
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.listener.NamingEvent;
@@ -32,13 +29,6 @@ import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.DubboConstants;
 import com.google.common.collect.Sets;
-import java.io.UnsupportedEncodingException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
@@ -46,6 +36,13 @@ import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
 import org.apache.curator.utils.CloseableUtils;
 import org.apache.zookeeper.CreateMode;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import java.io.UnsupportedEncodingException;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static com.alibaba.nacossync.util.StringUtils.convertDubboFullPathForZk;
+import static com.alibaba.nacossync.util.StringUtils.convertDubboProvidersPath;
 
 /**
  * Nacos 同步 Zk 数据
@@ -92,7 +89,7 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
 
     @Autowired
     public NacosSyncToZookeeperServiceImpl(SkyWalkerCacheServices skyWalkerCacheServices,
-        NacosServerHolder nacosServerHolder, ZookeeperServerHolder zookeeperServerHolder) {
+                                           NacosServerHolder nacosServerHolder, ZookeeperServerHolder zookeeperServerHolder) {
         this.skyWalkerCacheServices = skyWalkerCacheServices;
         this.nacosServerHolder = nacosServerHolder;
         this.zookeeperServerHolder = zookeeperServerHolder;
@@ -103,7 +100,7 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
         try {
 
             NamingService sourceNamingService =
-                nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
+                    nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
             EventListener eventListener = nacosListenerMap.remove(taskDO.getTaskId());
             PathChildrenCache pathChildrenCache = pathChildrenCacheMap.get(taskDO.getTaskId());
             sourceNamingService.unsubscribe(taskDO.getServiceName(), eventListener);
@@ -125,13 +122,14 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
     public boolean sync(TaskDO taskDO) {
         try {
             NamingService sourceNamingService =
-                nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
+                    nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
             CuratorFramework client = zookeeperServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
             nacosListenerMap.putIfAbsent(taskDO.getTaskId(), event -> {
                 if (event instanceof NamingEvent) {
                     try {
 
-                        List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName());
+                        // List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName());
+                        List<Instance> sourceInstances = ((NamingEvent) event).getInstances();
                         Set<String> newInstanceUrlSet = getWaitingToAddInstance(taskDO, client, sourceInstances);
 
                         // 获取之前的备份 删除无效实例
@@ -164,13 +162,13 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
                 pathCache.getListenable().addListener((zkClient, zkEvent) -> {
                     if (zkEvent.getType() == PathChildrenCacheEvent.Type.CHILD_REMOVED) {
                         List<Instance> allInstances =
-                            sourceNamingService.getAllInstances(taskDO.getServiceName());
+                                sourceNamingService.getAllInstances(taskDO.getServiceName());
                         for (Instance instance : allInstances) {
                             String instanceUrl = buildSyncInstance(instance, taskDO);
                             String zkInstancePath = zkEvent.getData().getPath();
                             if (zkInstancePath.equals(instanceUrl)) {
                                 zkClient.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL)
-                                    .forPath(zkInstancePath);
+                                        .forPath(zkInstancePath);
                                 break;
                             }
                         }
@@ -182,9 +180,9 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
     }
 
     private void deleteInvalidInstances(TaskDO taskDO, CuratorFramework client, Set<String> newInstanceUrlSet)
-        throws Exception {
+            throws Exception {
         Set<String> instanceBackup =
-            instanceBackupMap.getOrDefault(taskDO.getTaskId(), Sets.newHashSet());
+                instanceBackupMap.getOrDefault(taskDO.getTaskId(), Sets.newHashSet());
         for (String instanceUrl : instanceBackup) {
             if (newInstanceUrlSet.contains(instanceUrl)) {
                 continue;
@@ -194,14 +192,14 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
     }
 
     private HashSet<String> getWaitingToAddInstance(TaskDO taskDO, CuratorFramework client,
-        List<Instance> sourceInstances) throws Exception {
+                                                    List<Instance> sourceInstances) throws Exception {
         HashSet<String> waitingToAddInstance = new HashSet<>();
         for (Instance instance : sourceInstances) {
             if (needSync(instance.getMetadata())) {
                 String instanceUrl = buildSyncInstance(instance, taskDO);
                 if (null == client.checkExists().forPath(instanceUrl)) {
                     client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL)
-                        .forPath(instanceUrl);
+                            .forPath(instanceUrl);
                 }
                 waitingToAddInstance.add(instanceUrl);
             }
@@ -214,11 +212,11 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
         metaData.putAll(instance.getMetadata());
         metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
-            skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
+                skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
         metaData.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
 
         String servicePath = monitorPath.computeIfAbsent(taskDO.getTaskId(),
-            key -> convertDubboProvidersPath(metaData.get(DubboConstants.INTERFACE_KEY)));
+                key -> convertDubboProvidersPath(metaData.get(DubboConstants.INTERFACE_KEY)));
 
         return convertDubboFullPathForZk(metaData, servicePath, instance.getIp(), instance.getPort());
     }
@@ -234,7 +232,7 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
         return pathChildrenCacheMap.computeIfAbsent(taskDO.getTaskId(), (key) -> {
             try {
                 PathChildrenCache pathChildrenCache = new PathChildrenCache(
-                    zookeeperServerHolder.get(taskDO.getDestClusterId(), ""), monitorPath.get(key), false);
+                        zookeeperServerHolder.get(taskDO.getDestClusterId(), ""), monitorPath.get(key), false);
                 pathChildrenCache.start(PathChildrenCache.StartMode.BUILD_INITIAL_CACHE);
                 return pathChildrenCache;
             } catch (Exception e) {
