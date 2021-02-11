@@ -25,11 +25,14 @@ import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author yangyshdan
@@ -37,8 +40,9 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 
 @Slf4j
-@NacosSyncService(sourceCluster = ClusterTypeEnum.NACOS,destinationCluster = ClusterTypeEnum.NACOS)
+@NacosSyncService(sourceCluster = ClusterTypeEnum.NACOS, destinationCluster = ClusterTypeEnum.NACOS)
 public class NacosSyncToNacosServiceImpl implements SyncService {
+
     private Map<String, EventListener> nacosListenerMap = new ConcurrentHashMap<>();
 
     @Autowired
@@ -58,7 +62,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                 nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
 
-            sourceNamingService.unsubscribe(taskDO.getServiceName(), nacosListenerMap.get(taskDO.getTaskId()));
+            sourceNamingService.unsubscribe(taskDO.getServiceName(), nacosListenerMap.remove(taskDO.getTaskId()));
 
             // 删除目标集群中同步的实例列表
             List<Instance> instances = destNamingService.getAllInstances(taskDO.getServiceName());
@@ -85,26 +89,30 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
             nacosListenerMap.putIfAbsent(taskDO.getTaskId(), event -> {
                 if (event instanceof NamingEvent) {
                     try {
-                        Set instanceKeySet = new HashSet();
-                        List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName());
-                        // 先将新的注册一遍
-                        for (Instance instance : sourceInstances) {
-                            if (needSync(instance.getMetadata())) {
-                                destNamingService.registerInstance(taskDO.getServiceName(),
-                                    buildSyncInstance(instance, taskDO));
-                                instanceKeySet.add(composeInstanceKey(instance));
-                            }
-                        }
+                        List<Instance> sourceInstances = ((NamingEvent) event).getInstances();
+                        log.info("任务Id:{},迁入实例数量:{}", taskDO.getTaskId(), sourceInstances.size());
 
-                        // 再将不存在的删掉
-                        List<Instance> destInstances = destNamingService.getAllInstances(taskDO.getServiceName());
+                        List<Instance> destInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
+                            new ArrayList<>(), false);
+                        // 先删除不存在的
+                        List<String> instanceKeys = sourceInstances.stream().map(this::composeInstanceKey)
+                            .collect(Collectors.toList());
                         for (Instance instance : destInstances) {
                             if (needDelete(instance.getMetadata(), taskDO)
-                                && !instanceKeySet.contains(composeInstanceKey(instance))) {
+                                && !instanceKeys.contains(composeInstanceKey(instance))) {
                                 destNamingService.deregisterInstance(taskDO.getServiceName(), instance.getIp(),
                                     instance.getPort());
                             }
                         }
+
+                        //再次添加新实例
+                        for (Instance instance : sourceInstances) {
+                            if (needSync(instance.getMetadata())) {
+                                destNamingService.registerInstance(taskDO.getServiceName(),
+                                    buildSyncInstance(instance, taskDO));
+                            }
+                        }
+
                     } catch (Exception e) {
                         log.error("event process fail, taskId:{}", taskDO.getTaskId(), e);
                         metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
@@ -124,9 +132,6 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     private String composeInstanceKey(Instance instance) {
         return instance.getIp() + ":" + instance.getPort();
     }
-
-
-
 
 
     public Instance buildSyncInstance(Instance instance, TaskDO taskDO) {
