@@ -55,4 +55,15 @@ public class ClusterDO implements Serializable {
      */
     private String clusterType;
 
+    /**
+     * The username of the Nacos.
+     *
+     */
+    private String userName;
+
+    /**
+     * The password of the Nacos.
+     */
+    private String password;
+
 }

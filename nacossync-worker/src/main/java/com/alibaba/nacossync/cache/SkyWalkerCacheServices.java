@@ -53,9 +53,9 @@ public class SkyWalkerCacheServices {
     }
 
     public List<String> getAllClusterConnectKey(String clusterId) {
-        ClusterDO clusterDOS = clusterAccessService.findByClusterId(clusterId);
+        ClusterDO clusterDO = clusterAccessService.findByClusterId(clusterId);
 
-        List<String> connectKeyList = JSONObject.parseObject(clusterDOS.getConnectKeyList(),
+        List<String> connectKeyList = JSONObject.parseObject(clusterDO.getConnectKeyList(),
             new TypeReference<List<String>>() {
             });
 

@@ -15,8 +15,11 @@ package com.alibaba.nacossync.extension.holder;
 import com.alibaba.nacos.api.PropertyKeyConst;
 import com.alibaba.nacos.api.naming.NamingFactory;
 import com.alibaba.nacos.api.naming.NamingService;
+import com.alibaba.nacossync.dao.ClusterAccessService;
+import com.alibaba.nacossync.pojo.model.ClusterDO;
 import com.google.common.base.Joiner;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
@@ -30,15 +33,29 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
 
+    private final ClusterAccessService clusterAccessService;
+
+    public NacosServerHolder(ClusterAccessService clusterAccessService) {
+        this.clusterAccessService = clusterAccessService;
+    }
+
     @Override
     NamingService createServer(String clusterId, Supplier<String> serverAddressSupplier, String namespace)
         throws Exception {
         List<String> allClusterConnectKey = skyWalkerCacheServices
             .getAllClusterConnectKey(clusterId);
+        ClusterDO clusterDO = clusterAccessService.findByClusterId(clusterId);
         String serverList = Joiner.on(",").join(allClusterConnectKey);
         Properties properties = new Properties();
         properties.setProperty(PropertyKeyConst.SERVER_ADDR, serverList);
         properties.setProperty(PropertyKeyConst.NAMESPACE, namespace);
+        Optional.ofNullable(clusterDO.getUserName()).ifPresent(value ->
+            properties.setProperty(PropertyKeyConst.USERNAME, value)
+        );
+
+        Optional.ofNullable(clusterDO.getPassword()).ifPresent(value ->
+            properties.setProperty(PropertyKeyConst.PASSWORD, value)
+        );
         return NamingFactory.createNamingService(properties);
     }
 }
