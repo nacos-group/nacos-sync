@@ -1,11 +1,15 @@
 package com.alibaba.nacossync.extension.sharding;
 
 import com.alibaba.nacos.common.utils.StringUtils;
+import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 /**
  * Created by maj on 2020/10/27.
@@ -49,6 +53,9 @@ public class ConsistentHashServiceSharding extends AbstractServiceSharding {
         SortedMap<Integer, String> subMap = virtualNodes.tailMap(hash);
         String virtualNode;
         if (subMap.isEmpty()) {
+            if(virtualNodes.isEmpty()){
+                return "";
+            }
             Integer i = virtualNodes.firstKey();
             virtualNode = virtualNodes.get(i);
         } else {
@@ -74,5 +81,10 @@ public class ConsistentHashServiceSharding extends AbstractServiceSharding {
         if (hash < 0)
             hash = Math.abs(hash);
         return hash;
+    }
+
+    @Override
+    public boolean isProcess(TaskDO taskDO, String serviceName) {
+        return false;
     }
 }

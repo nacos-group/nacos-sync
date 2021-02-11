@@ -21,6 +21,8 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * @author paderlol
@@ -49,6 +51,8 @@ public final class DubboConstants {
 
     public static final String DUBBO_ROOT_PATH = "/dubbo";
     public static final String ALL_SERVICE_NAME_PATTERN = "*";
+
+    public static final List<String> IGNORED_DUBBO_PATH = Stream.of("mapping", "metadata", "yellow", "config").collect(Collectors.toList());
 
     /**
      *  if Dubbo version greater than 2.7.2, service name is providers:interface:version:

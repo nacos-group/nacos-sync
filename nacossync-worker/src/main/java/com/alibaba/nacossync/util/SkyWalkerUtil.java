@@ -22,6 +22,7 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.ClusterAddRequest;
 import com.alibaba.nacossync.pojo.request.TaskAddRequest;
 import com.google.common.base.Joiner;
+import org.springframework.beans.BeanUtils;
 
 import java.io.UnsupportedEncodingException;
 import java.net.Inet4Address;
@@ -161,5 +162,13 @@ public class SkyWalkerUtil {
             return "DEFAULT_GROUP";
         }
         return groupName;
+    }
+
+    public static TaskDO buildNewTaskDo(TaskDO taskDO, String serviceName){
+        TaskDO taskDO1 = new TaskDO();
+        BeanUtils.copyProperties(taskDO, taskDO1);
+        taskDO1.setTaskId(serviceName);
+        taskDO1.setServiceName(serviceName);
+        return taskDO1;
     }
 }

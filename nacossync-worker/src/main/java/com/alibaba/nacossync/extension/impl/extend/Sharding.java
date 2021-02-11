@@ -12,15 +12,19 @@ import java.util.TreeSet;
  */
 public interface Sharding {
 
-    public void onServerChange();
+    void onServerChange();
 
-    public void start(TaskDO taskDO);
+    void start(TaskDO taskDO);
 
-    public void stop(TaskDO taskDO);
+    void stop(TaskDO taskDO);
 
-    public void doSharding(String key, List<String> serviceNames);
+    void doSharding(String key, List<String> serviceNames);
 
-    public TreeSet<String> getLocalServices(String key);
+    TreeSet<String> getLocalServices();
 
-    public Queue<ShardingLog> getChangeService();
+    Queue<ShardingLog> getChangeService();
+
+    void reShardingIfNeed();
+
+    boolean isProcess(TaskDO taskDO, String serviceName);
 }

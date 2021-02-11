@@ -2,6 +2,7 @@ package com.alibaba.nacossync.extension.sharding;
 
 import com.alibaba.nacossync.extension.impl.extend.Sharding;
 import com.alibaba.nacossync.pojo.ShardingLog;
+import com.alibaba.nacossync.pojo.model.TaskDO;
 
 import java.util.List;
 import java.util.Queue;
@@ -12,11 +13,15 @@ import java.util.TreeSet;
  */
 public interface ServiceSharding {
 
-    public void sharding(String key, List<String> serviceNames);
+    void sharding(String key, List<String> serviceNames);
 
-    public TreeSet<String> getLocalServices(String key);
+    TreeSet<String> getLocalServices(String key);
 
-    public boolean addServerChange(String name, Sharding sharding);
+    boolean addServerChange(String name, Sharding sharding);
 
-    public Queue<ShardingLog> getChangeServices(String key);
+    Queue<ShardingLog> getChangeServices(String key);
+
+    boolean isProcess(TaskDO taskDO, String serviceName);
+
+    void shardingWithOutAddChange(String key, List<String> serviceNames);
 }
