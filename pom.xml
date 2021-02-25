@@ -18,7 +18,7 @@
 
     <groupId>com.alibaba.nacossync</groupId>
     <artifactId>nacossync-parent</artifactId>
-    <version>0.4.3</version>
+    <version>0.4.4</version>
     <modules>
         <module>nacossync-console</module>
         <module>nacossync-worker</module>
@@ -73,7 +73,7 @@
             <dependency>
                 <groupId>com.alibaba.nacossync</groupId>
                 <artifactId>nacossync-worker</artifactId>
-                <version>0.4.3</version>
+                <version>0.4.4</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
