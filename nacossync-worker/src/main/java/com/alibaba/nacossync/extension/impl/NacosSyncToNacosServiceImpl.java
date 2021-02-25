@@ -103,26 +103,27 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
 
                         List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
                             new ArrayList<>(), false);
-                        log.info("任务Id:{},迁入实例数量:{}", taskId, sourceInstances.size());
                         // 先删除不存在的
                         this.removeInvalidInstance(taskDO, taskId, destNamingService, sourceInstances);
-
+                        Set<String> latestSyncInstance = new TreeSet<>();
                         //再次添加新实例
+                        Set<String> instanceKeys = sourceInstanceSnapshot.get(taskId);
                         for (Instance instance : sourceInstances) {
                             if (needSync(instance.getMetadata())) {
-                                destNamingService.registerInstance(taskDO.getServiceName(),
-                                    buildSyncInstance(instance, taskDO));
-                                this.sourceInstanceSnapshot.compute(taskId, (key, value) -> {
-                                    if (CollectionUtils.isEmpty(value)) {
-                                        value = new TreeSet<>();
-                                    }
-                                    log.info("任务Id:{},已同步实例:{}", taskId, composeInstanceKey(instance));
-                                    value.add(composeInstanceKey(instance));
-                                    return value;
-                                });
+                                String instanceKey = composeInstanceKey(instance);
+                                if (CollectionUtils.isEmpty(instanceKeys) || !instanceKeys.contains(instanceKey)) {
+                                    destNamingService.registerInstance(taskDO.getServiceName(),
+                                        buildSyncInstance(instance, taskDO));
+                                }
+                                latestSyncInstance.add(instanceKey);
+
                             }
                         }
+                        if (CollectionUtils.isNotEmpty(latestSyncInstance)) {
 
+                            log.info("任务Id:{},已同步实例个数:{}", taskId, latestSyncInstance.size());
+                            sourceInstanceSnapshot.put(taskId, latestSyncInstance);
+                        }
                     } catch (Exception e) {
                         log.error("event process fail, taskId:{}", taskId, e);
                         metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
