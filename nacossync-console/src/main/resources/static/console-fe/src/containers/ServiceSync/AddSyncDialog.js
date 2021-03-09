@@ -76,7 +76,8 @@ class AddSyncDialog extends React.Component {
               placeholder={locale.groupNamePlaceholder}
               onChange={groupName => this.setState({ groupName })}
             />
-          </FormItem> <FormItem label={`${locale.nameSpace}:`}>
+          </FormItem>
+          <FormItem label={`${locale.nameSpace}:`}>
             <Input
               placeholder={locale.nameSpacePlaceholder}
               onChange={nameSpace => this.setState({ nameSpace })}

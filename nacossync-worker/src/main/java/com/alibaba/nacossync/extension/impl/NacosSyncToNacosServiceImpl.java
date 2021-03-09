@@ -65,20 +65,19 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     @Override
     public boolean delete(TaskDO taskDO) {
         try {
-
             NamingService sourceNamingService =
-                nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
-            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
+                nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getNameSpace());
             //移除订阅
-            sourceNamingService.unsubscribe(taskDO.getServiceName(), listenerMap.remove(taskDO.getTaskId()));
+            sourceNamingService.unsubscribe(taskDO.getServiceName(), taskDO.getGroupName(),listenerMap.remove(taskDO.getTaskId()));
             sourceInstanceSnapshot.remove(taskDO.getTaskId());
 
             // 删除目标集群中同步的实例列表
-            List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
+            List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(), taskDO.getGroupName(),
                 new ArrayList<>(), false);
             for (Instance instance : sourceInstances) {
                 if (needSync(instance.getMetadata())) {
-                    destNamingService.deregisterInstance(taskDO.getServiceName(), instance.getIp(), instance.getPort());
+                    destNamingService.deregisterInstance(taskDO.getServiceName(), taskDO.getGroupName(), instance.getIp(), instance.getPort());
                 }
             }
         } catch (Exception e) {
@@ -94,15 +93,15 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         String taskId = taskDO.getTaskId();
         try {
             NamingService sourceNamingService =
-                nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
-            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
+                nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getNameSpace());
 
             this.listenerMap.putIfAbsent(taskId, event -> {
                 if (event instanceof NamingEvent) {
                     try {
 
                         List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
-                            new ArrayList<>(), false);
+                        taskDO.getGroupName(), new ArrayList<>(), false);
                         // 先删除不存在的
                         this.removeInvalidInstance(taskDO, taskId, destNamingService, sourceInstances);
                         Set<String> latestSyncInstance = new TreeSet<>();
@@ -131,7 +130,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                 }
             });
 
-            sourceNamingService.subscribe(taskDO.getServiceName(), listenerMap.get(taskId));
+            sourceNamingService.subscribe(taskDO.getServiceName(), taskDO.getGroupName(), listenerMap.get(taskId));
         } catch (Exception e) {
             log.error("sync task from nacos to nacos was failed, taskId:{}", taskId, e);
             metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
@@ -150,8 +149,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
             for (String instanceKey : instanceKeys) {
                 log.info("任务Id:{},移除无效同步实例:{}", taskId, instanceKey);
                 String[] split = instanceKey.split(":", -1);
-                destNamingService.deregisterInstance(taskDO.getServiceName(), split[0],
-                    Integer.parseInt(split[1]));
+                destNamingService.deregisterInstance(taskDO.getServiceName(), taskDO.getGroupName(), split[0], Integer.parseInt(split[1]));
 
             }
         }
