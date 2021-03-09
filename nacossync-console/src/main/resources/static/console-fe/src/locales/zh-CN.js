@@ -38,6 +38,7 @@ const I18N_CONF = {
     serviceNamePlaceholder: '请输入服务名',
     search: '搜索',
     addSync: '新增同步',
+    nameSpace: '命名空间',
     serviceName: '服务名',
     groupName: '分组',
     sourceCluster: '源集群',
@@ -56,6 +57,8 @@ const I18N_CONF = {
   },
   AddSyncDialog: {
     title: '新增同步',
+    nameSpace: '命名空间',
+    nameSpacePlaceholder: '请输入命名空间ID',
     serviceName: '服务名',
     serviceNamePlaceholder: '请输入服务名',
     groupName: '分组名',
