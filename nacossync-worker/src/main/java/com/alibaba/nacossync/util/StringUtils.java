@@ -16,7 +16,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -38,13 +37,13 @@ public final class StringUtils {
             .compile("([_.a-zA-Z0-9][-_.a-zA-Z0-9]*)[=](.*)");
     private static final Pattern IP_PORT_PATTERN = Pattern
             .compile(".*/(.*)://(\\d+\\.\\d+\\.\\d+\\.\\d+):(\\d+)");
-	private static final Pattern DUBBO_PROVIDER_PATTERN = Pattern
+    private static final Pattern DUBBO_PROVIDER_PATTERN = Pattern
             .compile("/dubbo/(.*)/providers/(.*)");
 
     /**
      * parse key-value pair.
      *
-     * @param str string.
+     * @param str           string.
      * @param itemSeparator item separator.
      * @return key-value map;
      */
@@ -119,22 +118,47 @@ public final class StringUtils {
         return String.format(DUBBO_PATH_FORMAT, interfaceName);
     }
 
-	public static String convertDubboFullPathForZk(Map<String, String> metaData, String providersPath, String ip,
-			int port) {
-		try {
-			String urlParam = Joiner.on("&").withKeyValueSeparator("=").join(metaData);
-			String instanceUrl = String.format(DUBBO_URL_FORMAT, metaData.get(PROTOCOL_KEY), ip, port,
-					metaData.get(INTERFACE_KEY), urlParam);
+    public static String convertDubboFullPathForZk(Map<String, String> metaData, String providersPath, String ip,
+                                                   int port) {
+        try {
+            String urlParam = Joiner.on("&").withKeyValueSeparator("=").join(metaData);
+            String instanceUrl = String.format(DUBBO_URL_FORMAT, metaData.get(PROTOCOL_KEY), ip, port,
+                    metaData.get(INTERFACE_KEY), urlParam);
 
-			return Joiner.on(ZOOKEEPER_SEPARATOR).join(providersPath, URLEncoder.encode(instanceUrl, "UTF-8"));
-		} catch (UnsupportedEncodingException e) {
-			log.warn("convert Dubbo full path", e);
-			return "";
-		}
+            return Joiner.on(ZOOKEEPER_SEPARATOR).join(providersPath, URLEncoder.encode(instanceUrl, "UTF-8"));
+        } catch (UnsupportedEncodingException e) {
+            log.warn("convert Dubbo full path", e);
+            return "";
+        }
 
-	}
+    }
 
-	public static boolean isDubboProviderPath(String path) {
-		return DUBBO_PROVIDER_PATTERN.matcher(path).matches();
-	}
+    public static boolean isDubboProviderPath(String path) {
+        return DUBBO_PROVIDER_PATTERN.matcher(path).matches();
+    }
+
+    public static boolean isIPV4AndPort(String addr) {
+        if (StringUtils.isEmpty(addr)) {
+            return false;
+        }
+        String rexp = "^(([1-9]|([1-9]\\d)|(1\\d\\d)|(2([0-4]\\d|5[0-5])))\\.)(([0-9]|([1-9]\\d)|(1\\d\\d)|(2([0-4]\\d|5[0-5])))\\.){2}([1-9]|([1-9]\\d)|(1\\d\\d)|(2([0-4]\\d|5[0-5]))):([0-9]|[1-9]\\d|[1-9]\\d{2}|[1-9]\\d{3}|[1-5]\\d{4}|6[0-4]\\d{3}|65[0-4]\\d{2}|655[0-2]\\d|6553[0-5])$";
+
+        Pattern pat = Pattern.compile(rexp);
+
+        Matcher mat = pat.matcher(addr);
+
+        return mat.find();
+    }
+
+    public static boolean isIPV4AndPorts(String ips, String reg) {
+        if (StringUtils.isEmpty(ips)) {
+            return false;
+        }
+        String[] ipvs = ips.split(reg);
+        for (String ipv : ipvs) {
+            if (!isIPV4AndPort(ipv))
+                return false;
+        }
+        return true;
+    }
 }
