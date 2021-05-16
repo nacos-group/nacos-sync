@@ -16,8 +16,7 @@
  */
 package com.alibaba.nacossync.cache;
 
-import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson.TypeReference;
+
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.dao.ClusterAccessService;
 import com.alibaba.nacossync.exception.SkyWalkerException;
@@ -25,10 +24,12 @@ import com.alibaba.nacossync.pojo.FinishedTask;
 import com.alibaba.nacossync.pojo.model.ClusterDO;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.jboss.netty.util.internal.ThreadLocalRandom;
+import java.util.concurrent.ThreadLocalRandom;
+import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -44,6 +45,9 @@ public class SkyWalkerCacheServices {
     @Autowired
     private ClusterAccessService clusterAccessService;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     private static Map<String, FinishedTask> finishedTaskMap = new ConcurrentHashMap<>();
 
     public String getClusterConnectKey(String clusterId) {
@@ -52,12 +56,12 @@ public class SkyWalkerCacheServices {
         return allClusterConnectKey.get(ThreadLocalRandom.current().nextInt(allClusterConnectKey.size()));
     }
 
+    @SneakyThrows
     public List<String> getAllClusterConnectKey(String clusterId) {
         ClusterDO clusterDO = clusterAccessService.findByClusterId(clusterId);
 
-        List<String> connectKeyList = JSONObject.parseObject(clusterDO.getConnectKeyList(),
-            new TypeReference<List<String>>() {
-            });
+        List<String> connectKeyList = objectMapper.readerForListOf(String.class)
+            .readValue(clusterDO.getConnectKeyList());
 
         if (CollectionUtils.isEmpty(connectKeyList)) {
             throw new SkyWalkerException("getClusterConnectKey empty, clusterId:" + clusterId);
