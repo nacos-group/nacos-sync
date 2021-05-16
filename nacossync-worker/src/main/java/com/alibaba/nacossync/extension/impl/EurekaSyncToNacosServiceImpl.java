@@ -38,7 +38,7 @@ import java.util.Map;
 
 /**
  * eureka
- * 
+ *
  * @author paderlol
  * @date: 2018-12-31 16:25
  */
@@ -121,13 +121,17 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
             }
         }
     }
-    
-    private void deleteAllInstanceFromEureka(TaskDO taskDO, NamingService destNamingService, List<InstanceInfo> eurekaInstances)
-            throws NacosException {
+
+    private void deleteAllInstanceFromEureka(TaskDO taskDO, NamingService destNamingService,
+        List<InstanceInfo> eurekaInstances)
+        throws NacosException {
+        if (CollectionUtils.isEmpty(eurekaInstances)) {
+            return;
+        }
         for (InstanceInfo instance : eurekaInstances) {
             if (needSync(instance.getMetadata())) {
                 log.info("Delete service instance from Eureka, serviceName={}, Ip={}, port={}",
-                        instance.getAppName(), instance.getIPAddr(), instance.getPort());
+                    instance.getAppName(), instance.getIPAddr(), instance.getPort());
                 destNamingService.deregisterInstance(taskDO.getServiceName(), buildSyncInstance(instance, taskDO));
             }
         }

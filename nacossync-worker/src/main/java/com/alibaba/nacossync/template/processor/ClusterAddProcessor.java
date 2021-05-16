@@ -16,7 +16,6 @@
  */
 package com.alibaba.nacossync.template.processor;
 
-import com.alibaba.fastjson.JSONObject;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.dao.ClusterAccessService;
 import com.alibaba.nacossync.exception.SkyWalkerException;
@@ -26,6 +25,7 @@ import com.alibaba.nacossync.pojo.request.ClusterAddRequest;
 import com.alibaba.nacossync.pojo.result.ClusterAddResult;
 import com.alibaba.nacossync.template.Processor;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +44,9 @@ public class ClusterAddProcessor implements Processor<ClusterAddRequest, Cluster
 
     @Autowired
     private ClusterAccessService clusterAccessService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Override
     public void process(ClusterAddRequest clusterAddRequest, ClusterAddResult clusterAddResult,
@@ -76,7 +79,7 @@ public class ClusterAddProcessor implements Processor<ClusterAddRequest, Cluster
         clusterDO.setClusterId(clusterId);
         clusterDO.setClusterName(clusterAddRequest.getClusterName());
         clusterDO.setClusterType(clusterAddRequest.getClusterType());
-        clusterDO.setConnectKeyList(JSONObject.toJSONString(clusterAddRequest.getConnectKeyList()));
+        clusterDO.setConnectKeyList(objectMapper.writeValueAsString(clusterAddRequest.getConnectKeyList()));
         clusterDO.setUserName(clusterAddRequest.getUserName());
         clusterDO.setPassword(clusterAddRequest.getPassword());
         clusterAccessService.insert(clusterDO);
