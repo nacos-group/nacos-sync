@@ -1,5 +1,7 @@
 # Nacos Sync
 
+## [Example](https://github.com/paderlol/nacos-sync-example)
+
 ## Function
 
  - Console: provide API and console for management
