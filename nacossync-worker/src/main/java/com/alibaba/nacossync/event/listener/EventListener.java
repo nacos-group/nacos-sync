@@ -62,9 +62,12 @@ public class EventListener {
 
         try {
             long start = System.currentTimeMillis();
-            syncManagerService.sync(syncTaskEvent.getTaskDO());
-            skyWalkerCacheServices.addFinishedTask(syncTaskEvent.getTaskDO());
-            metricsManager.record(MetricsStatisticsType.SYNC_TASK_RT, System.currentTimeMillis() - start);
+            if (syncManagerService.sync(syncTaskEvent.getTaskDO())) {                
+                skyWalkerCacheServices.addFinishedTask(syncTaskEvent.getTaskDO());
+                metricsManager.record(MetricsStatisticsType.SYNC_TASK_RT, System.currentTimeMillis() - start);
+            } else {
+                log.warn("listenerSyncTaskEvent sync failure");
+            }                
         } catch (Exception e) {
             log.warn("listenerSyncTaskEvent process error", e);
         }
@@ -76,9 +79,12 @@ public class EventListener {
 
         try {
             long start = System.currentTimeMillis();
-            syncManagerService.delete(deleteTaskEvent.getTaskDO());
-            skyWalkerCacheServices.addFinishedTask(deleteTaskEvent.getTaskDO());
-            metricsManager.record(MetricsStatisticsType.DELETE_TASK_RT, System.currentTimeMillis() - start);
+            if (syncManagerService.delete(deleteTaskEvent.getTaskDO())) {
+                skyWalkerCacheServices.addFinishedTask(deleteTaskEvent.getTaskDO());
+                metricsManager.record(MetricsStatisticsType.DELETE_TASK_RT, System.currentTimeMillis() - start);
+            } else {
+                log.warn("listenerDeleteTaskEvent delete failure");
+            }                
         } catch (Exception e) {
             log.warn("listenerDeleteTaskEvent process error", e);
         }
