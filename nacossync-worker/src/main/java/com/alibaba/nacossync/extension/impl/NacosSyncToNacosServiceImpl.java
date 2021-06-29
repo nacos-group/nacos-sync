@@ -54,6 +54,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     private Map<String, EventListener> listenerMap = new ConcurrentHashMap<>();
 
     private final Map<String, Set<String>> sourceInstanceSnapshot = new ConcurrentHashMap<>();
+    
+    private final Map<String, String> originSourceClusterSnapshot = new ConcurrentHashMap<>();
 
     @Autowired
     private MetricsManager metricsManager;
@@ -81,7 +83,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                 .getAllInstances(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
                     new ArrayList<>(), false);
             for (Instance instance : sourceInstances) {
-                if (needSync(instance.getMetadata())) {
+                if (needDeleteIndeed(instance, taskDO)) {
                     destNamingService
                         .deregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
                             instance.getIp(),
@@ -143,7 +145,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         String taskId = taskDO.getTaskId();
         Set<String> instanceKeys = sourceInstanceSnapshot.get(taskId);
         for (Instance instance : sourceInstances) {
-            if (needSync(instance.getMetadata())) {
+            if (needSyncIndeed(instance, taskDO)) {
                 String instanceKey = composeInstanceKey(instance);
                 if (CollectionUtils.isEmpty(instanceKeys) || !instanceKeys.contains(instanceKey)) {
                     destNamingService.registerInstance(taskDO.getServiceName(),
@@ -210,5 +212,30 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         return temp;
     }
 
-
+    private boolean needDeleteIndeed(Instance instance, TaskDO taskDO) {
+        if (needSync(instance.getMetadata())) {
+            String instanceKey = composeInstanceKey(instance);
+            if (taskDO.getDestClusterId().equals(originSourceClusterSnapshot.get(instanceKey))) {
+                log.info("任务Id:{},删除同步实例:{}的目标集群:{}不能为源集群", taskDO.getTaskId(), instanceKey,
+                    taskDO.getDestClusterId());
+                return false;
+            }
+            return true;
+        }
+        return false;
+    }
+    
+    private boolean needSyncIndeed(Instance instance, TaskDO taskDO) {
+        if (needSync(instance.getMetadata())) {
+            String instanceKey = composeInstanceKey(instance);
+            if (taskDO.getDestClusterId().equals(originSourceClusterSnapshot.get(instanceKey))) {
+                log.info("任务Id:{},同步实例:{}的目标集群:{}不能为源集群", taskDO.getTaskId(), instanceKey,
+                    taskDO.getDestClusterId());
+                return false;
+            }
+            originSourceClusterSnapshot.put(instanceKey, taskDO.getSourceClusterId());
+            return true;
+        }
+        return false;
+    }
 }
