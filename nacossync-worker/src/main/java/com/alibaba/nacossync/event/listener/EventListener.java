@@ -29,8 +29,15 @@ import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.event.DeleteTaskEvent;
 import com.alibaba.nacossync.event.SyncTaskEvent;
 import com.alibaba.nacossync.extension.SyncManagerService;
+import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author NacosSync
@@ -51,23 +58,79 @@ public class EventListener {
 
     @Autowired
     private SkyWalkerCacheServices skyWalkerCacheServices;
+    
+    private ConcurrentHashMap<String, TaskDO> syncTaskMap = new ConcurrentHashMap<String, TaskDO>();
+
+    private ConcurrentHashMap<String, TaskDO> deleteTaskMap = new ConcurrentHashMap<String, TaskDO>();
 
     @PostConstruct
     public void register() {
         eventBus.register(this);
+        
+        ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread t = new Thread(r);
+                t.setDaemon(true);
+                t.setName("com.alibaba.nacossync.event.retransmitter");
+                return t;
+            }
+        });
+        
+        executorService.scheduleWithFixedDelay(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    synchronized (this) {
+                        ConcurrentHashMap<String, TaskDO> lastSyncTaskMap = syncTaskMap;
+                        ConcurrentHashMap<String, TaskDO> lastDeleteTaskMap = deleteTaskMap;
+                        syncTaskMap = new ConcurrentHashMap<String, TaskDO>();
+                        deleteTaskMap = new ConcurrentHashMap<String, TaskDO>();
+                    }
+                    
+                    for (TaskDO taskDO : lastSyncTaskMap.values()) {
+                        try {
+                            long start = System.currentTimeMillis();
+                            if (syncManagerService.sync(taskDO)) {                
+                                skyWalkerCacheServices.addFinishedTask(taskDO());
+                                metricsManager.record(MetricsStatisticsType.SYNC_TASK_RT, System.currentTimeMillis() - start);
+                            } else {
+                                log.warn("taskId:{} sync failure", taskDO.getTaskId());
+                            }
+                        } catch (Exception e) {
+                            log.warn("taskId:{} sync process error", taskDO.getTaskId(), e);
+                        }
+                    }
+                    
+                    for (TaskDO taskDO : lastDeleteTaskMap.values()) {
+                        try {
+                            long start = System.currentTimeMillis();
+                            if (syncManagerService.delete(taskDO)) {
+                                skyWalkerCacheServices.addFinishedTask(taskDO());
+                                metricsManager.record(MetricsStatisticsType.DELETE_TASK_RT, System.currentTimeMillis() - start);
+                            } else {
+                                log.warn("taskId:{} delete failure", taskDO.getTaskId());
+                            }
+                        } catch (Exception e) {
+                            log.warn("taskId:{} delete process error", taskDO.getTaskId(), e);
+                        }
+                    }
+                } catch (Throwable e) {
+                    log.warn("retransmit event error", e);
+                }
+            }
+        }, 0, 30, TimeUnit.SECONDS);
     }
 
     @Subscribe
     public void listenerSyncTaskEvent(SyncTaskEvent syncTaskEvent) {
 
         try {
-            long start = System.currentTimeMillis();
-            if (syncManagerService.sync(syncTaskEvent.getTaskDO())) {                
-                skyWalkerCacheServices.addFinishedTask(syncTaskEvent.getTaskDO());
-                metricsManager.record(MetricsStatisticsType.SYNC_TASK_RT, System.currentTimeMillis() - start);
-            } else {
-                log.warn("listenerSyncTaskEvent sync failure");
-            }                
+            String taskId = syncTaskEvent.getTaskDO().getTaskId();
+            synchronized (this) {
+                syncTaskMap.put(taskId, syncTaskEvent.getTaskDO());
+                deleteTaskMap.remove(taskId);
+            }
         } catch (Exception e) {
             log.warn("listenerSyncTaskEvent process error", e);
         }
@@ -78,13 +141,11 @@ public class EventListener {
     public void listenerDeleteTaskEvent(DeleteTaskEvent deleteTaskEvent) {
 
         try {
-            long start = System.currentTimeMillis();
-            if (syncManagerService.delete(deleteTaskEvent.getTaskDO())) {
-                skyWalkerCacheServices.addFinishedTask(deleteTaskEvent.getTaskDO());
-                metricsManager.record(MetricsStatisticsType.DELETE_TASK_RT, System.currentTimeMillis() - start);
-            } else {
-                log.warn("listenerDeleteTaskEvent delete failure");
-            }                
+            String taskId = deleteTaskEvent.getTaskDO().getTaskId();
+            synchronized (this) {
+                deleteTaskMap.put(taskId, deleteTaskEvent.getTaskDO());
+                syncTaskMap.remove(taskId);
+            }
         } catch (Exception e) {
             log.warn("listenerDeleteTaskEvent process error", e);
         }
