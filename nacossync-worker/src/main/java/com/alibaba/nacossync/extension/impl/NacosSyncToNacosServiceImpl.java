@@ -109,7 +109,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                     try {
 
                         List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
-                            new ArrayList<>(), false);
+                            getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), false);
                         // 先删除不存在的
                         this.removeInvalidInstance(taskDO, destNamingService, sourceInstances);
                         // 如果同步实例已经为空代表该服务所有实例已经下线,清除本地持有快照
