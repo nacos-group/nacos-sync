@@ -12,6 +12,8 @@
  */
 package com.alibaba.nacossync.extension.impl;
 
+import javax.annotation.PostConstruct;
+
 import com.alibaba.nacos.api.common.Constants;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
@@ -37,6 +39,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -64,6 +70,61 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     @Autowired
     private NacosServerHolder nacosServerHolder;
 
+    private ConcurrentHashMap<String, TaskDO> syncTaskMap = new ConcurrentHashMap<String, TaskDO>();
+    
+    @PostConstruct
+    public void startRetransmitter() {
+        ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread t = new Thread(r);
+                t.setDaemon(true);
+                t.setName("com.alibaba.nacossync.event.retransmitter");
+                return t;
+            }
+        });
+
+        executorService.scheduleWithFixedDelay(new Runnable() {
+            @Override
+            public void run() {
+                if (syncTaskMap.size() == 0) {
+                    return;
+                }
+
+                try {                    
+                    ConcurrentHashMap<String, TaskDO> lastSyncTaskMap = syncTaskMap;
+                    syncTaskMap = new ConcurrentHashMap<String, TaskDO>();
+                    
+                    for (TaskDO taskDO : lastSyncTaskMap.values()) {
+                        try {
+                            String taskId = taskDO.getTaskId();
+                            NamingService sourceNamingService =
+                                nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
+                            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getNameSpace());
+
+                            List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
+                                getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
+                            // 先删除不存在的
+                            this.removeInvalidInstance(taskDO, destNamingService, sourceInstances);
+                            // 如果同步实例已经为空代表该服务所有实例已经下线,清除本地持有快照
+                            if (sourceInstances.isEmpty()) {
+                                sourceInstanceSnapshot.remove(taskId);
+                                continue;
+                            }
+                            // 同步实例
+                            this.syncNewInstance(taskDO, destNamingService, sourceInstances);
+                        } catch (Exception e) {
+                            log.error("sync process fail, taskId:{}", taskId, e);
+                            metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
+                        }
+                    }
+                } catch (Throwable e) {
+                    log.warn("retransmit event error", e);
+                }
+            }
+        }, 0, 30, TimeUnit.SECONDS);
+    }
+
     @Override
     public boolean delete(TaskDO taskDO) {
         try {
@@ -75,6 +136,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                 .unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
                     listenerMap.remove(taskDO.getTaskId()));
             sourceInstanceSnapshot.remove(taskDO.getTaskId());
+            syncTaskMap.remove(taskDO.getTaskId());
 
             // 删除目标集群中同步的实例列表
             List<Instance> sourceInstances = sourceNamingService
@@ -100,25 +162,11 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     public boolean sync(TaskDO taskDO) {
         String taskId = taskDO.getTaskId();
         try {
-            NamingService sourceNamingService =
-                nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
-            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getNameSpace());
-
             this.listenerMap.putIfAbsent(taskId, event -> {
                 if (event instanceof NamingEvent) {
-                    try {
-
-                        List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
-                            getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
-                        // 先删除不存在的
-                        this.removeInvalidInstance(taskDO, destNamingService, sourceInstances);
-                        // 如果同步实例已经为空代表该服务所有实例已经下线,清除本地持有快照
-                        if (sourceInstances.isEmpty()) {
-                            sourceInstanceSnapshot.remove(taskId);
-                            return;
-                        }
-                        // 同步实例
-                        this.syncNewInstance(taskDO, destNamingService, sourceInstances);
+                    // 大规模重启服务实例时会产生大量重复的同步任务，对重复的同步任务进行合并以降低对Nacos注册中心的冲击
+                    try {                        
+                        syncTaskMap.put(taskId, taskDO);
                     } catch (Exception e) {
                         log.error("event process fail, taskId:{}", taskId, e);
                         metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
