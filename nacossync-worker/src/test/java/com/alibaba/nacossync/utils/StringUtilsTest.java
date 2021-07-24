@@ -1,13 +1,13 @@
 package com.alibaba.nacossync.utils;
 
+import static org.hamcrest.core.Is.is;
+
 import com.alibaba.nacossync.util.StringUtils;
 import com.google.common.collect.Maps;
+import java.net.MalformedURLException;
+import java.util.Map;
 import org.junit.Assert;
 import org.junit.Test;
-
-import java.util.Map;
-
-import static org.hamcrest.core.Is.is;
 
 /**
  * @author paderlol
@@ -17,11 +17,12 @@ import static org.hamcrest.core.Is.is;
 public class StringUtilsTest {
 
     private static final String TEST_URL =
-            "/dubbo/org.apache.dubbo.demo.DemoService/providers/hessian%3A%2F%2F172.16.0.10%3A20880%2Forg.apache.dubbo.demo.DemoService%3Fanyhost%3Dtrue%26application%3Ddemo-provider%26dubbo%3D2.0.2%26generic%3Dfalse%26group%3DtestGroup%26interface%3Dorg.apache.dubbo.demo.DemoService%26methods%3DsayHello%26pid%3D5956%26revision%3D1.0.0%26side%3Dprovider%26timestamp%3D1547285978821%26version%3D1.0.0%26weight%3D1";
+        "/dubbo/org.apache.dubbo.demo.DemoService/providers/hessian%3A%2F%2F172.16.0.10%3A20880%2Forg.apache.dubbo.demo.DemoService%3Fanyhost%3Dtrue%26application%3Ddemo-provider%26dubbo%3D2.0.2%26generic%3Dfalse%26group%3DtestGroup%26interface%3Dorg.apache.dubbo.demo.DemoService%26methods%3DsayHello%26pid%3D5956%26revision%3D1.0.0%26side%3Dprovider%26timestamp%3D1547285978821%26version%3D1.0.0%26weight%3D1";
 
     @Test
-    public void testParseQueryString() {
+    public void testParseQueryString() throws MalformedURLException {
         Map<String, String> exceptedMap = Maps.newHashMap();
+        exceptedMap.put("anyhost", "true");
         exceptedMap.put("side", "provider");
         exceptedMap.put("application", "demo-provider");
         exceptedMap.put("methods", "sayHello");
@@ -34,6 +35,7 @@ public class StringUtilsTest {
         exceptedMap.put("generic", "false");
         exceptedMap.put("revision", "1.0.0");
         exceptedMap.put("timestamp", "1547285978821");
+
         Map<String, String> actualMap = StringUtils.parseQueryString(TEST_URL);
         Assert.assertThat(actualMap, is(exceptedMap));
     }
@@ -52,7 +54,7 @@ public class StringUtilsTest {
     public void testConvertDubboProvidersPath() {
         String exceptedProviderPath = "/dubbo/org.apache.dubbo.demo.DemoService/providers";
         String actualProviderPath = StringUtils
-                .convertDubboProvidersPath("org.apache.dubbo.demo.DemoService");
+            .convertDubboProvidersPath("org.apache.dubbo.demo.DemoService");
         Assert.assertEquals(exceptedProviderPath, actualProviderPath);
     }
 
@@ -74,9 +76,9 @@ public class StringUtilsTest {
         metaDataMap.put("timestamp", "1547285978821");
         metaDataMap.put("protocol", "hessian");
         String actualDubboFullPath = StringUtils
-                .convertDubboFullPathForZk(metaDataMap,
-                        StringUtils.convertDubboProvidersPath("org.apache.dubbo.demo.DemoService"),
-                        "172.16.0.10", 20800);
+            .convertDubboFullPathForZk(metaDataMap,
+                StringUtils.convertDubboProvidersPath("org.apache.dubbo.demo.DemoService"),
+                "172.16.0.10", 20800);
         Assert.assertEquals(exceptedDubboFullPath, actualDubboFullPath);
     }
 

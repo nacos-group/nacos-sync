@@ -12,11 +12,16 @@
  */
 package com.alibaba.nacossync.util;
 
+import static com.alibaba.nacossync.util.DubboConstants.DUBBO_PATH_FORMAT;
+import static com.alibaba.nacossync.util.DubboConstants.DUBBO_URL_FORMAT;
+import static com.alibaba.nacossync.util.DubboConstants.INSTANCE_IP_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.INSTANCE_PORT_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.INTERFACE_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.PROTOCOL_KEY;
+import static com.alibaba.nacossync.util.DubboConstants.ZOOKEEPER_SEPARATOR;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
-import lombok.extern.slf4j.Slf4j;
-
-import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -24,8 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static com.alibaba.nacossync.util.DubboConstants.*;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * @author paderlol
@@ -35,16 +39,18 @@ import static com.alibaba.nacossync.util.DubboConstants.*;
 public final class StringUtils {
 
     private static final Pattern KVP_PATTERN = Pattern
-            .compile("([_.a-zA-Z0-9][-_.a-zA-Z0-9]*)[=](.*)");
+        .compile("([_.a-zA-Z0-9][-_.a-zA-Z0-9]*)[=](.*)");
     private static final Pattern IP_PORT_PATTERN = Pattern
-            .compile(".*/(.*)://(\\d+\\.\\d+\\.\\d+\\.\\d+):(\\d+)");
-	private static final Pattern DUBBO_PROVIDER_PATTERN = Pattern
-            .compile("/dubbo/(.*)/providers/(.*)");
+        .compile(".*/(.*)://(\\d+\\.\\d+\\.\\d+\\.\\d+):(\\d+)");
+    private static final Pattern DUBBO_PROVIDER_PATTERN = Pattern
+        .compile("/dubbo/(.*)/providers/(.*)");
+    public static final int INDEX_NOT_FOUND = -1;
+    public static final String EMPTY = "";
 
     /**
      * parse key-value pair.
      *
-     * @param str string.
+     * @param str           string.
      * @param itemSeparator item separator.
      * @return key-value map;
      */
@@ -69,11 +75,13 @@ public final class StringUtils {
      */
     public static Map<String, String> parseQueryString(String qs) {
         try {
+
             String decodePath = URLDecoder.decode(qs, "UTF-8");
-            if (isEmpty(qs)) {
+            if (isEmpty(decodePath)) {
                 return new HashMap<>();
             }
-            return parseKeyValuePair(decodePath, "\\&");
+            decodePath = substringAfter(decodePath, "?");
+            return parseKeyValuePair(decodePath, "&");
 
         } catch (UnsupportedEncodingException e) {
             log.warn("parse query string failed", e);
@@ -115,26 +123,66 @@ public final class StringUtils {
 
     }
 
+    /**
+     * <p>Gets the substring after the first occurrence of a separator.
+     * The separator is not returned.</p>
+     *
+     * <p>A {@code null} string input will return {@code null}.
+     * An empty ("") string input will return the empty string. A {@code null} separator will return the empty string if
+     * the input string is not {@code null}.</p>
+     *
+     * <p>If nothing is found, the empty string is returned.</p>
+     *
+     * <pre>
+     * StringUtils.substringAfter(null, *)      = null
+     * StringUtils.substringAfter("", *)        = ""
+     * StringUtils.substringAfter(*, null)      = ""
+     * StringUtils.substringAfter("abc", "a")   = "bc"
+     * StringUtils.substringAfter("abcba", "b") = "cba"
+     * StringUtils.substringAfter("abc", "c")   = ""
+     * StringUtils.substringAfter("abc", "d")   = ""
+     * StringUtils.substringAfter("abc", "")    = "abc"
+     * </pre>
+     *
+     * @param str       the String to get a substring from, may be null
+     * @param separator the String to search for, may be null
+     * @return the substring after the first occurrence of the separator, {@code null} if null String input
+     * @since 2.0
+     */
+    public static String substringAfter(final String str, final String separator) {
+        if (isEmpty(str)) {
+            return str;
+        }
+        if (separator == null) {
+            return EMPTY;
+        }
+        final int pos = str.indexOf(separator);
+        if (pos == INDEX_NOT_FOUND) {
+            return EMPTY;
+        }
+        return str.substring(pos + 1);
+    }
+
     public static String convertDubboProvidersPath(String interfaceName) {
         return String.format(DUBBO_PATH_FORMAT, interfaceName);
     }
 
-	public static String convertDubboFullPathForZk(Map<String, String> metaData, String providersPath, String ip,
-			int port) {
-		try {
-			String urlParam = Joiner.on("&").withKeyValueSeparator("=").join(metaData);
-			String instanceUrl = String.format(DUBBO_URL_FORMAT, metaData.get(PROTOCOL_KEY), ip, port,
-					metaData.get(INTERFACE_KEY), urlParam);
+    public static String convertDubboFullPathForZk(Map<String, String> metaData, String providersPath, String ip,
+        int port) {
+        try {
+            String urlParam = Joiner.on("&").withKeyValueSeparator("=").join(metaData);
+            String instanceUrl = String.format(DUBBO_URL_FORMAT, metaData.get(PROTOCOL_KEY), ip, port,
+                metaData.get(INTERFACE_KEY), urlParam);
 
-			return Joiner.on(ZOOKEEPER_SEPARATOR).join(providersPath, URLEncoder.encode(instanceUrl, "UTF-8"));
-		} catch (UnsupportedEncodingException e) {
-			log.warn("convert Dubbo full path", e);
-			return "";
-		}
+            return Joiner.on(ZOOKEEPER_SEPARATOR).join(providersPath, URLEncoder.encode(instanceUrl, "UTF-8"));
+        } catch (UnsupportedEncodingException e) {
+            log.warn("convert Dubbo full path", e);
+            return "";
+        }
 
-	}
+    }
 
-	public static boolean isDubboProviderPath(String path) {
-		return DUBBO_PROVIDER_PATTERN.matcher(path).matches();
-	}
+    public static boolean isDubboProviderPath(String path) {
+        return DUBBO_PROVIDER_PATTERN.matcher(path).matches();
+    }
 }
