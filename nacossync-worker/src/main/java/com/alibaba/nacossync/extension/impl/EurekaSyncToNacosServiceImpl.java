@@ -31,6 +31,7 @@ import com.netflix.appinfo.InstanceInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.List;
@@ -72,7 +73,8 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
         try {
             specialSyncEventBus.unsubscribe(taskDO);
             EurekaNamingService eurekaNamingService = eurekaServerHolder.get(taskDO.getSourceClusterId(), null);
-            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
+            String nameSpace = taskDO.getNameSpace();
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), StringUtils.hasText(nameSpace) ? nameSpace : null);
             List<InstanceInfo> eurekaInstances = eurekaNamingService.getApplications(taskDO.getServiceName());
             deleteAllInstanceFromEureka(taskDO, destNamingService, eurekaInstances);
 
@@ -88,7 +90,8 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
     public boolean sync(TaskDO taskDO) {
         try {
             EurekaNamingService eurekaNamingService = eurekaServerHolder.get(taskDO.getSourceClusterId(), null);
-            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
+            String nameSpace = taskDO.getNameSpace();
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), StringUtils.hasText(nameSpace) ? nameSpace : null);
             List<InstanceInfo> eurekaInstances = eurekaNamingService.getApplications(taskDO.getServiceName());
             List<Instance> nacosInstances = destNamingService.getAllInstances(taskDO.getServiceName());
 
