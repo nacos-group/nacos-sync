@@ -62,9 +62,9 @@ public class NacosSyncToEurekaServiceImpl implements SyncService {
     public boolean delete(TaskDO taskDO) {
         try {
             NamingService sourceNamingService =
-                    nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
+                    nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
             EurekaNamingService destNamingService =
-                    eurekaServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
+                    eurekaServerHolder.get(taskDO.getDestClusterId(), taskDO.getNameSpace());
 
             sourceNamingService.unsubscribe(taskDO.getServiceName(), nacosListenerMap.get(taskDO.getTaskId()));
             // 删除目标集群中同步的实例列表
@@ -88,9 +88,9 @@ public class NacosSyncToEurekaServiceImpl implements SyncService {
     public boolean sync(TaskDO taskDO) {
         try {
             NamingService sourceNamingService =
-                    nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getGroupName());
+                    nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
             EurekaNamingService destNamingService =
-                    eurekaServerHolder.get(taskDO.getDestClusterId(), taskDO.getGroupName());
+                    eurekaServerHolder.get(taskDO.getDestClusterId(), taskDO.getNameSpace());
 
             nacosListenerMap.putIfAbsent(taskDO.getTaskId(), event -> {
                 processNamingEvent(taskDO, sourceNamingService, destNamingService, event);
