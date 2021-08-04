@@ -33,7 +33,6 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.Collections;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,7 +61,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
 
     private final Map<String, Set<String>> sourceInstanceSnapshot = new ConcurrentHashMap<>();
 
-    private final Map<String, Date> syncTaskTap = new ConcurrentHashMap<>();
+    private final Map<String, Integer> syncTaskTap = new ConcurrentHashMap<>();
 
     @Autowired
     private MetricsManager metricsManager;
@@ -184,13 +183,12 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
 
     private void doSync(String taskId, TaskDO taskDO, NamingService sourceNamingService,
         NamingService destNamingService) throws NacosException {
-        Date lastSyncDate = syncTaskTap.put(taskId, new Date());
-        if (lastSyncDate != null) {
+        if (syncTaskTap.putIfAbsent(taskId, 1) != null) {
             log.info("任务Id:{}上一个同步任务尚未结束", taskId);
             return;
         }
         try {
-            // 只同步healthy为true的实例
+            // 直接从本地保存的serviceInfoMap中取订阅的服务实例
             List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
                     getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
             // 先删除不存在的
