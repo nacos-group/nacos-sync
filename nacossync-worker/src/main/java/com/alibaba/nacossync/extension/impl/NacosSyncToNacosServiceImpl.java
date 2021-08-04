@@ -33,6 +33,7 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.Collections;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +61,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     private Map<String, EventListener> listenerMap = new ConcurrentHashMap<>();
 
     private final Map<String, Set<String>> sourceInstanceSnapshot = new ConcurrentHashMap<>();
+    
+    private final Map<String, Date> syncTaskTap = new ConcurrentHashMap<>();
 
     @Autowired
     private MetricsManager metricsManager;
@@ -197,26 +200,32 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
 
     private void syncNewInstance(TaskDO taskDO, NamingService destNamingService,
         List<Instance> sourceInstances) throws NacosException {
-        Set<String> latestSyncInstance = new TreeSet<>();
-        //再次添加新实例
         String taskId = taskDO.getTaskId();
-        Set<String> instanceKeys = sourceInstanceSnapshot.get(taskId);
-        for (Instance instance : sourceInstances) {
-            if (needSync(instance.getMetadata())) {
-                String instanceKey = composeInstanceKey(instance);
-                if (CollectionUtils.isEmpty(instanceKeys) || !instanceKeys.contains(instanceKey)) {
-                    destNamingService.registerInstance(taskDO.getServiceName(),
-                        getGroupNameOrDefault(taskDO.getGroupName()),
-                        buildSyncInstance(instance, taskDO));
-                }
-                latestSyncInstance.add(instanceKey);
-
-            }
+        Date lastSyncDate = syncTaskTap.put(taskId, new Date());
+        if (lastSyncDate != null) {
+            log.info("任务Id:{}上一个同步任务尚未结束", taskId);
+            return;
         }
-        if (CollectionUtils.isNotEmpty(latestSyncInstance)) {
-
-            log.info("任务Id:{},已同步实例个数:{}", taskId, latestSyncInstance.size());
-            sourceInstanceSnapshot.put(taskId, latestSyncInstance);
+        try {
+            Set<String> latestSyncInstance = new TreeSet<>();
+            //再次添加新实例
+            Set<String> instanceKeys = sourceInstanceSnapshot.get(taskId);
+            for (Instance instance : sourceInstances) {
+                if (needSync(instance.getMetadata())) {
+                    String instanceKey = composeInstanceKey(instance);
+                    if (CollectionUtils.isEmpty(instanceKeys) || !instanceKeys.contains(instanceKey)) {
+                        destNamingService.registerInstance(taskDO.getServiceName(),
+                            getGroupNameOrDefault(taskDO.getGroupName()), buildSyncInstance(instance, taskDO));
+                    }
+                    latestSyncInstance.add(instanceKey);
+                }
+            }
+            if (CollectionUtils.isNotEmpty(latestSyncInstance)) {
+                log.info("任务Id:{},已同步实例个数:{}", taskId, latestSyncInstance.size());
+                sourceInstanceSnapshot.put(taskId, latestSyncInstance);
+            }
+        } finally {
+            syncTaskTap.remove(taskId);
         }
     }
 
