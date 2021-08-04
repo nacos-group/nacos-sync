@@ -61,6 +61,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
 
     private final Map<String, Set<String>> sourceInstanceSnapshot = new ConcurrentHashMap<>();
 
+    private final Map<String, Integer> syncTaskTap = new ConcurrentHashMap<>();
+
     @Autowired
     private MetricsManager metricsManager;
 
@@ -181,18 +183,26 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
 
     private void doSync(String taskId, TaskDO taskDO, NamingService sourceNamingService,
         NamingService destNamingService) throws NacosException {
-        // 只同步healthy为true的实例
-        List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
-            getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
-        // 先删除不存在的
-        this.removeInvalidInstance(taskDO, destNamingService, sourceInstances);
-        // 如果同步实例已经为空代表该服务所有实例已经下线,清除本地持有快照
-        if (sourceInstances.isEmpty()) {
-            sourceInstanceSnapshot.remove(taskId);
+        if (syncTaskTap.putIfAbsent(taskId, 1) != null) {
+            log.info("任务Id:{}上一个同步任务尚未结束", taskId);
             return;
         }
-        // 同步实例
-        this.syncNewInstance(taskDO, destNamingService, sourceInstances);
+        try {
+            // 直接从本地保存的serviceInfoMap中取订阅的服务实例
+            List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
+                    getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
+            // 先删除不存在的
+            this.removeInvalidInstance(taskDO, destNamingService, sourceInstances);
+            // 如果同步实例已经为空代表该服务所有实例已经下线,清除本地持有快照
+            if (sourceInstances.isEmpty()) {
+                sourceInstanceSnapshot.remove(taskId);
+                return;
+            }
+            // 同步实例
+            this.syncNewInstance(taskDO, destNamingService, sourceInstances);
+        } finally {
+            syncTaskTap.remove(taskId);
+        }
     }
 
     private void syncNewInstance(TaskDO taskDO, NamingService destNamingService,
