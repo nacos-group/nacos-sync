@@ -12,7 +12,25 @@
  */
 package com.alibaba.nacossync.extension.impl;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
 import javax.annotation.PostConstruct;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.alibaba.nacos.api.common.Constants;
 import com.alibaba.nacos.api.exception.NacosException;
@@ -31,22 +49,8 @@ import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.Collections;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * @author yangyshdan
@@ -60,6 +64,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     private Map<String, EventListener> listenerMap = new ConcurrentHashMap<>();
 
     private final Map<String, Set<String>> sourceInstanceSnapshot = new ConcurrentHashMap<>();
+
+    private final Map<String, Date> syncTaskTap = new ConcurrentHashMap<>();
 
     @Autowired
     private MetricsManager metricsManager;
@@ -181,18 +187,27 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
 
     private void doSync(String taskId, TaskDO taskDO, NamingService sourceNamingService,
         NamingService destNamingService) throws NacosException {
-        // 只同步healthy为true的实例
-        List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
-            getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
-        // 先删除不存在的
-        this.removeInvalidInstance(taskDO, destNamingService, sourceInstances);
-        // 如果同步实例已经为空代表该服务所有实例已经下线,清除本地持有快照
-        if (sourceInstances.isEmpty()) {
-            sourceInstanceSnapshot.remove(taskId);
+        Date lastSyncDate = syncTaskTap.put(taskId, new Date());
+        if (lastSyncDate != null) {
+            log.info("任务Id:{}上一个同步任务尚未结束", taskId);
             return;
         }
-        // 同步实例
-        this.syncNewInstance(taskDO, destNamingService, sourceInstances);
+        try {
+            // 只同步healthy为true的实例
+            List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
+                    getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
+            // 先删除不存在的
+            this.removeInvalidInstance(taskDO, destNamingService, sourceInstances);
+            // 如果同步实例已经为空代表该服务所有实例已经下线,清除本地持有快照
+            if (sourceInstances.isEmpty()) {
+                sourceInstanceSnapshot.remove(taskId);
+                return;
+            }
+            // 同步实例
+            this.syncNewInstance(taskDO, destNamingService, sourceInstances);
+        } finally {
+            syncTaskTap.remove(taskId);
+        }
     }
 
     private void syncNewInstance(TaskDO taskDO, NamingService destNamingService,
