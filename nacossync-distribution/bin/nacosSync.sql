@@ -8,6 +8,8 @@ CREATE TABLE `cluster` (
   `cluster_name` varchar(255) COLLATE utf8mb4_bin DEFAULT NULL,
   `cluster_type` varchar(255) COLLATE utf8mb4_bin DEFAULT NULL,
   `connect_key_list` varchar(255) COLLATE utf8mb4_bin DEFAULT NULL,
+  `user_name` varchar(255) COLLATE utf8mb4_bin DEFAULT NULL,
+  `password` varchar(255) COLLATE utf8mb4_bin DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 /******************************************/
