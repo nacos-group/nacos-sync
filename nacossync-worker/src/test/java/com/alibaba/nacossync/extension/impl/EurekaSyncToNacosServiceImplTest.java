@@ -94,8 +94,8 @@ public class EurekaSyncToNacosServiceImplTest {
         when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
         when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
 
-        doReturn(destNamingService).when(nacosServerHolder).get(anyString(), any());
-        doReturn(eurekaNamingService).when(eurekaServerHolder).get(anyString(), any());
+        doReturn(destNamingService).when(nacosServerHolder).get(anyString());
+        doReturn(eurekaNamingService).when(eurekaServerHolder).get(anyString());
         doReturn(allInstanceInfo).when(eurekaNamingService).getApplications(any());
         when(application.getInstances()).thenReturn(allInstanceInfo);
         doReturn(ClusterTypeEnum.EUREKA).when(skyWalkerCacheServices).getClusterType(any());
@@ -106,8 +106,8 @@ public class EurekaSyncToNacosServiceImplTest {
         when(taskDO.getTaskId()).thenReturn(TEST_TASK_ID);
         when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
         when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
-        doReturn(eurekaNamingService).when(eurekaServerHolder).get(anyString(), anyString());
-        doReturn(destNamingService).when(nacosServerHolder).get(anyString(), anyString());
+        doReturn(eurekaNamingService).when(eurekaServerHolder).get(anyString());
+        doReturn(destNamingService).when(nacosServerHolder).get(anyString());
         List<InstanceInfo> eurekaInstances = Lists.newArrayList();
         doReturn(eurekaInstances).when(eurekaNamingService).getApplications(anyString());
         Map<String, String> metadata = Maps.newHashMap();

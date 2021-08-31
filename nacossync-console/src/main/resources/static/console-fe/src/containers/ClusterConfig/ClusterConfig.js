@@ -98,6 +98,7 @@ class ClusterConfig extends React.Component {
           <Table.Column title={locale.clusterName} dataIndex="clusterName" />
           <Table.Column title={locale.clusterType} dataIndex="clusterType" />
           <Table.Column title={locale.connectKeyList} dataIndex="connectKeyList" />
+          <Table.Column title={locale.namespace} dataIndex="namespace" />
           <Table.Column
             title={locale.operation}
             cell={(value, index, record) => (

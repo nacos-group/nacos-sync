@@ -22,9 +22,8 @@ public interface Holder<T> {
     /**
      *  Through the cluster ID and namespace fetch cluster client service
      * @param clusterId cluster id
-     * @param namespace name space
      * @return
      * @throws Exception
      */
-     T get(String clusterId, String namespace) throws Exception;
+     T get(String clusterId) throws Exception;
 }

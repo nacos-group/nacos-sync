@@ -66,4 +66,6 @@ public class ClusterDO implements Serializable {
      */
     private String password;
 
+    private String namespace;
+
 }

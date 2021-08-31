@@ -1,5 +1,12 @@
 package com.alibaba.nacossync.extension.impl;
 
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
@@ -10,9 +17,13 @@ import com.alibaba.nacossync.extension.holder.ZookeeperServerHolder;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import java.util.List;
+import java.util.Map;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.listen.ListenerContainer;
-import org.apache.curator.framework.recipes.cache.*;
+import org.apache.curator.framework.recipes.cache.ChildData;
+import org.apache.curator.framework.recipes.cache.TreeCache;
+import org.apache.curator.framework.recipes.cache.TreeCacheListener;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -20,13 +31,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.runners.MockitoJUnitRunner;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.*;
 
 /**
  * @author paderlol
@@ -57,7 +61,7 @@ public class ZookeeperSyncToNacosServiceImplTest {
     private ZookeeperSyncToNacosServiceImpl zookeeperSyncToNacosService;
 
     @Test
-    public void testZookeeperSyncToNacos() throws Exception {
+    public void testZookeeperSyncToNacos() {
         TaskDO taskDO = mock(TaskDO.class);
         Assert.assertTrue(mockSync(taskDO));
 
@@ -83,15 +87,15 @@ public class ZookeeperSyncToNacosServiceImplTest {
         Assert.assertFalse(zookeeperSyncToNacosService.delete(null));
     }
 
-    public boolean mockSync(TaskDO taskDO) throws Exception {
+    public boolean mockSync(TaskDO taskDO) {
         ChildData childData = new ChildData(TEST_PATH, null, null);
         ListenerContainer<TreeCacheListener> listeners = mock(ListenerContainer.class);
         when(taskDO.getTaskId()).thenReturn(TEST_TASK_ID);
         when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
         when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
         CuratorFramework curatorFramework = mock(CuratorFramework.class);
-        doReturn(curatorFramework).when(zookeeperServerHolder).get(any(), any());
-        doReturn(destNamingService).when(nacosServerHolder).get(any(), any());
+        doReturn(curatorFramework).when(zookeeperServerHolder).get(any() );
+        doReturn(destNamingService).when(nacosServerHolder).get(any());
         doReturn(treeCache).when(zookeeperSyncToNacosService).getTreeCache(any());
         when(treeCache.getCurrentData(any())).thenReturn(childData);
         doReturn(ClusterTypeEnum.ZK).when(skyWalkerCacheServices).getClusterType(any());

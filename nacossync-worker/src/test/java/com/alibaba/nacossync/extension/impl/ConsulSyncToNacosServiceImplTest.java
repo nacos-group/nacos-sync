@@ -100,8 +100,8 @@ public class ConsulSyncToNacosServiceImplTest {
         when(taskDO.getTaskId()).thenReturn(TEST_TASK_ID);
         when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
         when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
-        doReturn(destNamingService).when(nacosServerHolder).get(anyString(), any());
-        doReturn(consulClient).when(consulServerHolder).get(anyString(), any());
+        doReturn(destNamingService).when(nacosServerHolder).get(anyString());
+        doReturn(consulClient).when(consulServerHolder).get(anyString());
         doReturn(response).when(consulClient).getHealthServices(anyString(), anyBoolean(), any());
         List<Instance> allInstances = Lists.newArrayList(instance);
         doReturn(allInstances).when(destNamingService).getAllInstances(anyString());
@@ -127,7 +127,7 @@ public class ConsulSyncToNacosServiceImplTest {
         when(taskDO.getTaskId()).thenReturn(TEST_TASK_ID);
         when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
         when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
-        doReturn(destNamingService).when(nacosServerHolder).get(anyString(), anyString());
+        doReturn(destNamingService).when(nacosServerHolder).get(anyString());
         Map<String, String> metadata = Maps.newHashMap();
         metadata.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, TEST_SOURCE_CLUSTER_ID);
         List<Instance> allInstances = Lists.newArrayList(instance);

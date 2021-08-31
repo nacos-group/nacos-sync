@@ -43,4 +43,6 @@ public class ClusterModel implements Serializable {
      * @see ClusterTypeEnum
      */
     private String clusterType;
+
+    private String namespace;
 }

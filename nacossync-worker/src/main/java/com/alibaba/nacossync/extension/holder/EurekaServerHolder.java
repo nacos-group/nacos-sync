@@ -31,7 +31,7 @@ import java.util.function.Supplier;
 @Slf4j
 public class EurekaServerHolder extends AbstractServerHolderImpl<EurekaNamingService> {
     @Override
-    EurekaNamingService createServer(String clusterId, Supplier<String> serverAddressSupplier, String namespace) throws Exception {
+    EurekaNamingService createServer(String clusterId, Supplier<String> serverAddressSupplier) throws Exception {
         RestTemplateTransportClientFactory restTemplateTransportClientFactory =
                 new RestTemplateTransportClientFactory();
         EurekaEndpoint eurekaEndpoint = new DefaultEndpoint(serverAddressSupplier.get());

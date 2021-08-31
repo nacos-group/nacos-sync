@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.util.Strings;
 import org.springframework.stereotype.Service;
 
 /**
@@ -40,7 +41,7 @@ public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
     }
 
     @Override
-    NamingService createServer(String clusterId, Supplier<String> serverAddressSupplier, String namespace)
+    NamingService createServer(String clusterId, Supplier<String> serverAddressSupplier)
         throws Exception {
         List<String> allClusterConnectKey = skyWalkerCacheServices
             .getAllClusterConnectKey(clusterId);
@@ -48,7 +49,8 @@ public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
         String serverList = Joiner.on(",").join(allClusterConnectKey);
         Properties properties = new Properties();
         properties.setProperty(PropertyKeyConst.SERVER_ADDR, serverList);
-        properties.setProperty(PropertyKeyConst.NAMESPACE, namespace);
+        properties.setProperty(PropertyKeyConst.NAMESPACE, Optional.ofNullable(clusterDO.getNamespace()).orElse(
+            Strings.EMPTY));
         Optional.ofNullable(clusterDO.getUserName()).ifPresent(value ->
             properties.setProperty(PropertyKeyConst.USERNAME, value)
         );

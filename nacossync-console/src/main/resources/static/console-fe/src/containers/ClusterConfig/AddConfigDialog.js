@@ -18,6 +18,7 @@ class AddConfigDialog extends React.Component {
         visible: false,
         clusterName: '',
         clusterType: '',
+        namespace: '',
         connectKeyList: [],
       };
     }
@@ -27,8 +28,8 @@ class AddConfigDialog extends React.Component {
     }
 
     save() {
-      const { clusterName, clusterType, connectKeyList } = this.state;
-      add({ clusterName, clusterType, connectKeyList })
+      const { clusterName, namespace, clusterType, connectKeyList } = this.state;
+      add({ clusterName, namespace, clusterType, connectKeyList })
         .then(() => {
           this.props.turnPage(1);
           this.close();
@@ -71,6 +72,17 @@ class AddConfigDialog extends React.Component {
                             }
               </Select>
             </FormItem>
+            {
+              this.state.clusterType === 'NACOS' && (
+              <FormItem
+                label={`${locale.namespace}:`}
+              >
+                <Input
+                  placeholder={locale.namespacePlaceholder}
+                  onChange={ns => this.setState({ namespace: ns })}
+                />
+              </FormItem>)
+            }
             <FormItem label={`${locale.connectKeyList}:`}>
               <Input.TextArea
                 onChange={(connectKeyListStr) => {
