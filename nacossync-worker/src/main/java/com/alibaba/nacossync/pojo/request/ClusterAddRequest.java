@@ -52,5 +52,6 @@ public class ClusterAddRequest extends BaseRequest {
      * The password of the Nacos.
      */
     private String password;
+    private String namespace;
 
 }

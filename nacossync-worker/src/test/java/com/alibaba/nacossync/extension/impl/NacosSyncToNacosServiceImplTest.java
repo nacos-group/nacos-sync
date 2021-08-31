@@ -1,5 +1,12 @@
 package com.alibaba.nacossync.extension.impl;
 
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
@@ -7,6 +14,8 @@ import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import java.util.List;
+import java.util.Map;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -14,12 +23,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.runners.MockitoJUnitRunner;
-
-import java.util.List;
-import java.util.Map;
-
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.*;
 
 /**
  * @author paderlol
@@ -72,8 +75,8 @@ public class NacosSyncToNacosServiceImplTest {
         when(taskDO.getTaskId()).thenReturn(TEST_TASK_ID);
         when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
         when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
-        doReturn(destNamingService).when(nacosServerHolder).get(anyString(), any());
-        doReturn(sourceNamingService).when(nacosServerHolder).get(anyString(), any());
+        doReturn(destNamingService).when(nacosServerHolder).get(anyString());
+        doReturn(sourceNamingService).when(nacosServerHolder).get(anyString());
     }
 
     public void mockDelete(TaskDO taskDO) throws Exception {
@@ -81,8 +84,8 @@ public class NacosSyncToNacosServiceImplTest {
         when(taskDO.getTaskId()).thenReturn(TEST_TASK_ID);
         when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
         when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
-        doReturn(destNamingService).when(nacosServerHolder).get(anyString(), anyString());
-        doReturn(sourceNamingService).when(nacosServerHolder).get(anyString(), anyString());
+        doReturn(destNamingService).when(nacosServerHolder).get(anyString());
+        doReturn(sourceNamingService).when(nacosServerHolder).get(anyString());
         doNothing().when(sourceNamingService).unsubscribe(any(), any());
         Map<String, String> metadata = Maps.newHashMap();
         metadata.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, TEST_SOURCE_CLUSTER_ID);

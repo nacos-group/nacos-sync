@@ -1,5 +1,10 @@
 package com.alibaba.nacossync.extension.impl;
 
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.extension.holder.ZookeeperServerHolder;
@@ -13,9 +18,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.runners.MockitoJUnitRunner;
-
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.*;
 
 /**
  * @author paderlol
@@ -69,8 +71,8 @@ public class NacosSyncToZookeeperServiceImplTest {
         when(taskDO.getTaskId()).thenReturn(TEST_TASK_ID);
         when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
         when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
-        doReturn(client).when(zookeeperServerHolder).get(any(), any());
-        doReturn(sourceNamingService).when(nacosServerHolder).get(any(), any());
+        doReturn(client).when(zookeeperServerHolder).get(any());
+        doReturn(sourceNamingService).when(nacosServerHolder).get(any());
 
         //TODO Test the core logic in the future
         return nacosSyncToZookeeperService.sync(taskDO);

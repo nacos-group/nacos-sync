@@ -67,9 +67,9 @@ public class NacosSyncToEurekaServiceImpl implements SyncService {
     public boolean delete(TaskDO taskDO) {
         try {
             NamingService sourceNamingService =
-                nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
+                nacosServerHolder.get(taskDO.getSourceClusterId());
             EurekaNamingService destNamingService =
-                eurekaServerHolder.get(taskDO.getDestClusterId(), taskDO.getNameSpace());
+                eurekaServerHolder.get(taskDO.getDestClusterId());
 
             sourceNamingService.unsubscribe(taskDO.getServiceName(),
                 NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), nacosListenerMap.get(taskDO.getTaskId()));
@@ -94,13 +94,11 @@ public class NacosSyncToEurekaServiceImpl implements SyncService {
     public boolean sync(TaskDO taskDO) {
         try {
             NamingService sourceNamingService =
-                nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
+                nacosServerHolder.get(taskDO.getSourceClusterId());
             EurekaNamingService destNamingService =
-                eurekaServerHolder.get(taskDO.getDestClusterId(), taskDO.getNameSpace());
+                eurekaServerHolder.get(taskDO.getDestClusterId());
 
-            nacosListenerMap.putIfAbsent(taskDO.getTaskId(), event -> {
-                processNamingEvent(taskDO, sourceNamingService, destNamingService, event);
-            });
+            nacosListenerMap.putIfAbsent(taskDO.getTaskId(), event -> processNamingEvent(taskDO, sourceNamingService, destNamingService, event));
 
             sourceNamingService.subscribe(taskDO.getServiceName(),
                 NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), nacosListenerMap.get(taskDO.getTaskId()));

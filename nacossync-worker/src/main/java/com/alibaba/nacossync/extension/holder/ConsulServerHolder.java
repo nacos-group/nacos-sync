@@ -30,7 +30,7 @@ public class ConsulServerHolder extends AbstractServerHolderImpl<ConsulClient> {
     public static final String HTTP = "http://";
 
     @Override
-    ConsulClient createServer(String clusterId, Supplier<String> serverAddressSupplier, String namespace) throws Exception {
+    ConsulClient createServer(String clusterId, Supplier<String> serverAddressSupplier) throws Exception {
         String serverAddress = serverAddressSupplier.get();
         serverAddress = serverAddress.startsWith(HTTP) ? serverAddress : HTTP + serverAddress;
         URL url = new URL(serverAddress);

@@ -71,6 +71,7 @@ public class ClusterListQueryProcessor implements
             clusterModel.setClusterName(clusterDO.getClusterName());
             clusterModel.setClusterType(clusterDO.getClusterType());
             clusterModel.setConnectKeyList(clusterDO.getConnectKeyList());
+            clusterModel.setNamespace(clusterDO.getNamespace());
             clusterModels.add(clusterModel);
         });
 

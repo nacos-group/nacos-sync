@@ -32,7 +32,7 @@ public class ZookeeperServerHolder extends AbstractServerHolderImpl<CuratorFrame
 
 
     @Override
-    CuratorFramework createServer(String clusterId, Supplier<String> serverAddressSupplier, String namespace) {
+    CuratorFramework createServer(String clusterId, Supplier<String> serverAddressSupplier) {
         List<String> allClusterConnectKey = skyWalkerCacheServices
                 .getAllClusterConnectKey(clusterId);
         String serverList = Joiner.on(",").join(allClusterConnectKey);

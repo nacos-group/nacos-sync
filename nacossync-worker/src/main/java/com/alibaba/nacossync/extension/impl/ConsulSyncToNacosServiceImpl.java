@@ -27,18 +27,22 @@ import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.ConsulUtils;
+import com.alibaba.nacossync.util.NacosUtils;
 import com.ecwid.consul.v1.ConsulClient;
 import com.ecwid.consul.v1.QueryParams;
 import com.ecwid.consul.v1.Response;
 import com.ecwid.consul.v1.health.model.HealthService;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.*;
-
 /**
  * Consul 同步 Nacos
- * 
+ *
  * @author paderlol
  * @date: 2018-12-31 16:25
  */
@@ -71,12 +75,14 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
 
         try {
             specialSyncEventBus.unsubscribe(taskDO);
-            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
-            List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName());
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
+            List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
+                NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()));
             for (Instance instance : allInstances) {
                 if (needDelete(instance.getMetadata(), taskDO)) {
 
-                    destNamingService.deregisterInstance(taskDO.getServiceName(), instance.getIp(), instance.getPort());
+                    destNamingService.deregisterInstance(taskDO.getServiceName(),
+                        NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), instance.getIp(), instance.getPort());
                 }
             }
 
@@ -91,8 +97,8 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
     @Override
     public boolean sync(TaskDO taskDO) {
         try {
-            ConsulClient consulClient = consulServerHolder.get(taskDO.getSourceClusterId(), null);
-            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
+            ConsulClient consulClient = consulServerHolder.get(taskDO.getSourceClusterId());
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
             Response<List<HealthService>> response =
                 consulClient.getHealthServices(taskDO.getServiceName(), true, QueryParams.DEFAULT);
             List<HealthService> healthServiceList = response.getValue();
@@ -115,7 +121,8 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
             if (needDelete(instance.getMetadata(), taskDO)
                 && !instanceKeys.contains(composeInstanceKey(instance.getIp(), instance.getPort()))) {
 
-                destNamingService.deregisterInstance(taskDO.getServiceName(), instance.getIp(), instance.getPort());
+                destNamingService.deregisterInstance(taskDO.getServiceName(),
+                    NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), instance.getIp(), instance.getPort());
             }
         }
     }
@@ -125,6 +132,7 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
         for (HealthService healthService : healthServiceList) {
             if (needSync(ConsulUtils.transferMetadata(healthService.getService().getTags()))) {
                 destNamingService.registerInstance(taskDO.getServiceName(),
+                    NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()),
                     buildSyncInstance(healthService, taskDO));
                 instanceKeys.add(composeInstanceKey(healthService.getService().getAddress(),
                     healthService.getService().getPort()));

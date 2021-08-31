@@ -40,7 +40,6 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
@@ -78,14 +77,11 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
      */
     @PostConstruct
     public void startBasicSyncTaskThread() {
-        ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
-            @Override
-            public Thread newThread(Runnable r) {
-                Thread t = new Thread(r);
-                t.setDaemon(true);
-                t.setName("com.alibaba.nacossync.basic.synctask");
-                return t;
-            }
+        ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r);
+            t.setDaemon(true);
+            t.setName("com.alibaba.nacossync.basic.synctask");
+            return t;
         });
 
         executorService.scheduleWithFixedDelay(new Runnable() {
@@ -99,9 +95,9 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                     for (TaskDO taskDO : allSyncTaskMap.values()) {
                         String taskId = taskDO.getTaskId();
                         NamingService sourceNamingService =
-                            nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
+                            nacosServerHolder.get(taskDO.getSourceClusterId());
                         NamingService destNamingService =
-                            nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getNameSpace());
+                            nacosServerHolder.get(taskDO.getDestClusterId());
                         try {
                             doSync(taskId, taskDO, sourceNamingService, destNamingService);
                         } catch (Exception e) {
@@ -120,8 +116,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     public boolean delete(TaskDO taskDO) {
         try {
             NamingService sourceNamingService =
-                nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
-            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getNameSpace());
+                nacosServerHolder.get(taskDO.getSourceClusterId());
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
             //移除订阅
             sourceNamingService
                 .unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
@@ -154,8 +150,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         String taskId = taskDO.getTaskId();
         try {
             NamingService sourceNamingService =
-                nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
-            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getNameSpace());
+                nacosServerHolder.get(taskDO.getSourceClusterId());
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
 
             this.listenerMap.putIfAbsent(taskId, event -> {
                 if (event instanceof NamingEvent) {
