@@ -84,30 +84,27 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
             return t;
         });
 
-        executorService.scheduleWithFixedDelay(new Runnable() {
-            @Override
-            public void run() {
-                if (allSyncTaskMap.size() == 0) {
-                    return;
-                }
+        executorService.scheduleWithFixedDelay(() -> {
+            if (allSyncTaskMap.size() == 0) {
+                return;
+            }
 
-                try {
-                    for (TaskDO taskDO : allSyncTaskMap.values()) {
-                        String taskId = taskDO.getTaskId();
-                        NamingService sourceNamingService =
-                            nacosServerHolder.get(taskDO.getSourceClusterId());
-                        NamingService destNamingService =
-                            nacosServerHolder.get(taskDO.getDestClusterId());
-                        try {
-                            doSync(taskId, taskDO, sourceNamingService, destNamingService);
-                        } catch (Exception e) {
-                            log.error("basic synctask process fail, taskId:{}", taskId, e);
-                            metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
-                        }
+            try {
+                for (TaskDO taskDO : allSyncTaskMap.values()) {
+                    String taskId = taskDO.getTaskId();
+                    NamingService sourceNamingService =
+                        nacosServerHolder.get(taskDO.getSourceClusterId());
+                    NamingService destNamingService =
+                        nacosServerHolder.get(taskDO.getDestClusterId());
+                    try {
+                        doSync(taskId, taskDO, sourceNamingService, destNamingService);
+                    } catch (Exception e) {
+                        log.error("basic synctask process fail, taskId:{}", taskId, e);
+                        metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
                     }
-                } catch (Throwable e) {
-                    log.warn("basic synctask thread error", e);
                 }
+            } catch (Throwable e) {
+                log.warn("basic synctask thread error", e);
             }
         }, 0, 300, TimeUnit.SECONDS);
     }
@@ -152,11 +149,12 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
             NamingService sourceNamingService =
                 nacosServerHolder.get(taskDO.getSourceClusterId());
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
-
+            allSyncTaskMap.put(taskId, taskDO);
+            //防止暂停同步任务后,重新同步/或删除任务以后新建任务不会再接收到新的事件导致不能同步,所以每次订阅事件之前,先全量同步一次任务
+            doSync(taskId, taskDO, sourceNamingService, destNamingService);
             this.listenerMap.putIfAbsent(taskId, event -> {
                 if (event instanceof NamingEvent) {
                     try {
-                        allSyncTaskMap.put(taskId, taskDO);
                         doSync(taskId, taskDO, sourceNamingService, destNamingService);
                     } catch (Exception e) {
                         log.error("event process fail, taskId:{}", taskId, e);
@@ -164,7 +162,6 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                     }
                 }
             });
-
             sourceNamingService.subscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
                 listenerMap.get(taskId));
         } catch (Exception e) {
