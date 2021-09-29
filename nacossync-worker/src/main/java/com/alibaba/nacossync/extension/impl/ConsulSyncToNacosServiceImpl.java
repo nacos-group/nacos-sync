@@ -71,7 +71,7 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
 
         try {
             specialSyncEventBus.unsubscribe(taskDO);
-            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getNameSpace());
             List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName());
             for (Instance instance : allInstances) {
                 if (needDelete(instance.getMetadata(), taskDO)) {
@@ -91,8 +91,8 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
     @Override
     public boolean sync(TaskDO taskDO) {
         try {
-            ConsulClient consulClient = consulServerHolder.get(taskDO.getSourceClusterId(), null);
-            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), null);
+            ConsulClient consulClient = consulServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getNameSpace());
             Response<List<HealthService>> response =
                 consulClient.getHealthServices(taskDO.getServiceName(), true, QueryParams.DEFAULT);
             List<HealthService> healthServiceList = response.getValue();
