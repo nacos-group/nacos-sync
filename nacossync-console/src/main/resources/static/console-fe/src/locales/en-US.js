@@ -20,6 +20,8 @@ const I18N_CONF = {
     clusterType: 'Cluster Type',
     connectKeyList: 'Connect Key List',
     namespace: 'Namespace',
+    password: 'Password',
+    username: 'Username',
     operation: 'Operation',
     deleteBtn: 'Delete',
     confirm: 'Prompt',
