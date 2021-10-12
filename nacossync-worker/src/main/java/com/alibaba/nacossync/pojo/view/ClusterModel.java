@@ -45,4 +45,5 @@ public class ClusterModel implements Serializable {
     private String clusterType;
 
     private String namespace;
+    private String userName;
 }
