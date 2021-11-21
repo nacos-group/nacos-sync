@@ -18,7 +18,6 @@ class AddSyncDialog extends React.Component {
     this.state = {
       visible: false,
       destClusterId: '',
-      nameSpace: '',
       groupName: '',
       serviceName: '',
       sourceClusterId: '',
@@ -32,8 +31,8 @@ class AddSyncDialog extends React.Component {
   }
 
   save() {
-    const { destClusterId, nameSpace, groupName, serviceName, sourceClusterId, version } = this.state;
-    add({ destClusterId, nameSpace, groupName, serviceName, sourceClusterId, version })
+    const { destClusterId, groupName, serviceName, sourceClusterId, version } = this.state;
+    add({ destClusterId, groupName, serviceName, sourceClusterId, version })
       .then(() => {
         this.props.turnPage(1);
         this.close();
@@ -65,12 +64,6 @@ class AddSyncDialog extends React.Component {
         onClose={() => this.close()}
       >
         <Form>
-          <FormItem label={`${locale.nameSpace}:`}>
-            <Input
-              placeholder={locale.nameSpacePlaceholder}
-              onChange={nameSpace => this.setState({ nameSpace })}
-            />
-          </FormItem>
           <FormItem label={`${locale.serviceName}:`}>
             <Input
               placeholder={locale.serviceNamePlaceholder}

@@ -12,7 +12,8 @@
  */
 package com.alibaba.nacossync.extension.impl;
 
-import com.alibaba.nacos.api.common.Constants;
+import static com.alibaba.nacossync.util.NacosUtils.getGroupNameOrDefault;
+
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.listener.EventListener;
@@ -37,9 +38,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -55,6 +59,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
 
     private final Map<String, Set<String>> sourceInstanceSnapshot = new ConcurrentHashMap<>();
 
+    private final Map<String, Integer> syncTaskTap = new ConcurrentHashMap<>();
+
     @Autowired
     private MetricsManager metricsManager;
 
@@ -64,17 +70,57 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     @Autowired
     private NacosServerHolder nacosServerHolder;
 
+    private ConcurrentHashMap<String, TaskDO> allSyncTaskMap = new ConcurrentHashMap<String, TaskDO>();
+
+    /**
+     * 因为网络故障等原因，nacos sync的同步任务会失败，导致目标集群注册中心缺少同步实例， 为避免目标集群注册中心长时间缺少同步实例，每隔5分钟启动一个兜底工作线程执行一遍全部的同步任务。
+     */
+    @PostConstruct
+    public void startBasicSyncTaskThread() {
+        ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r);
+            t.setDaemon(true);
+            t.setName("com.alibaba.nacossync.basic.synctask");
+            return t;
+        });
+
+        executorService.scheduleWithFixedDelay(() -> {
+            if (allSyncTaskMap.size() == 0) {
+                return;
+            }
+
+            try {
+                for (TaskDO taskDO : allSyncTaskMap.values()) {
+                    String taskId = taskDO.getTaskId();
+                    NamingService sourceNamingService =
+                        nacosServerHolder.get(taskDO.getSourceClusterId());
+                    NamingService destNamingService =
+                        nacosServerHolder.get(taskDO.getDestClusterId());
+                    try {
+                        doSync(taskId, taskDO, sourceNamingService, destNamingService);
+                    } catch (Exception e) {
+                        log.error("basic synctask process fail, taskId:{}", taskId, e);
+                        metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
+                    }
+                }
+            } catch (Throwable e) {
+                log.warn("basic synctask thread error", e);
+            }
+        }, 0, 300, TimeUnit.SECONDS);
+    }
+
     @Override
     public boolean delete(TaskDO taskDO) {
         try {
             NamingService sourceNamingService =
-                nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
-            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getNameSpace());
+                nacosServerHolder.get(taskDO.getSourceClusterId());
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
             //移除订阅
             sourceNamingService
                 .unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
                     listenerMap.remove(taskDO.getTaskId()));
             sourceInstanceSnapshot.remove(taskDO.getTaskId());
+            allSyncTaskMap.remove(taskDO.getTaskId());
 
             // 删除目标集群中同步的实例列表
             List<Instance> sourceInstances = sourceNamingService
@@ -101,31 +147,21 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         String taskId = taskDO.getTaskId();
         try {
             NamingService sourceNamingService =
-                nacosServerHolder.get(taskDO.getSourceClusterId(), taskDO.getNameSpace());
-            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId(), taskDO.getNameSpace());
-
+                nacosServerHolder.get(taskDO.getSourceClusterId());
+            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
+            allSyncTaskMap.put(taskId, taskDO);
+            //防止暂停同步任务后,重新同步/或删除任务以后新建任务不会再接收到新的事件导致不能同步,所以每次订阅事件之前,先全量同步一次任务
+            doSync(taskId, taskDO, sourceNamingService, destNamingService);
             this.listenerMap.putIfAbsent(taskId, event -> {
                 if (event instanceof NamingEvent) {
                     try {
-
-                        List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
-                            new ArrayList<>(), false);
-                        // 先删除不存在的
-                        this.removeInvalidInstance(taskDO, destNamingService, sourceInstances);
-                        // 如果同步实例已经为空代表该服务所有实例已经下线,清除本地持有快照
-                        if (sourceInstances.isEmpty()) {
-                            sourceInstanceSnapshot.remove(taskId);
-                            return;
-                        }
-                        // 同步实例
-                        this.syncNewInstance(taskDO, destNamingService, sourceInstances);
+                        doSync(taskId, taskDO, sourceNamingService, destNamingService);
                     } catch (Exception e) {
                         log.error("event process fail, taskId:{}", taskId, e);
                         metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
                     }
                 }
             });
-
             sourceNamingService.subscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
                 listenerMap.get(taskId));
         } catch (Exception e) {
@@ -134,6 +170,30 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
             return false;
         }
         return true;
+    }
+
+    private void doSync(String taskId, TaskDO taskDO, NamingService sourceNamingService,
+        NamingService destNamingService) throws NacosException {
+        if (syncTaskTap.putIfAbsent(taskId, 1) != null) {
+            log.info("任务Id:{}上一个同步任务尚未结束", taskId);
+            return;
+        }
+        try {
+            // 直接从本地保存的serviceInfoMap中取订阅的服务实例
+            List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
+                getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
+            // 先删除不存在的
+            this.removeInvalidInstance(taskDO, destNamingService, sourceInstances);
+            // 如果同步实例已经为空代表该服务所有实例已经下线,清除本地持有快照
+            if (sourceInstances.isEmpty()) {
+                sourceInstanceSnapshot.remove(taskId);
+                return;
+            }
+            // 同步实例
+            this.syncNewInstance(taskDO, destNamingService, sourceInstances);
+        } finally {
+            syncTaskTap.remove(taskId);
+        }
     }
 
     private void syncNewInstance(TaskDO taskDO, NamingService destNamingService,
@@ -174,7 +234,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                 log.info("任务Id:{},移除无效同步实例:{}", taskId, instanceKey);
                 String[] split = instanceKey.split(":", -1);
                 destNamingService
-                    .deregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()), split[0],
+                    .deregisterInstance(taskDO.getServiceName(),
+                        getGroupNameOrDefault(taskDO.getGroupName()), split[0],
                         Integer.parseInt(split[1]));
 
             }
@@ -186,9 +247,6 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         return instance.getIp() + ":" + instance.getPort();
     }
 
-    private String getGroupNameOrDefault(String groupName) {
-        return StringUtils.defaultIfBlank(groupName, Constants.DEFAULT_GROUP);
-    }
 
     private Instance buildSyncInstance(Instance instance, TaskDO taskDO) {
         Instance temp = new Instance();

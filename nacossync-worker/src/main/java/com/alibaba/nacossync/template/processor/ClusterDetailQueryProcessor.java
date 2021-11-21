@@ -50,7 +50,8 @@ public class ClusterDetailQueryProcessor
         clusterModel.setConnectKeyList(clusterDO.getConnectKeyList());
         clusterModel.setClusterType(clusterDO.getClusterType());
         clusterModel.setClusterName(clusterDO.getClusterName());
-
+        clusterModel.setNamespace(clusterDO.getNamespace());
+        clusterModel.setUserName(clusterDO.getUserName());
         clusterDetailQueryResult.setClusterModel(clusterModel);
 
     }

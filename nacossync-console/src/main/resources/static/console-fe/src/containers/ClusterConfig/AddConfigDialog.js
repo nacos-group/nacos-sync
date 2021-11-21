@@ -18,6 +18,9 @@ class AddConfigDialog extends React.Component {
         visible: false,
         clusterName: '',
         clusterType: '',
+        namespace: '',
+        password: '',
+        userName: '',
         connectKeyList: [],
       };
     }
@@ -27,8 +30,8 @@ class AddConfigDialog extends React.Component {
     }
 
     save() {
-      const { clusterName, clusterType, connectKeyList } = this.state;
-      add({ clusterName, clusterType, connectKeyList })
+      const { clusterName, namespace, userName, password, clusterType, connectKeyList } = this.state;
+      add({ clusterName, namespace, userName, password, clusterType, connectKeyList })
         .then(() => {
           this.props.turnPage(1);
           this.close();
@@ -37,7 +40,10 @@ class AddConfigDialog extends React.Component {
     }
 
     close() {
-      this.setState({ visible: false });
+      this.setState({
+        visible: false,
+        clusterType: '',
+      });
     }
 
     open = () => this.setState({ visible: true })
@@ -71,6 +77,35 @@ class AddConfigDialog extends React.Component {
                             }
               </Select>
             </FormItem>
+            {
+              this.state.clusterType === 'NACOS' && (
+              <>
+                <FormItem
+                  label={`${locale.namespace}:`}
+                >
+                  <Input
+                    placeholder={locale.namespacePlaceholder}
+                    onChange={ns => this.setState({ namespace: ns })}
+                  />
+                </FormItem>
+                <FormItem
+                  label={`${locale.username}:`}
+                >
+                  <Input
+                    placeholder={locale.usernamePlaceholder}
+                    onChange={un => this.setState({ userName: un })}
+                  />
+                </FormItem>
+                <FormItem
+                  label={`${locale.password}:`}
+                >
+                  <Input.Password
+                    placeholder={locale.passwordPlaceholder}
+                    onChange={pw => this.setState({ password: pw })}
+                  />
+                </FormItem>
+              </>)
+            }
             <FormItem label={`${locale.connectKeyList}:`}>
               <Input.TextArea
                 onChange={(connectKeyListStr) => {

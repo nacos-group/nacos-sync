@@ -82,6 +82,7 @@ public class ClusterAddProcessor implements Processor<ClusterAddRequest, Cluster
         clusterDO.setConnectKeyList(objectMapper.writeValueAsString(clusterAddRequest.getConnectKeyList()));
         clusterDO.setUserName(clusterAddRequest.getUserName());
         clusterDO.setPassword(clusterAddRequest.getPassword());
+        clusterDO.setNamespace(clusterAddRequest.getNamespace());
         clusterAccessService.insert(clusterDO);
     }
 }

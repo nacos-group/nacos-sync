@@ -27,7 +27,7 @@ public class NacosSyncQueryClientImpl implements SyncQueryClient {
     @Override
     public List<TaskModel> getAllInstance(InstanceQueryModel instanceQueryModel) {
         NamingService namingService = nacosServerHolder
-                .get(instanceQueryModel.getSourceClusterId(), instanceQueryModel.getGroupName());
+                .get(instanceQueryModel.getSourceClusterId());
         try {
             ListView<String> servicesOfServer = namingService
                     .getServicesOfServer(instanceQueryModel.getPageNo(),
