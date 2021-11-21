@@ -71,8 +71,10 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
 
         try {
             specialSyncEventBus.unsubscribe(taskDO);
+
             EurekaNamingService eurekaNamingService = eurekaServerHolder.get(taskDO.getSourceClusterId());
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
+
             List<InstanceInfo> eurekaInstances = eurekaNamingService.getApplications(taskDO.getServiceName());
             deleteAllInstanceFromEureka(taskDO, destNamingService, eurekaInstances);
 
@@ -87,8 +89,10 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
     @Override
     public boolean sync(TaskDO taskDO) {
         try {
+
             EurekaNamingService eurekaNamingService = eurekaServerHolder.get(taskDO.getSourceClusterId());
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
+
             List<InstanceInfo> eurekaInstances = eurekaNamingService.getApplications(taskDO.getServiceName());
             List<Instance> nacosInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
                 NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()));

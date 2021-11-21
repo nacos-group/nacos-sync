@@ -75,6 +75,7 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
 
         try {
             specialSyncEventBus.unsubscribe(taskDO);
+
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
             List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
                 NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()));
