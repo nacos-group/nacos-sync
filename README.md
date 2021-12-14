@@ -119,7 +119,8 @@ nacosSync
 ├── bin
 │   ├── nacosSync.sql
 │   ├── shutdown.sh
-│   └── startup.sh
+│   ├── startup.sh
+|   └── startup.bat
 ├── conf
 │   ├── application.properties
 │   └── logback-spring.xml
@@ -156,6 +157,8 @@ $ nacosSync/bin:
 sh startup.sh  start
 
 ```
+window system <br>
+please use startup.bat
 
 ## Admin Console
 
