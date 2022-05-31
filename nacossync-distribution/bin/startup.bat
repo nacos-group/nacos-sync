@@ -1,1 +1,1 @@
-java -jar ../nacosSync-server.jar -server -Xms2g -Xmx2g -Xmn1g -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m --spring.config.location=../conf/application.properties
+java -jar ../nacos-sync-server.jar -server -Xms2g -Xmx2g -Xmn1g -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m --spring.config.location=../conf/application.properties

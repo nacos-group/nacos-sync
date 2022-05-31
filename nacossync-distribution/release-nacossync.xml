@@ -17,7 +17,7 @@
     <id>bin</id>
     <includeBaseDirectory>true</includeBaseDirectory>
     <!-- file name after unzip -->
-    <baseDirectory>nacosSync</baseDirectory>
+    <baseDirectory>nacos-sync</baseDirectory>
     <formats>
         <format>dir</format>
         <format>tar.gz</format>
@@ -60,9 +60,9 @@
             <destName>NOTICE</destName>
         </file>
         <file>
-            <source>../nacossync-worker/target/nacosSync-server.${parent.version}.jar</source>
+            <source>../nacossync-worker/target/nacos-sync-server-${project.version}.jar</source>
             <outputDirectory></outputDirectory>
-            <destName>nacosSync-server.jar</destName>
+            <destName>nacos-sync-server.jar</destName>
         </file>
     </files>
 </assembly>
