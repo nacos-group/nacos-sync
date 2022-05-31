@@ -17,7 +17,7 @@
     <parent>
         <artifactId>nacossync-parent</artifactId>
         <groupId>com.alibaba.nacossync</groupId>
-        <version>0.4.7</version>
+        <version>${revision}</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
@@ -25,27 +25,20 @@
 
     <artifactId>nacossync-test</artifactId>
 
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
     <dependencies>
-
         <dependency>
             <groupId>io.projectreactor</groupId>
             <artifactId>reactor-core</artifactId>
-
         </dependency>
-
         <dependency>
             <groupId>com.alibaba.nacossync</groupId>
             <artifactId>nacossync-worker</artifactId>
-            <version>0.4.7</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-test</artifactId>
         </dependency>
-
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-test</artifactId>
@@ -57,10 +50,8 @@
         <dependency>
             <groupId>com.ning</groupId>
             <artifactId>async-http-client</artifactId>
-            <version>1.7.17</version>
             <scope>test</scope>
         </dependency>
-
     </dependencies>
 
     <build>
@@ -68,7 +59,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.9</version>
                 <configuration>
                     <parallel>methods</parallel>
                     <useUnlimitedThreads>true</useUnlimitedThreads>
@@ -76,6 +66,4 @@
             </plugin>
         </plugins>
     </build>
-
-
 </project>

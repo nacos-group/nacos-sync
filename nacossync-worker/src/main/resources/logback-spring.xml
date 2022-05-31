@@ -4,12 +4,13 @@
         <springProperty name="logPath"  scope="context" source="nacosSync.logs.path" defaultValue="${nacosSync.home}/logs"/>
         <property name="LOG_HOME" value="${logPath}" />
     <appender name="FILEINFO" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_HOME}/nacosSync.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_HOME}/log-nacosSync-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
-                <maxFileSize>200MB</maxFileSize>
-            </timeBasedFileNamingAndTriggeringPolicy>
+        <file>${LOG_HOME}/nacos-sync.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/log-nacos-sync-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>200MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>2GB</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
         </rollingPolicy>
         <append>true</append>
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
@@ -25,7 +26,6 @@
     </appender>
 
     <logger name="com.alibaba.nacossync" level="INFO"/>
-
     <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="INFO"/>
     <logger name="org.hibernate.type.descriptor.sql.BasicExtractor" level="INFO"/>
     <logger name="org.hibernate.SQL" level="INFO"/>

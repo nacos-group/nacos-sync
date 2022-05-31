@@ -5,7 +5,7 @@
 ## Function
 
  - Console: provide API and console for management
- - Worker: provider the service registration synchronization. 
+ - Worker: provide the service registration synchronization. 
 
 ## Architecture
 
@@ -44,16 +44,9 @@ Info |      +------------+                   ^
      - NacosCluster target will dedup the synchronization information from Nacos.
      
 
-
-
-
-
-
-
 ## Quick Start:
  - Swagger API: http://127.0.0.1:8083/swagger-ui.html#/
  - Web Console: http://127.0.0.1:8083/
- - Others: TBD
 
 # NacosSync Migration User Guide
 
@@ -84,7 +77,7 @@ Before you begin, install the following:
 
 - 64bit OS: Linux/Unix/Mac/Windows supported, Linux/Unix/Mac recommended.
 - 64bit JDK 1.8+: downloads, JAVA_HOME settings.
-- Maven 3.2.x+: downloads, settings.
+- Maven 3.5.2+: [downloads](https://maven.apache.org/download.cgi), [settings](https://maven.apache.org/settings.html).
 - MySql 5.6.+
 
 ## Download & Build From Release
@@ -96,7 +89,7 @@ There are two ways to get NacosSync.
 
 ``` xml
 
-cd nacosSync/
+cd nacos-sync/
 mvn clean package -U
 
 ```
@@ -105,7 +98,7 @@ The path to the target file:
 
 ``` xml
 
-nacos-sync/nacossync-distribution/target/nacosSync.0.3.8.zip
+nacos-sync/nacossync-distribution/target/nacos-sync-0.4.7.zip
 
 ```
 
@@ -113,7 +106,7 @@ After extracting the installation package, the directory structure:
 
 ``` xml
 
-nacosSync
+nacos-sync
 ├── LICENSE
 ├── NOTICE
 ├── bin
@@ -124,7 +117,7 @@ nacosSync
 │   ├── application.properties
 │   └── logback-spring.xml
 ├── logs
-└── nacosSync-server.jar
+└── nacos-sync-server.jar
 
 ```
 
@@ -132,7 +125,7 @@ nacosSync
 
 The default is Mysql database, which can support other relational databases
 
-- Build db schema, the default schema name nacos_Sync.
+- Build db schema, the default schema name nacos_sync.
 - Tables do not need to be created separately, which is conducive to hibernate's automatic table creation function.
 - If the automatic table creation fails, you can build the table nacosSync.sql, the table statement is in the bin folder.
 
@@ -161,15 +154,6 @@ sh startup.sh  start
 
 ``` xml
 
-http://127.0.0.1:8083/#/serviceSync
+http://127.0.0.1:8083
 
 ```
-
-
-
-
-
-
-
-
-
