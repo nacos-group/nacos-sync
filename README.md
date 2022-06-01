@@ -98,7 +98,7 @@ The path to the target file:
 
 ``` xml
 
-nacos-sync/nacossync-distribution/target/nacos-sync-0.4.7.zip
+nacos-sync/nacossync-distribution/target/nacos-sync-0.4.8.tar.gz
 
 ```
 

@@ -31,9 +31,8 @@
             <artifactId>reactor-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.alibaba.nacossync</groupId>
+            <groupId>${project.groupId}</groupId>
             <artifactId>nacossync-worker</artifactId>
-            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

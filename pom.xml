@@ -25,7 +25,7 @@
     </modules>
     <packaging>pom</packaging>
     <properties>
-        <revision>0.4.7</revision>
+        <revision>0.4.8</revision>
         <spring-boot.version>2.4.5</spring-boot.version>
         <spring-cloud.version>2020.0.2</spring-cloud.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -177,6 +177,11 @@
                 <groupId>com.ning</groupId>
                 <artifactId>async-http-client</artifactId>
                 <version>${async-http-client.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>nacossync-worker</artifactId>
+                <version>${project.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
