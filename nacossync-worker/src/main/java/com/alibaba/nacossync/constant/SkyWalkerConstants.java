@@ -30,5 +30,10 @@ public class SkyWalkerConstants {
     public static final String SOURCE_CLUSTERID_KEY = "sourceClusterId";
     public static final String MANAGEMENT_PORT_KEY="management.port";
     public static final String MANAGEMENT_CONTEXT_PATH_KEY="management.context-path";
+    
+    public static  final String SERVICE_NAME_PARAM="serviceNameParam";
+    public static  final String GROUP_NAME_PARAM="groupNameParam";
+    public static  final String PAGE_NO="pageNo";
+    public static  final String PAGE_SIZE="pageSize";
 
 }

@@ -12,8 +12,6 @@
  */
 package com.alibaba.nacossync.extension.impl;
 
-import static com.alibaba.nacossync.util.NacosUtils.getGroupNameOrDefault;
-
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.listener.EventListener;
@@ -30,6 +28,10 @@ import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.Collections;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import javax.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -42,9 +44,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import javax.annotation.PostConstruct;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import static com.alibaba.nacossync.util.NacosUtils.getGroupNameOrDefault;
 
 /**
  * @author yangyshdan
@@ -55,7 +56,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 @NacosSyncService(sourceCluster = ClusterTypeEnum.NACOS, destinationCluster = ClusterTypeEnum.NACOS)
 public class NacosSyncToNacosServiceImpl implements SyncService {
 
-    private Map<String, EventListener> listenerMap = new ConcurrentHashMap<>();
+    private final Map<String, EventListener> listenerMap = new ConcurrentHashMap<>();
 
     private final Map<String, Set<String>> sourceInstanceSnapshot = new ConcurrentHashMap<>();
 

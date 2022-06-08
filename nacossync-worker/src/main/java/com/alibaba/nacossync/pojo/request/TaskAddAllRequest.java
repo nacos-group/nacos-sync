@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacossync.pojo.request;
 
 import lombok.Data;
@@ -24,20 +25,20 @@ import lombok.Data;
  */
 @Data
 public class TaskAddAllRequest extends BaseRequest {
-
+    
     /**
      * eg: b7bacb110199d5bb83b9757038fadeb0 .
      */
     private String sourceClusterId;
-
+    
     /**
      * eg: bbdad57833a0e4f0981f6f3349005617 .
      */
     private String destClusterId;
-
+    
     /**
-     * 是否排除订阅者.
+     * whether to exclude subscriber.
      */
     private boolean excludeConsumer = true;
-
+    
 }

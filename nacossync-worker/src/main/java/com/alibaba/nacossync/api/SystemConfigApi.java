@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacossync.api;
 
 import lombok.extern.slf4j.Slf4j;
@@ -42,34 +43,32 @@ import com.alibaba.nacossync.template.processor.ConfigQueryProcessor;
 @Slf4j
 @RestController
 public class SystemConfigApi {
-
+    
     @Autowired
     private ConfigQueryProcessor configQueryProcessor;
-
+    
     @Autowired
     private ConfigDeleteProcessor configDeleteProcessor;
-
+    
     @Autowired
     private ConfigAddProcessor configAddProcessor;
-
+    
     @RequestMapping(path = "/v1/systemconfig/list", method = RequestMethod.GET)
     public ConfigQueryResult tasks(ConfigQueryRequest configQueryRequest) {
-
-        return SkyWalkerTemplate.run(configQueryProcessor, configQueryRequest,
-                new ConfigQueryResult());
+        
+        return SkyWalkerTemplate.run(configQueryProcessor, configQueryRequest, new ConfigQueryResult());
     }
-
+    
     @RequestMapping(path = "/v1/systemconfig/delete", method = RequestMethod.DELETE)
     public ConfigDeleteResult deleteTask(@RequestBody ConfigDeleteRequest configDeleteRequest) {
-
-        return SkyWalkerTemplate.run(configDeleteProcessor, configDeleteRequest,
-                new ConfigDeleteResult());
+        
+        return SkyWalkerTemplate.run(configDeleteProcessor, configDeleteRequest, new ConfigDeleteResult());
     }
-
+    
     @RequestMapping(path = "/v1/systemconfig/add", method = RequestMethod.POST)
     public ConfigAddResult taskAdd(@RequestBody ConfigAddRequest configAddRequest) {
-
+        
         return SkyWalkerTemplate.run(configAddProcessor, configAddRequest, new ConfigAddResult());
     }
-
+    
 }
