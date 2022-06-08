@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacossync.api;
 
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
@@ -44,57 +45,54 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @RestController
 public class ClusterApi {
-
+    
     private final ClusterAddProcessor clusterAddProcessor;
-
+    
     private final ClusterDeleteProcessor clusterDeleteProcessor;
-
+    
     private final ClusterDetailQueryProcessor clusterDetailQueryProcessor;
-
+    
     private final ClusterListQueryProcessor clusterListQueryProcessor;
-
-    public ClusterApi(
-        ClusterAddProcessor clusterAddProcessor, ClusterDeleteProcessor clusterDeleteProcessor,
-        ClusterDetailQueryProcessor clusterDetailQueryProcessor, ClusterListQueryProcessor clusterListQueryProcessor) {
+    
+    public ClusterApi(ClusterAddProcessor clusterAddProcessor, ClusterDeleteProcessor clusterDeleteProcessor,
+            ClusterDetailQueryProcessor clusterDetailQueryProcessor,
+            ClusterListQueryProcessor clusterListQueryProcessor) {
         this.clusterAddProcessor = clusterAddProcessor;
         this.clusterDeleteProcessor = clusterDeleteProcessor;
         this.clusterDetailQueryProcessor = clusterDetailQueryProcessor;
         this.clusterListQueryProcessor = clusterListQueryProcessor;
     }
-
+    
     @RequestMapping(path = "/v1/cluster/list", method = RequestMethod.GET)
     public ClusterListQueryResult clusters(ClusterListQueryRequest clusterListQueryRequest) {
-
-        return SkyWalkerTemplate.run(clusterListQueryProcessor, clusterListQueryRequest,
-                new ClusterListQueryResult());
+        
+        return SkyWalkerTemplate.run(clusterListQueryProcessor, clusterListQueryRequest, new ClusterListQueryResult());
     }
-
+    
     @RequestMapping(path = "/v1/cluster/detail", method = RequestMethod.GET)
     public ClusterDetailQueryResult getByTaskId(ClusterDetailQueryRequest clusterDetailQueryRequest) {
-
+        
         return SkyWalkerTemplate.run(clusterDetailQueryProcessor, clusterDetailQueryRequest,
                 new ClusterDetailQueryResult());
     }
-
+    
     @RequestMapping(path = "/v1/cluster/delete", method = RequestMethod.DELETE)
     public ClusterDeleteResult deleteCluster(ClusterDeleteRequest clusterDeleteRequest) {
-
-        return SkyWalkerTemplate.run(clusterDeleteProcessor, clusterDeleteRequest,
-                new ClusterDeleteResult());
-
+        
+        return SkyWalkerTemplate.run(clusterDeleteProcessor, clusterDeleteRequest, new ClusterDeleteResult());
+        
     }
-
+    
     @RequestMapping(path = "/v1/cluster/add", method = RequestMethod.POST)
     public ClusterAddResult clusterAdd(@RequestBody ClusterAddRequest clusterAddRequest) {
-
-        return SkyWalkerTemplate
-                .run(clusterAddProcessor, clusterAddRequest, new ClusterAddResult());
+        
+        return SkyWalkerTemplate.run(clusterAddProcessor, clusterAddRequest, new ClusterAddResult());
     }
-
+    
     @RequestMapping(path = "/v1/cluster/types", method = RequestMethod.GET)
     public ClusterTypeResult getClusterType() {
-
+        
         return new ClusterTypeResult(ClusterTypeEnum.getClusterTypeCodes());
     }
-
+    
 }

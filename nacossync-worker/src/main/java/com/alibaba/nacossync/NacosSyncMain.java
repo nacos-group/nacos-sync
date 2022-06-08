@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacossync;
 
 import org.springframework.boot.SpringApplication;
@@ -29,9 +30,9 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
 @EnableSwagger2
 @SpringBootApplication(exclude = EurekaClientAutoConfiguration.class)
 public class NacosSyncMain {
-
+    
     public static void main(String[] args) {
-
+        
         SpringApplication.run(NacosSyncMain.class, args);
     }
 }

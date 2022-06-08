@@ -13,7 +13,7 @@ class Layout extends React.Component {
         <Header />
         <Row className="layout">
           <Col fixedSpan="9" className="nav-bar">
-            <h1 className="title">Nacos-Sync 3.0</h1>
+            <h1 className="title">Nacos-Sync 0.4.8</h1>
             <Menu />
           </Col>
           <Col className="main-panel">{this.props.children}</Col>
