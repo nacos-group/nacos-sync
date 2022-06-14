@@ -27,13 +27,11 @@ import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
-import com.alibaba.nacossync.util.Collections;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import javax.annotation.PostConstruct;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -226,26 +224,23 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         String taskId = taskDO.getTaskId();
         if (this.sourceInstanceSnapshot.containsKey(taskId)) {
             Set<String> oldInstanceKeys = this.sourceInstanceSnapshot.get(taskId);
-            List<String> newInstanceKeys = sourceInstances.stream().map(this::composeInstanceKey)
-                .collect(Collectors.toList());
-            Collection<String> instanceKeys = Collections.subtract(oldInstanceKeys, newInstanceKeys);
-            for (String instanceKey : instanceKeys) {
+            Set<String> newInstanceKeys = sourceInstances.stream().map(this::composeInstanceKey)
+                .collect(Collectors.toSet());
+            oldInstanceKeys.removeAll(newInstanceKeys);
+            for (String instanceKey : oldInstanceKeys) {
                 log.info("任务Id:{},移除无效同步实例:{}", taskId, instanceKey);
                 String[] split = instanceKey.split(":", -1);
                 destNamingService
                     .deregisterInstance(taskDO.getServiceName(),
                         getGroupNameOrDefault(taskDO.getGroupName()), split[0],
                         Integer.parseInt(split[1]));
-
             }
-
         }
     }
 
     private String composeInstanceKey(Instance instance) {
         return instance.getIp() + ":" + instance.getPort();
     }
-
 
     private Instance buildSyncInstance(Instance instance, TaskDO taskDO) {
         Instance temp = new Instance();
