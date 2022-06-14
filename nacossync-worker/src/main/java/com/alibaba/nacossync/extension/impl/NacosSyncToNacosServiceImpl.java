@@ -27,13 +27,11 @@ import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
-import com.alibaba.nacossync.util.Collections;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import javax.annotation.PostConstruct;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -185,11 +183,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                 getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
             // 先删除不存在的
             this.removeInvalidInstance(taskDO, destNamingService, sourceInstances);
-            // 如果同步实例已经为空代表该服务所有实例已经下线,清除本地持有快照
-            if (sourceInstances.isEmpty()) {
-                sourceInstanceSnapshot.remove(taskId);
-                return;
-            }
+
             // 同步实例
             this.syncNewInstance(taskDO, destNamingService, sourceInstances);
         } finally {
@@ -212,13 +206,15 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                         buildSyncInstance(instance, taskDO));
                 }
                 latestSyncInstance.add(instanceKey);
-
             }
         }
-        if (CollectionUtils.isNotEmpty(latestSyncInstance)) {
 
+        if (CollectionUtils.isNotEmpty(latestSyncInstance)) {
             log.info("任务Id:{},已同步实例个数:{}", taskId, latestSyncInstance.size());
             sourceInstanceSnapshot.put(taskId, latestSyncInstance);
+        } else {
+            // latestSyncInstance为空表示源集群中需要同步的所有实例（即非nacos-sync同步过来的实例）已经下线,清除本地持有快照
+            sourceInstanceSnapshot.remove(taskId);
         }
     }
 
@@ -228,26 +224,23 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         String taskId = taskDO.getTaskId();
         if (this.sourceInstanceSnapshot.containsKey(taskId)) {
             Set<String> oldInstanceKeys = this.sourceInstanceSnapshot.get(taskId);
-            List<String> newInstanceKeys = sourceInstances.stream().map(this::composeInstanceKey)
-                .collect(Collectors.toList());
-            Collection<String> instanceKeys = Collections.subtract(oldInstanceKeys, newInstanceKeys);
-            for (String instanceKey : instanceKeys) {
+            Set<String> newInstanceKeys = sourceInstances.stream().map(this::composeInstanceKey)
+                .collect(Collectors.toSet());
+            oldInstanceKeys.removeAll(newInstanceKeys);
+            for (String instanceKey : oldInstanceKeys) {
                 log.info("任务Id:{},移除无效同步实例:{}", taskId, instanceKey);
                 String[] split = instanceKey.split(":", -1);
                 destNamingService
                     .deregisterInstance(taskDO.getServiceName(),
                         getGroupNameOrDefault(taskDO.getGroupName()), split[0],
                         Integer.parseInt(split[1]));
-
             }
-
         }
     }
 
     private String composeInstanceKey(Instance instance) {
         return instance.getIp() + ":" + instance.getPort();
     }
-
 
     private Instance buildSyncInstance(Instance instance, TaskDO taskDO) {
         Instance temp = new Instance();
