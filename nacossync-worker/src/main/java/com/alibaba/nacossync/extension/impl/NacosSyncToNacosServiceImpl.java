@@ -185,11 +185,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                 getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
             // 先删除不存在的
             this.removeInvalidInstance(taskDO, destNamingService, sourceInstances);
-            // 如果同步实例已经为空代表该服务所有实例已经下线,清除本地持有快照
-            if (sourceInstances.isEmpty()) {
-                sourceInstanceSnapshot.remove(taskId);
-                return;
-            }
+
             // 同步实例
             this.syncNewInstance(taskDO, destNamingService, sourceInstances);
         } finally {
@@ -212,13 +208,15 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                         buildSyncInstance(instance, taskDO));
                 }
                 latestSyncInstance.add(instanceKey);
-
             }
         }
-        if (CollectionUtils.isNotEmpty(latestSyncInstance)) {
 
+        if (CollectionUtils.isNotEmpty(latestSyncInstance)) {
             log.info("任务Id:{},已同步实例个数:{}", taskId, latestSyncInstance.size());
             sourceInstanceSnapshot.put(taskId, latestSyncInstance);
+        } else {
+            // latestSyncInstance为空表示源集群中需要同步的所有实例（即非nacos-sync同步过来的实例）已经下线,清除本地持有快照
+            sourceInstanceSnapshot.remove(taskId);
         }
     }
 
