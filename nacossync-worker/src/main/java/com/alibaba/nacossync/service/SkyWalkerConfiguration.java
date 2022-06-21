@@ -16,8 +16,7 @@
  */
 package com.alibaba.nacossync.service;
 
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.*;
 
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import org.springframework.context.annotation.Bean;
@@ -42,6 +41,22 @@ public class SkyWalkerConfiguration {
 
         return new ScheduledThreadPoolExecutor(5, new BasicThreadFactory.Builder()
                 .namingPattern("SkyWalker-Timer-schedule-pool-%d").daemon(true).build());
+    }
+
+    @Bean
+    public ThreadPoolExecutor threadPoolExecutor() {
+        int corePollSize = Runtime.getRuntime().availableProcessors() + 1;
+
+        int maxPollSize = 8192;
+        BlockingQueue<Runnable> blockingQueue = new ArrayBlockingQueue<>(maxPollSize);
+        RejectedExecutionHandler rejectedExecutionHandler = new ThreadPoolExecutor.CallerRunsPolicy();
+        ThreadFactory threadFactory = r -> {
+            Thread thread = new Thread(r);
+            thread.setName("nacos-sync-pool" + thread.getId());
+            return thread;
+        };
+        return new ThreadPoolExecutor(corePollSize, maxPollSize, 0, TimeUnit.MILLISECONDS,
+                blockingQueue, threadFactory, rejectedExecutionHandler);
     }
 
 }
