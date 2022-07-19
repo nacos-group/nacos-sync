@@ -89,7 +89,7 @@ public class TaskAddProcessor implements Processor<TaskAddRequest, TaskAddResult
             taskDO.setTaskStatus(TaskStatusEnum.SYNC.getCode());
             taskDO.setWorkerIp(SkyWalkerUtil.getLocalIp());
             taskDO.setOperationId(SkyWalkerUtil.generateOperationId());
-
+            
         } else {
 
             taskDO.setTaskStatus(TaskStatusEnum.SYNC.getCode());

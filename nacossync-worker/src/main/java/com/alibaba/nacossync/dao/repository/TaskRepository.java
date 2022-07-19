@@ -41,5 +41,12 @@ public interface TaskRepository extends CrudRepository<TaskDO, Integer>, JpaRepo
     List<TaskDO> findAllByTaskIdIn(List<String> taskIds);
     
     List<TaskDO> getAllByWorkerIp(String workerIp);
+    
+    /**
+     * query service is all，use ns leven sync data
+     * @param serviceName
+     * @return
+     */
+    List<TaskDO> findAllByServiceNameEquals(String serviceName);
 
 }

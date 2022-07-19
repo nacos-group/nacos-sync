@@ -87,7 +87,7 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
     }
 
     @Override
-    public boolean sync(TaskDO taskDO) {
+    public boolean sync(TaskDO taskDO,Integer index) {
         try {
 
             EurekaNamingService eurekaNamingService = eurekaServerHolder.get(taskDO.getSourceClusterId());
@@ -107,7 +107,7 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
                 }
                 addValidInstance(taskDO, destNamingService, eurekaInstances);
             }
-            specialSyncEventBus.subscribe(taskDO, this::sync);
+            specialSyncEventBus.subscribe(taskDO, t->sync(t, index));
         } catch (Exception e) {
             log.error("sync task from eureka to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
             metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
