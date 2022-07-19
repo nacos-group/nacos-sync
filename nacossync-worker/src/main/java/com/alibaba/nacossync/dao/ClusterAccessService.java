@@ -103,4 +103,12 @@ public class ClusterAccessService implements PageQueryService<ClusterDO> {
         predicates.add(criteriaBuilder.like(root.get("clusterName"), "%" + queryCondition.getServiceName() + "%"));
         return predicates;
     }
+    
+    public int findClusterLevel(String sourceClusterId){
+        ClusterDO clusterDO = clusterRepository.findByClusterId(sourceClusterId);
+        if (clusterDO != null) {
+            return clusterDO.getClusterLevel();
+        }
+        return -1;
+    }
 }

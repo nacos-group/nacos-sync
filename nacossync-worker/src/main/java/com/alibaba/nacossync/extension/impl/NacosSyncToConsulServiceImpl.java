@@ -99,7 +99,7 @@ public class NacosSyncToConsulServiceImpl implements SyncService {
     }
 
     @Override
-    public boolean sync(TaskDO taskDO) {
+    public boolean sync(TaskDO taskDO, Integer index) {
         try {
             NamingService sourceNamingService =
                 nacosServerHolder.get(taskDO.getSourceClusterId());

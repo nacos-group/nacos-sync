@@ -62,7 +62,7 @@ public class EventListener {
 
         try {
             long start = System.currentTimeMillis();
-            if (syncManagerService.sync(syncTaskEvent.getTaskDO())) {                
+            if (syncManagerService.sync(syncTaskEvent.getTaskDO(), null)) {
                 skyWalkerCacheServices.addFinishedTask(syncTaskEvent.getTaskDO());
                 metricsManager.record(MetricsStatisticsType.SYNC_TASK_RT, System.currentTimeMillis() - start);
             } else {

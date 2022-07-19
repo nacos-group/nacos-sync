@@ -26,7 +26,7 @@
         <curator.version>4.1.0</curator.version>
         <cloud.version>2020.0.2</cloud.version>
         <mockito.version>1.10.19</mockito.version>
-        <nacos.client.verison>1.4.2</nacos.client.verison>
+        <nacos.client.verison>2.1.0</nacos.client.verison>
     </properties>
     <dependencyManagement>
         <dependencies>
