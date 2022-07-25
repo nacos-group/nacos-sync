@@ -88,7 +88,5 @@ public class EventListener {
         } catch (Exception e) {
             log.warn("listenerDeleteTaskEvent process error", e);
         }
-
     }
-
 }

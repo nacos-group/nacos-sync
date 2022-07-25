@@ -31,5 +31,6 @@ public class SkyWalkerConstants {
     public static final String MANAGEMENT_PORT_KEY="management.port";
     public static final String MANAGEMENT_CONTEXT_PATH_KEY="management.context-path";
     public static final String SYNC_INSTANCE_TAG="sync.instance.tag";
+    public static final Integer MAX_THREAD_NUM = 200;
 
 }

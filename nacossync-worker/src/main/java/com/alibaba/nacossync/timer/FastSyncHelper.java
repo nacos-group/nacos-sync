@@ -1,0 +1,196 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.alibaba.nacossync.timer;
+
+import com.alibaba.nacos.client.naming.utils.CollectionUtils;
+import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
+import com.alibaba.nacossync.constant.MetricsStatisticsType;
+import com.alibaba.nacossync.extension.SyncManagerService;
+import com.alibaba.nacossync.extension.impl.NacosSyncToNacosServiceImpl;
+import com.alibaba.nacossync.monitor.MetricsManager;
+import com.alibaba.nacossync.pojo.model.TaskDO;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+
+import static com.alibaba.nacossync.constant.SkyWalkerConstants.MAX_THREAD_NUM;
+
+/**
+ * multi-threaded synchronization Task DO.
+ * @ClassName: FastSyncHelper
+ * @Author: ChenHao26
+ * @Date: 2022/7/19 17:02
+ * @Description:
+ */
+@Service
+@Slf4j
+public class FastSyncHelper {
+    
+    @Autowired
+    private SkyWalkerCacheServices skyWalkerCacheServices;
+    
+    @Autowired
+    private MetricsManager metricsManager;
+    
+    @Autowired
+    private SyncManagerService syncManagerService;
+    
+    @Autowired
+    private NacosSyncToNacosServiceImpl nacosSyncToNacosService;
+    
+    /**
+     * every 200 services start a thread to perform synchronization.
+     * @param taskDOS task list
+     */
+    public void syncWithThread(List<TaskDO> taskDOS) {
+        long startTime = System.currentTimeMillis();
+        List<List<TaskDO>> taskGroupList = averageAssign(taskDOS, MAX_THREAD_NUM);
+        CountDownLatch countDownLatch = new CountDownLatch(taskGroupList.size());
+    
+        // 创建分组线程，每个线程执行自己的任务
+        for (int i = 0; i < taskGroupList.size(); i++) {
+            new SyncThread(i, countDownLatch, taskGroupList.get(i)).start();
+        }
+        try {
+            countDownLatch.await();
+        }catch (InterruptedException exception) {
+            exception.printStackTrace();
+        }
+        
+        log.info("新增同步任务数量 {}, 执行耗时：{}ms",taskDOS.size() , System.currentTimeMillis() - startTime);
+    }
+    
+    /**
+     * every 200 services start a thread to perform synchronization.
+     * @param taskDO task info
+     * @param filterServices filterServices
+     */
+    public  void syncWithThread(TaskDO taskDO, List<String> filterServices) {
+        long start=System.currentTimeMillis();
+        List<List<String>> lists = averageAssign(filterServices, MAX_THREAD_NUM);
+        CountDownLatch countDownLatch = new CountDownLatch(lists.size());
+        
+        //创建分组线程，每个线程执行自己的任务
+        for (int i = 0; i < lists.size(); i++) {
+            new SyncThread(i, countDownLatch, lists.get(i), taskDO).start();
+        }
+        
+        try {
+            countDownLatch.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        log.info("新增同步任务数量 {} ,执行耗时：{} ms",filterServices.size(),System.currentTimeMillis() - start);
+    }
+    
+    class SyncThread extends Thread {
+        private int index;
+        
+        private CountDownLatch countDownLatch;
+        
+        private List<String> serviceNames;
+        
+        private List<TaskDO> taskDOS;
+        
+        private TaskDO taskDO;
+    
+        public SyncThread(int index, CountDownLatch countDownLatch, List<String> serviceNames, TaskDO taskDO) {
+            this.index = index;
+            this.countDownLatch = countDownLatch;
+            this.serviceNames = serviceNames;
+            this.taskDO = taskDO;
+        }
+    
+        public SyncThread(int index, CountDownLatch countDownLatch, List<TaskDO> taskDOS) {
+            this.index = index;
+            this.countDownLatch = countDownLatch;
+            this.taskDOS = taskDOS;
+        }
+        
+        //创建任务，执行数据同步
+        @Override
+        public void run() {
+            if (!CollectionUtils.isEmpty(serviceNames)) {
+                //  执行数据同步
+                for (String serviceName : serviceNames) {
+                    sync(taskDO, serviceName, index);
+                }
+            } else {
+                for (TaskDO taskDO : taskDOS) {
+                    //执行兜底的定时同步
+                    nacosSyncToNacosService.timeSync(taskDO);
+                }
+            }
+            countDownLatch.countDown();
+        }
+    }
+    
+    private void sync(TaskDO taskDO, String serviceName, int index) {
+        long startTime = System.currentTimeMillis();
+        TaskDO task = new TaskDO();
+        BeanUtils.copyProperties(taskDO,task);
+        task.setServiceName(serviceName);
+        task.setOperationId(taskDO.getTaskId() + serviceName);
+        if (syncManagerService.sync(task,index)) {
+            skyWalkerCacheServices.addFinishedTask(task);
+            log.info("sync thread : {} sync finish ,time consuming ：{}", Thread.currentThread().getId(), System.currentTimeMillis() - startTime);
+            metricsManager.record(MetricsStatisticsType.SYNC_TASK_RT, System.currentTimeMillis() - startTime);
+        }else {
+            log.warn("listenerSyncTaskEvent sync failure.");
+        }
+    }
+    
+    /**
+     * 将一个List均分成n个list,主要通过偏移量来实现的
+     *
+     * @param source 源集合
+     * @param limit 最大值
+     * @return
+     */
+    public static <T> List<List<T>> averageAssign(List<T> source, int limit) {
+        if (null == source || source.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<List<T>> result = new ArrayList<>();
+        int listCount = (source.size() - 1) / limit + 1;
+        // (先计算出余数)
+        int remaider = source.size() % listCount;
+        // 然后是商
+        int number = source.size() / listCount;
+        // 偏移量
+        int offset = 0;
+        for (int i = 0; i < listCount; i++) {
+            List<T> value;
+            if (remaider > 0) {
+                value = source.subList(i * number + offset, (i + 1) * number + offset + 1);
+                remaider--;
+                offset++;
+            } else {
+                value = source.subList(i * number + offset, (i + 1) * number + offset);
+            }
+            result.add(value);
+        }
+        return result;
+    }
+}

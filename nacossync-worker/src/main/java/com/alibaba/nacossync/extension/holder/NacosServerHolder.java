@@ -118,7 +118,7 @@ public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
                 return NamingFactory.createNamingService(properties);
             }catch (NacosException e) {
                 log.error("start source server fail,taskId:{},sourceClusterId:{}"
-                        , taskId,sourceClusterId, e);
+                        , taskId, sourceClusterId, e);
                 return null;
             }
         });
