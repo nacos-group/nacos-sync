@@ -51,7 +51,7 @@ public class NacosSyncToNacosServiceImplTest {
         TaskDO taskDO = mock(TaskDO.class);
         mockSync(taskDO);
         // TODO Test the core logic in the future
-        Assert.assertTrue(nacosSyncToNacosService.sync(taskDO));
+        Assert.assertTrue(nacosSyncToNacosService.sync(taskDO,null));
     }
 
     @Test
@@ -64,7 +64,7 @@ public class NacosSyncToNacosServiceImplTest {
 
     @Test(expected = Exception.class)
     public void testNacosSyncToNacosWithException() throws Exception {
-        Assert.assertFalse(nacosSyncToNacosService.sync(null));
+        Assert.assertFalse(nacosSyncToNacosService.sync(null, null));
     }
     @Test(expected = Exception.class)
     public void testNacosDeleteToNacosWithException() throws Exception {

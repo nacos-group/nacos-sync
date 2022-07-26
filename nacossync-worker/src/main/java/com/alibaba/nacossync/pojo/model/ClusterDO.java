@@ -68,6 +68,6 @@ public class ClusterDO implements Serializable {
 
     private String namespace;
     
-    private int clusterLevel;
+    private Integer clusterLevel;
     
 }

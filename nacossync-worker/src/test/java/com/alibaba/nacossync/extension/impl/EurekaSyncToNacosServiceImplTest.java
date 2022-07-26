@@ -61,7 +61,7 @@ public class EurekaSyncToNacosServiceImplTest {
     public void testEurekaSyncToNacos() throws Exception {
         TaskDO taskDO = mock(TaskDO.class);
         mockSync(taskDO);
-        Assert.assertTrue(eurekaSyncToNacosService.sync(taskDO));
+        Assert.assertTrue(eurekaSyncToNacosService.sync(taskDO,null));
     }
 
 
@@ -74,7 +74,7 @@ public class EurekaSyncToNacosServiceImplTest {
     }
     @Test(expected = Exception.class)
     public void testEurekaSyncToNacosWithException() throws Exception {
-        Assert.assertFalse(eurekaSyncToNacosService.sync(null));
+        Assert.assertFalse(eurekaSyncToNacosService.sync(null, null));
     }
     @Test(expected = Exception.class)
     public void testEurekaDeleteToNacosWithException() throws Exception {
