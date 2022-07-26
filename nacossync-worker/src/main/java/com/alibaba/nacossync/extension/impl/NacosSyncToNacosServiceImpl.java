@@ -290,8 +290,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
             
             int level = clusterAccessService.findClusterLevel(taskDO.getSourceClusterId());
             if (CollectionUtils.isNotEmpty(sourceInstances) && sourceInstances.get(0).isEphemeral()) {
-                //处临实例的批量数据同步,需要获取当前所有的服务实例
-                handlerEphemeralInstance(taskDO,destNamingService,sourceInstances, level);
+                //处临实例的批量数据同步,需要获取当前所有的服务实例，TODO，当Client为1.x的时候，执行和持久化实例一样的同步方式
+                handlerPersistenceInstance(taskDO,destNamingService,sourceInstances, level);
             }else if (CollectionUtils.isEmpty(sourceInstances)){
                 //如果当前源集群是空的 ，那么直接注销目标集群的实例
                 log.debug("service {} need sync Ephemeral instance num is null: serviceName ", taskDO.getServiceName());
@@ -307,10 +307,10 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     
     private void handlerPersistenceInstance(TaskDO taskDO, NamingService destNamingService,
             List<Instance> sourceInstances, int level) throws NacosException{
-        List<Instance> needBatchRegisterInstance = new ArrayList<>();
+        List<Instance> needRegisterInstance = new ArrayList<>();
         for (Instance instance : sourceInstances) {
             if (needSync(instance.getMetadata(), level, taskDO.getDestClusterId())) {
-                needBatchRegisterInstance.add(instance);
+                needRegisterInstance.add(instance);
             }
         }
         List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
@@ -322,7 +322,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                 .collect(Collectors.toList());
         
         //获取新增的实例，遍历新增
-        List<Instance> newInstances = new ArrayList<>(needBatchRegisterInstance);
+        List<Instance> newInstances = new ArrayList<>(needRegisterInstance);
         instanceRemove(destHasSyncInstances, newInstances);
         //注册
         for (Instance newInstance : newInstances) {
@@ -332,7 +332,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         
         //获取需要删除的实例，遍历删除
         List<Instance> removeInstances = new ArrayList<>(destHasSyncInstances);
-        instanceRemove(needBatchRegisterInstance, removeInstances);
+        instanceRemove(needRegisterInstance, removeInstances);
         //执行反注册
         if (CollectionUtils.isNotEmpty(removeInstances)) {
             log.info("taskid：{}，服务 {} 发生反注册，执行数量 {} ",taskDO.getTaskId(),taskDO.getServiceName(),removeInstances.size());
@@ -365,34 +365,6 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         return false;
     }
     
-    /**
-     * process ephemeral instance cluster data sync.
-     * @param taskDO
-     * @param destNamingService
-     * @param sourceInstances
-     * @param level
-     */
-    private void handlerEphemeralInstance(TaskDO taskDO, NamingService destNamingService,
-            List<Instance> sourceInstances, int level) throws NacosException{
-        List<Instance> needBatchRegisterInstance = new ArrayList<>();
-        for (Instance instance : sourceInstances) {
-            if (needSync(instance.getMetadata(),level, taskDO.getDestClusterId())){
-                needBatchRegisterInstance.add(buildSyncInstance(instance, taskDO));
-            }
-        }
-        // 当源集群需要同步的实例个数为0时，但是目标集群里面，还存在源集群同步的实例，执行反注册
-        if (needBatchRegisterInstance.size() == 0) {
-            log.debug("service {} need sync Ephemeral instance num is null: serviceName ", taskDO.getServiceName());
-            processDeRegisterInstances(taskDO, destNamingService);
-        } else {
-            // 执行批量注册
-            log.info("batch register，taskId:{}, serviceName：{}，instance num：{}", taskDO.getTaskId(), taskDO.getServiceName(),
-                    needBatchRegisterInstance.size());
-            destNamingService.batchRegisterInstance(taskDO.getServiceName(),
-                    getGroupNameOrDefault(taskDO.getGroupName()), needBatchRegisterInstance);
-        }
-        
-    }
     
     /**
      * 当源集群需要同步的实例个数为0时,目标集群如果还有源集群同步的实例，执行反注册
@@ -480,6 +452,4 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         temp.setMetadata(metaData);
         return temp;
     }
-
-
 }

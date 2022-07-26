@@ -26,7 +26,7 @@
         <curator.version>4.1.0</curator.version>
         <cloud.version>2020.0.2</cloud.version>
         <mockito.version>1.10.19</mockito.version>
-        <nacos.client.verison>2.1.0</nacos.client.verison>
+        <nacos.client.verison>1.4.1</nacos.client.verison>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -92,6 +92,10 @@
             <groupId>io.springfox</groupId>
             <artifactId>springfox-swagger-ui</artifactId>
             <version>3.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
         </dependency>
         <!--nacos-->
         <dependency>
