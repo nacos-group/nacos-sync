@@ -86,7 +86,7 @@ public class CheckRunningStatusAllThread implements Runnable{
                 
                 //如果是null，证明此时没有处理完成
                 List<String> filterService = serviceNameList.stream()
-                        .filter(s -> skyWalkerCacheServices.getFinishedTask(taskDO.getTaskId() + s ) == null)
+                        .filter(serviceName -> skyWalkerCacheServices.getFinishedTask(taskDO.getTaskId() + serviceName ) == null)
                         .collect(Collectors.toList());
                 
                 if (CollectionUtils.isEmpty(filterService)) {

@@ -22,6 +22,7 @@ import com.alibaba.nacos.api.naming.listener.NamingEvent;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacos.api.naming.pojo.ListView;
 import com.alibaba.nacos.common.utils.CollectionUtils;
+import com.alibaba.nacos.common.utils.ConcurrentHashSet;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.MetricsStatisticsType;
@@ -35,7 +36,6 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -139,7 +139,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                         continue;
                     }
                     sourceNamingService
-                            .unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                            .unsubscribe(serviceName, getGroupNameOrDefault(taskDO.getGroupName()),
                                     listenerMap.remove(taskDO.getTaskId() + serviceName ));
                     
                     List<Instance> sourceInstances = sourceNamingService
@@ -184,7 +184,6 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                     log.warn("{} 无可用 namingservice",key);
                     return false;
                 }
-                
                 for (Instance instance : sourceInstances) {
                     if (needSync(instance.getMetadata())) {
                         destNamingService
@@ -422,13 +421,11 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     
     private void recordNamingService(TaskDO taskDO, NamingService destNamingService) {
         String key = taskDO.getId() + ":" + taskDO.getServiceName();
-        Set<NamingService> namingServices = serviceClient.get(key);
-        if(namingServices==null){
-            namingServices=new HashSet<>();
-        }
-        // save dest NamingService
-        namingServices.add(destNamingService);
-        serviceClient.put(key,namingServices);
+        serviceClient.computeIfAbsent(key, clientKey->{
+            Set<NamingService> hashSet = new ConcurrentHashSet<>();
+            hashSet.add(destNamingService);
+            return hashSet;
+        });
     }
     
     private Instance buildSyncInstance(Instance instance, TaskDO taskDO) {
@@ -441,8 +438,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         temp.setHealthy(instance.isHealthy());
         temp.setWeight(instance.getWeight());
         temp.setEphemeral(instance.isEphemeral());
-        Map<String, String> metaData = new HashMap<>();
-        metaData.putAll(instance.getMetadata());
+        Map<String, String> metaData = new HashMap<>(instance.getMetadata());
         metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
                 skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
