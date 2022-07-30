@@ -320,16 +320,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         List<Instance> destHasSyncInstances = allInstances.stream()
                 .filter(instance -> hasSync(instance, taskDO.getSourceClusterId()))
                 .collect(Collectors.toList());
-        
-        //获取新增的实例，遍历新增
-        List<Instance> newInstances = new ArrayList<>(needRegisterInstance);
-        instanceRemove(destHasSyncInstances, newInstances);
-        //注册
-        for (Instance newInstance : newInstances) {
-            destNamingService.registerInstance(taskDO.getServiceName(),
-                    getGroupNameOrDefault(taskDO.getGroupName()),buildSyncInstance(newInstance, taskDO));
-        }
-        
+    
         //获取需要删除的实例，遍历删除
         List<Instance> removeInstances = new ArrayList<>(destHasSyncInstances);
         instanceRemove(needRegisterInstance, removeInstances);
@@ -340,6 +331,15 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                 destNamingService.deregisterInstance(taskDO.getServiceName(),
                         getGroupNameOrDefault(taskDO.getGroupName()),removeInstance);
             }
+        }
+        
+        //获取新增的实例，遍历新增
+        List<Instance> newInstances = new ArrayList<>(needRegisterInstance);
+        instanceRemove(destHasSyncInstances, newInstances);
+        //注册
+        for (Instance newInstance : newInstances) {
+            destNamingService.registerInstance(taskDO.getServiceName(),
+                    getGroupNameOrDefault(taskDO.getGroupName()),buildSyncInstance(newInstance, taskDO));
         }
     }
     
@@ -359,7 +359,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     
     private boolean hasSync(Instance instance, String sourceClusterId) {
         if (instance.getMetadata()!=null) {
-            String sourceClusterKey = instance.getMetadata().get(SkyWalkerConstants.SYNC_SOURCE_KEY);
+            String sourceClusterKey = instance.getMetadata().get(SkyWalkerConstants.SOURCE_CLUSTERID_KEY);
             return sourceClusterKey != null && sourceClusterKey.equals(sourceClusterId);
         }
         return false;
