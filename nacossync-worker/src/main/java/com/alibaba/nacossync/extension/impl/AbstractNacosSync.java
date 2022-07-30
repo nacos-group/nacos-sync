@@ -191,9 +191,11 @@ public abstract class AbstractNacosSync implements SyncService {
     
     public abstract void register(TaskDO taskDO, Instance instance);
     
-    public abstract void deregisterInstance(TaskDO taskDO);
+    public abstract void deregisterInstance(TaskDO taskDO) throws Exception;
     
     public abstract void removeInvalidInstance(TaskDO taskDO, Set<String> invalidInstanceKeys);
     
-    
+    public NacosServerHolder getNacosServerHolder() {
+        return nacosServerHolder;
+    }
 }
