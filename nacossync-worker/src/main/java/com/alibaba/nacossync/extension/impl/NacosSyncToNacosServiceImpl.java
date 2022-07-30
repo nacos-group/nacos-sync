@@ -27,7 +27,6 @@ import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.dao.ClusterAccessService;
-import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
@@ -59,7 +58,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @Slf4j
 @NacosSyncService(sourceCluster = ClusterTypeEnum.NACOS, destinationCluster = ClusterTypeEnum.NACOS)
-public class NacosSyncToNacosServiceImpl implements SyncService {
+public class NacosSyncToNacosServiceImpl extends AbstractNacosSync {
 
     private Map<String, EventListener> listenerMap = new ConcurrentHashMap<>();
 
@@ -87,9 +86,37 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     @Autowired
     private TaskUpdateProcessor taskUpdateProcessor;
     
+    
+    @Override
+    public String composeInstanceKey(String ip, int port) {
+        return ip + ":" + port;
+    }
+    
+    @Override
+    public void deregisterInstance(TaskDO taskDO) {
+        System.out.println("empty impl...");
+    }
+    
+    @Override
+    public void removeInvalidInstance(TaskDO taskDO, Set<String> invalidInstanceKeys) {
+        System.out.println("empty impl...");
+    }
+    
+    @Override
+    public void register(TaskDO taskDO, Instance instance) {
+        NamingService destNamingService = getNacosServerHolder().get(taskDO.getDestClusterId());
+        try {
+            destNamingService.registerInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                    buildSyncInstance(instance, taskDO));
+        } catch (NacosException e) {
+            log.error("Register instance={} to Nacos failed", taskDO.getServiceName(), e);
+        }
+    }
+    
     /**
      * 因为网络故障等原因，nacos sync的同步任务会失败，导致目标集群注册中心缺少同步实例， 为避免目标集群注册中心长时间缺少同步实例，每隔5分钟启动一个兜底工作线程执行一遍全部的同步任务。
      */
+    @Override
     @PostConstruct
     public void startBasicSyncTaskThread() {
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -411,7 +438,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     private boolean needSync(Map<String, String> sourceMetaData,int level, String destClusterId){
         //普通集群（默认）
         if (level == 0) {
-            return SyncService.super.needSync(sourceMetaData);
+            return needSync(sourceMetaData);
         }
         //中心集群，只要不是目标集群传过来的实例，都需要同步（扩展功能）
         if (!destClusterId.equals(sourceMetaData.get(SOURCE_CLUSTERID_KEY))) {

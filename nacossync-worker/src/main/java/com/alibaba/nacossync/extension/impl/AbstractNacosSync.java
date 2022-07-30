@@ -7,11 +7,13 @@ import com.alibaba.nacos.api.naming.listener.NamingEvent;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacos.common.utils.CollectionUtils;
 import com.alibaba.nacossync.constant.MetricsStatisticsType;
+import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import javax.annotation.PostConstruct;
@@ -101,7 +103,7 @@ public abstract class AbstractNacosSync implements SyncService {
     }
     
     @Override
-    public boolean sync(TaskDO taskDO) {
+    public boolean sync(TaskDO taskDO, Integer index) {
         String taskId = taskDO.getTaskId();
         try {
             NamingService sourceNamingService = nacosServerHolder.get(taskDO.getSourceClusterId());
@@ -185,6 +187,16 @@ public abstract class AbstractNacosSync implements SyncService {
                 removeInvalidInstance(taskDO, oldInstanceKeys);
             }
         }
+    }
+    
+    @Override
+    public boolean needDelete(Map<String, String> destMetaData, TaskDO taskDO){
+        return SyncService.super.needDelete(destMetaData, taskDO);
+    }
+    
+    @Override
+    public boolean needSync(Map<String, String> sourceMetaData) {
+        return SyncService.super.needSync(sourceMetaData);
     }
     
     public abstract String composeInstanceKey(String ip, int port);
