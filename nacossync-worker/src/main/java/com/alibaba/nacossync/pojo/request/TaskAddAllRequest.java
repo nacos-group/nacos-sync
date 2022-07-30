@@ -15,24 +15,30 @@
  * limitations under the License.
  */
 
-package com.alibaba.nacossync;
+package com.alibaba.nacossync.pojo.request;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-import org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration;
-import springfox.documentation.swagger2.annotations.EnableSwagger2;
+import lombok.Data;
 
 /**
  * @author NacosSync
- * @version $Id: SkyWalkerMain.java, v 0.1 2018-09-24 PM12:42 NacosSync Exp $$
+ * @version $Id: TaskAddAllRequest.java, v 0.1 2022-03-23 AM12:13 NacosSync Exp $$
  */
-@EnableSwagger2
-@SpringBootApplication(exclude = EurekaClientAutoConfiguration.class)
-public class NacosSyncMain {
+@Data
+public class TaskAddAllRequest extends BaseRequest {
     
-    public static void main(String[] args) {
-        
-        SpringApplication.run(NacosSyncMain.class, args);
-    }
+    /**
+     * eg: b7bacb110199d5bb83b9757038fadeb0 .
+     */
+    private String sourceClusterId;
+    
+    /**
+     * eg: bbdad57833a0e4f0981f6f3349005617 .
+     */
+    private String destClusterId;
+    
+    /**
+     * whether to exclude subscriber.
+     */
+    private boolean excludeConsumer = true;
+    
 }

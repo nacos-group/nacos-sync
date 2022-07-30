@@ -16,7 +16,7 @@
     <parent>
         <artifactId>nacossync-parent</artifactId>
         <groupId>com.alibaba.nacossync</groupId>
-        <version>0.4.7</version>
+        <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -27,5 +27,4 @@
             <artifactId>junit</artifactId>
         </dependency>
     </dependencies>
-
 </project>

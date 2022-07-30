@@ -13,14 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-pid=`ps ax | grep -i 'nacosSync' |grep java | grep -v grep | awk '{print $1}'`
+pid=`ps ax | grep -i 'nacos-sync' |grep java | grep -v grep | awk '{print $1}'`
 if [ -z "$pid" ] ; then
-        echo "No nacosSync running."
+        echo "no nacos-sync running."
         exit -1;
 fi
 
-echo "The nacosSync(${pid}) is running..."
+echo "the nacos-sync(${pid}) is running..."
 
 kill ${pid}
 
-echo "Send shutdown request to nacosSync(${pid}) OK"
+echo "Send shutdown request to nacos-sync(${pid}) OK"

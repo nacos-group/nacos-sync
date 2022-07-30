@@ -16,22 +16,20 @@
  */
 package com.alibaba.nacossync.timer;
 
+import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
+import com.alibaba.nacossync.dao.TaskAccessService;
+import com.alibaba.nacossync.pojo.FinishedTask;
+import com.alibaba.nacossync.pojo.model.TaskDO;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Service;
+
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.stereotype.Service;
-
-import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
-import com.alibaba.nacossync.dao.TaskAccessService;
-import com.alibaba.nacossync.pojo.FinishedTask;
-import com.alibaba.nacossync.pojo.model.TaskDO;
 
 /**
  * @author NacosSync
@@ -71,7 +69,6 @@ public class CleanExceedOperationIdTimer implements CommandLineRunner {
                 Iterable<TaskDO> taskDOS = taskAccessService.findAll();
 
                 Set<String> operationIds = getDbOperations(taskDOS);
-
                 for (String operationId : finishedTaskMap.keySet()) {
 
                     if (!operationIds.contains(operationId)) {
@@ -88,7 +85,6 @@ public class CleanExceedOperationIdTimer implements CommandLineRunner {
 
         private Set<String> getDbOperations(Iterable<TaskDO> taskDOS) {
             Set<String> operationIds = new HashSet<>();
-
             taskDOS.forEach(taskDO -> operationIds.add(taskDO.getOperationId()));
             return operationIds;
         }

@@ -10,8 +10,10 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
+
 package com.alibaba.nacossync.api;
 
+import com.alibaba.nacossync.pojo.request.TaskAddAllRequest;
 import com.alibaba.nacossync.pojo.request.TaskAddRequest;
 import com.alibaba.nacossync.pojo.request.TaskDeleteInBatchRequest;
 import com.alibaba.nacossync.pojo.request.TaskDeleteRequest;
@@ -23,6 +25,7 @@ import com.alibaba.nacossync.pojo.result.TaskAddResult;
 import com.alibaba.nacossync.pojo.result.TaskDetailQueryResult;
 import com.alibaba.nacossync.pojo.result.TaskListQueryResult;
 import com.alibaba.nacossync.template.SkyWalkerTemplate;
+import com.alibaba.nacossync.template.processor.TaskAddAllProcessor;
 import com.alibaba.nacossync.template.processor.TaskAddProcessor;
 import com.alibaba.nacossync.template.processor.TaskDeleteInBatchProcessor;
 import com.alibaba.nacossync.template.processor.TaskDeleteProcessor;
@@ -42,67 +45,83 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @RestController
 public class TaskApi {
-
+    
     private final TaskUpdateProcessor taskUpdateProcessor;
-
+    
     private final TaskAddProcessor taskAddProcessor;
-
+    
+    private final TaskAddAllProcessor taskAddAllProcessor;
+    
     private final TaskDeleteProcessor taskDeleteProcessor;
-
+    
     private final TaskDeleteInBatchProcessor taskDeleteInBatchProcessor;
-
+    
     private final TaskListQueryProcessor taskListQueryProcessor;
-
+    
     private final TaskDetailProcessor taskDetailProcessor;
-
+    
     public TaskApi(TaskUpdateProcessor taskUpdateProcessor, TaskAddProcessor taskAddProcessor,
-        TaskDeleteProcessor taskDeleteProcessor, TaskDeleteInBatchProcessor taskDeleteInBatchProcessor,
-        TaskListQueryProcessor taskListQueryProcessor, TaskDetailProcessor taskDetailProcessor) {
+            TaskAddAllProcessor taskAddAllProcessor, TaskDeleteProcessor taskDeleteProcessor,
+            TaskDeleteInBatchProcessor taskDeleteInBatchProcessor, TaskListQueryProcessor taskListQueryProcessor,
+            TaskDetailProcessor taskDetailProcessor) {
         this.taskUpdateProcessor = taskUpdateProcessor;
         this.taskAddProcessor = taskAddProcessor;
+        this.taskAddAllProcessor = taskAddAllProcessor;
         this.taskDeleteProcessor = taskDeleteProcessor;
         this.taskDeleteInBatchProcessor = taskDeleteInBatchProcessor;
         this.taskListQueryProcessor = taskListQueryProcessor;
         this.taskDetailProcessor = taskDetailProcessor;
     }
-
+    
     @RequestMapping(path = "/v1/task/list", method = RequestMethod.GET)
     public TaskListQueryResult tasks(TaskListQueryRequest taskListQueryRequest) {
-
+        
         return SkyWalkerTemplate.run(taskListQueryProcessor, taskListQueryRequest, new TaskListQueryResult());
     }
-
+    
     @RequestMapping(path = "/v1/task/detail", method = RequestMethod.GET)
     public TaskDetailQueryResult getByTaskId(TaskDetailQueryRequest taskDetailQueryRequest) {
-
+        
         return SkyWalkerTemplate.run(taskDetailProcessor, taskDetailQueryRequest, new TaskDetailQueryResult());
     }
-
+    
     @RequestMapping(path = "/v1/task/delete", method = RequestMethod.DELETE)
     public BaseResult deleteTask(TaskDeleteRequest taskDeleteRequest) {
-
+        
         return SkyWalkerTemplate.run(taskDeleteProcessor, taskDeleteRequest, new BaseResult());
     }
-
+    
     /**
-     * @author yongchao9
      * @param taskBatchDeleteRequest
      * @return
+     * @author yongchao9
      */
     @RequestMapping(path = "/v1/task/deleteInBatch", method = RequestMethod.DELETE)
     public BaseResult batchDeleteTask(TaskDeleteInBatchRequest taskBatchDeleteRequest) {
         return SkyWalkerTemplate.run(taskDeleteInBatchProcessor, taskBatchDeleteRequest, new BaseResult());
     }
-
+    
     @RequestMapping(path = "/v1/task/add", method = RequestMethod.POST)
     public BaseResult taskAdd(@RequestBody TaskAddRequest addTaskRequest) {
-
+        
         return SkyWalkerTemplate.run(taskAddProcessor, addTaskRequest, new TaskAddResult());
     }
-
+    
+    /**
+     * TODO 目前仅支持 Nacos 为源的同步类型，待完善更多类型支持.
+     * <p>
+     * 支持从 sourceCluster 获取所有 service，然后生成同步到 destCluster 的任务。
+     * </p>
+     */
+    @RequestMapping(path = "/v1/task/addAll", method = RequestMethod.POST)
+    public BaseResult taskAddAll(@RequestBody TaskAddAllRequest addAllRequest) {
+        
+        return SkyWalkerTemplate.run(taskAddAllProcessor, addAllRequest, new TaskAddResult());
+    }
+    
     @RequestMapping(path = "/v1/task/update", method = RequestMethod.POST)
     public BaseResult updateTask(@RequestBody TaskUpdateRequest taskUpdateRequest) {
-
+        
         return SkyWalkerTemplate.run(taskUpdateProcessor, taskUpdateRequest, new BaseResult());
     }
 }
