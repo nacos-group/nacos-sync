@@ -77,7 +77,9 @@ public class CheckRunningStatusAllThread implements Runnable{
             List<TaskDO> taskDOS = taskAccessService.findServiceNameIsNull()
                     .stream().filter(t -> t.getStatus() == null || t.getStatus() == 0)
                     .collect(Collectors.toList());
-    
+            if (CollectionUtils.isEmpty(taskDOS)) {
+                return;
+            }
             for (TaskDO taskDO : taskDOS) {
                 List<String> serviceNameList = getServiceNameList(taskDO);
                 if (CollectionUtils.isEmpty(serviceNameList)) {

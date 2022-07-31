@@ -123,12 +123,22 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         try {
             NamingService sourceNamingService = nacosServerHolder.getSourceNamingService(taskDO.getTaskId(),
                     taskDO.getSourceClusterId());
-            //移除订阅
+            
             if ("ALL".equals(taskDO.getServiceName())) {
+                String operationId = taskUpdateProcessor.getTaskIdAndOperationIdMap(taskDO.getTaskId());
+                if (!StringUtils.isEmpty(operationId)) {
+                    allSyncTaskMap.remove(operationId);
+                }
+                
+                //处理group级别的服务任务删除
                 ListView<String> servicesOfServer = sourceNamingService.getServicesOfServer(0, Integer.MAX_VALUE,
                         taskDO.getGroupName());
                 List<String> serviceNames = servicesOfServer.getData();
                 for (String serviceName : serviceNames) {
+                    String operationKey = taskDO.getTaskId() + serviceName;
+                    skyWalkerCacheServices.removeFinishedTask(operationKey);
+                    allSyncTaskMap.remove(operationKey);
+                    
                     String key = taskDO.getId() + ":" + serviceName;
                     NamingService destNamingService ;
                     Set<NamingService> namingServices = serviceClient.get(key);
@@ -152,15 +162,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                                             instance.getIp(), instance.getPort());
                         }
                     }
-                    String operationKey = taskDO.getTaskId() + serviceName;
-                    skyWalkerCacheServices.removeFinishedTask(operationKey);
-                    allSyncTaskMap.remove(operationKey);
                 }
-                String operationId = taskUpdateProcessor.getTaskIdAndOperationIdMap(taskDO.getTaskId());
-                if (!StringUtils.isEmpty(operationId)) {
-                    allSyncTaskMap.remove(operationId);
-                }
-            }else {
+            } else {
                 //处理服务级别的任务删除
                 String operationId = taskUpdateProcessor.getTaskIdAndOperationIdMap(taskDO.getTaskId());
                 if(StringUtils.isEmpty(operationId)) {
@@ -312,25 +315,13 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                 needRegisterInstance.add(instance);
             }
         }
-        List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
+        List<Instance>  destAllInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
                 getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
         
-        // 获取当前已经同步过来的源集群的所有服务实例
-        List<Instance> destHasSyncInstances = allInstances.stream()
+        // 获取目标集群自己已经同步的实例
+        List<Instance> destHasSyncInstances = destAllInstances.stream()
                 .filter(instance -> hasSync(instance, taskDO.getSourceClusterId()))
                 .collect(Collectors.toList());
-    
-        //获取需要删除的实例，遍历删除
-        List<Instance> removeInstances = new ArrayList<>(destHasSyncInstances);
-        instanceRemove(needRegisterInstance, removeInstances);
-        //执行反注册
-        if (CollectionUtils.isNotEmpty(removeInstances)) {
-            log.info("taskid：{}，服务 {} 发生反注册，执行数量 {} ",taskDO.getTaskId(),taskDO.getServiceName(),removeInstances.size());
-            for (Instance removeInstance : removeInstances) {
-                destNamingService.deregisterInstance(taskDO.getServiceName(),
-                        getGroupNameOrDefault(taskDO.getGroupName()),removeInstance);
-            }
-        }
         
         //获取新增的实例，遍历新增
         List<Instance> newInstances = new ArrayList<>(needRegisterInstance);
@@ -340,6 +331,36 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
             destNamingService.registerInstance(taskDO.getServiceName(),
                     getGroupNameOrDefault(taskDO.getGroupName()),buildSyncInstance(newInstance, taskDO));
         }
+
+        List<Instance> notRemoveInstances = new ArrayList<>();
+        for (Instance destHasSyncInstance : destHasSyncInstances) {
+            for (Instance instance : needRegisterInstance) {
+                if (instanceEquals(destHasSyncInstance,instance)) {
+                    notRemoveInstances.add(destHasSyncInstance);
+                }
+            }
+        }
+        destHasSyncInstances.removeAll(notRemoveInstances);
+        
+        if (CollectionUtils.isNotEmpty(destHasSyncInstances)) {
+            log.info("taskid：{}，服务 {} 发生反注册，执行数量 {} ",taskDO.getTaskId(),taskDO.getServiceName(),destHasSyncInstances.size());
+        }
+        
+        for (Instance destAllInstance : destHasSyncInstances) {
+            destNamingService.deregisterInstance(taskDO.getServiceName(),
+                    getGroupNameOrDefault(taskDO.getGroupName()), destAllInstance);
+        }
+    }
+    
+    
+    public static boolean instanceEquals(Instance ins1, Instance ins2) {
+        return  (ins1.getIp().equals(ins2.getIp())) &&
+                (ins1.getPort() == ins2.getPort()) &&
+                (ins1.getWeight() == ins2.getWeight()) &&
+                (ins1.isHealthy() == ins2.isHealthy()) &&
+                (ins1.isEphemeral() ==  ins2.isEphemeral()) &&
+                (ins1.getClusterName().equals(ins2.getClusterName())) &&
+                (ins1.getServiceName().equals(ins2.getServiceName()));
     }
     
     private void instanceRemove(List<Instance> destHasSyncInstances, List<Instance> newInstances) {
@@ -381,9 +402,11 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         }
         deRegisterFilter(destInstances,taskDO.getSourceClusterId());
         if (CollectionUtils.isNotEmpty(destInstances)) {
-            //执行反注册,拿出一个实例即可, 需要处理redo，否则会被重新注册上来
-            destNamingService.deregisterInstance(taskDO.getServiceName(),
-                    getGroupNameOrDefault(taskDO.getGroupName()), destInstances.get(0));
+            //逐个执行反注册,拿出一个实例即可, 需要处理redo，否则会被重新注册上来
+            for (Instance destInstance : destInstances) {
+                destNamingService.deregisterInstance(taskDO.getServiceName(),
+                        getGroupNameOrDefault(taskDO.getGroupName()), destInstance);
+            }
         }
     }
     
