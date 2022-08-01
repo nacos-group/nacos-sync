@@ -30,6 +30,9 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskUpdateRequest;
 import com.alibaba.nacossync.template.Processor;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * @author NacosSync
  * @version $Id: TaskUpdateProcessor.java, v 0.1 2018-10-17 PM11:11 NacosSync Exp $$
@@ -39,6 +42,8 @@ import com.alibaba.nacossync.template.Processor;
 public class TaskUpdateProcessor implements Processor<TaskUpdateRequest, BaseResult> {
     @Autowired
     private TaskAccessService taskAccessService;
+    
+    private Map<String,String> TaskIdAndOperationIdMap = new ConcurrentHashMap<>();
 
     @Override
     public void process(TaskUpdateRequest taskUpdateRequest, BaseResult baseResult,
@@ -56,10 +61,17 @@ public class TaskUpdateProcessor implements Processor<TaskUpdateRequest, BaseRes
             throw new SkyWalkerException("taskDo is null ,taskId is :"
                     + taskUpdateRequest.getTaskId());
         }
-
+        
         taskDO.setTaskStatus(taskUpdateRequest.getTaskStatus());
+        //在id生成之前保存好操作id，可以在删除操作里面进行
+        TaskIdAndOperationIdMap.put(taskDO.getTaskId(),taskDO.getOperationId());
+        
         taskDO.setOperationId(SkyWalkerUtil.generateOperationId());
 
         taskAccessService.addTask(taskDO);
+    }
+    
+    public String getTaskIdAndOperationIdMap(String taskId) {
+        return TaskIdAndOperationIdMap.get(taskId);
     }
 }

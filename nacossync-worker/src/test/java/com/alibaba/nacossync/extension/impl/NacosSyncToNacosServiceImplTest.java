@@ -7,6 +7,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
@@ -51,7 +52,22 @@ public class NacosSyncToNacosServiceImplTest {
         TaskDO taskDO = mock(TaskDO.class);
         mockSync(taskDO);
         // TODO Test the core logic in the future
-        Assert.assertTrue(nacosSyncToNacosService.sync(taskDO));
+        Assert.assertTrue(nacosSyncToNacosService.sync(taskDO,null));
+    }
+    
+    @Test
+    public void testZookeeperSyncToNacosWithTimeSync() throws Exception {
+        TaskDO taskDO = mock(TaskDO.class);
+        try {
+            nacosSyncToNacosService.timeSync(taskDO);
+        }catch (Exception e) {
+            Assert.assertEquals(e, NacosException.class);
+        }
+    }
+    
+    @Test(expected = Exception.class)
+    public void testZookeeperSyncToNacosWithTimeSync2() throws Exception {
+        nacosSyncToNacosService.timeSync(null);
     }
 
     @Test
@@ -64,7 +80,7 @@ public class NacosSyncToNacosServiceImplTest {
 
     @Test(expected = Exception.class)
     public void testNacosSyncToNacosWithException() throws Exception {
-        Assert.assertFalse(nacosSyncToNacosService.sync(null));
+        Assert.assertFalse(nacosSyncToNacosService.sync(null, null));
     }
     @Test(expected = Exception.class)
     public void testNacosDeleteToNacosWithException() throws Exception {

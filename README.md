@@ -45,8 +45,8 @@ Info |      +------------+                   ^
      
 
 ## Quick Start:
- - Swagger API: http://127.0.0.1:8081/swagger-ui.html#/
- - Web Console: http://127.0.0.1:8081/
+ - Swagger API: http://127.0.0.1:8083/swagger-ui.html#/
+ - Web Console: http://127.0.0.1:8083/
  - Others: TBD
 
 # NacosSync Migration User Guide
@@ -155,6 +155,6 @@ sh startup.sh  start
 
 ``` xml
 
-http://127.0.0.1:8081/#/serviceSync
+http://127.0.0.1:8083/#/serviceSync
 
 ```

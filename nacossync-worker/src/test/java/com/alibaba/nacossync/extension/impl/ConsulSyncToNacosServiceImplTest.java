@@ -67,7 +67,7 @@ public class ConsulSyncToNacosServiceImplTest {
         TaskDO taskDO = mock(TaskDO.class);
         mockSync(taskDO);
         // TODO Test the core logic in the future
-        Assert.assertTrue(consulSyncToNacosService.sync(taskDO));
+        Assert.assertTrue(consulSyncToNacosService.sync(taskDO,null));
     }
 
     @Test
@@ -80,7 +80,7 @@ public class ConsulSyncToNacosServiceImplTest {
 
     @Test(expected = Exception.class)
     public void testConsulSyncToNacosWithException() throws Exception {
-        Assert.assertFalse(consulSyncToNacosService.sync(null));
+        Assert.assertFalse(consulSyncToNacosService.sync(null,null));
     }
 
     @Test(expected = Exception.class)

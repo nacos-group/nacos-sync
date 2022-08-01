@@ -114,5 +114,9 @@ public class TaskAccessService implements PageQueryService<TaskDO> {
 
                 }, pageable);
     }
+    
+    public List<TaskDO> findServiceNameIsNull() {
+        return taskRepository.findAllByServiceNameEquals("ALL");
+    }
 
 }

@@ -93,7 +93,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
     }
 
     @Override
-    public boolean sync(TaskDO taskDO) {
+    public boolean sync(TaskDO taskDO,Integer index) {
         try {
             if (treeCacheMap.containsKey(taskDO.getTaskId())) {
                 return true;

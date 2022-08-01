@@ -71,7 +71,7 @@ public class ZookeeperSyncToNacosServiceImplTest {
     public void testZookeeperDeleteToNacos() throws Exception {
         TaskDO taskDO = mock(TaskDO.class);
         mockSync(taskDO);
-        zookeeperSyncToNacosService.sync(taskDO);
+        zookeeperSyncToNacosService.sync(taskDO,null);
 
         Assert.assertTrue(mockDelete(taskDO));
 
@@ -79,7 +79,7 @@ public class ZookeeperSyncToNacosServiceImplTest {
 
     @Test(expected = Exception.class)
     public void tesZookeeperSyncToNacosWithException() throws Exception {
-        Assert.assertFalse(zookeeperSyncToNacosService.sync(null));
+        Assert.assertFalse(zookeeperSyncToNacosService.sync(null, null));
     }
 
     @Test(expected = Exception.class)
@@ -100,7 +100,7 @@ public class ZookeeperSyncToNacosServiceImplTest {
         when(treeCache.getCurrentData(any())).thenReturn(childData);
         doReturn(ClusterTypeEnum.ZK).when(skyWalkerCacheServices).getClusterType(any());
         when(treeCache.getListenable()).thenReturn(listeners);
-        return zookeeperSyncToNacosService.sync(taskDO);
+        return zookeeperSyncToNacosService.sync(taskDO,null);
     }
 
     public boolean mockDelete(TaskDO taskDO) throws Exception {
