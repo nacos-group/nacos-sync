@@ -97,7 +97,7 @@ public class TaskAddAllProcessor implements Processor<TaskAddAllRequest, TaskAdd
         if (Objects.isNull(syncManagerService.getSyncService(sourceCluster.getClusterId(), destCluster.getClusterId()))) {
             throw new SkyWalkerException("current sync type not supported.");
         }
-        // TODO 目前仅支持 Nacos 为源的同步类型，待完善更多类型支持。
+
         final NamingService sourceNamingService = nacosServerHolder.get(sourceCluster.getClusterId());
         if (sourceNamingService == null) {
             throw new SkyWalkerException("only support sync type that the source of the Nacos.");

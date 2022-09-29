@@ -50,7 +50,7 @@ public class SkyWalkerUtil {
                 MessageDigest md5 = MessageDigest.getInstance("MD5");
                 md5.update(value.getBytes("UTF-8"));
                 byte[] encryption = md5.digest();
-                StringBuffer strBuf = new StringBuffer();
+                StringBuilder strBuf = new StringBuilder();
                 for (int i = 0; i < encryption.length; i++) {
                     if (Integer.toHexString(0xff & encryption[i]).length() == 1) {
                         strBuf.append("0").append(Integer.toHexString(0xff & encryption[i]));
@@ -59,9 +59,7 @@ public class SkyWalkerUtil {
                     }
                 }
                 return strBuf.toString();
-            } catch (NoSuchAlgorithmException e) {
-                return "";
-            } catch (UnsupportedEncodingException e) {
+            } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
                 return "";
             }
         }
@@ -86,16 +84,15 @@ public class SkyWalkerUtil {
     public static String generateTaskId(String serviceName, String groupName,
                                         String sourceClusterId, String destClusterId) {
 
-        StringBuilder sb = new StringBuilder();
+        String sb = serviceName +
+                SkyWalkerConstants.UNDERLINE +
+                groupName +
+                SkyWalkerConstants.UNDERLINE +
+                sourceClusterId +
+                SkyWalkerConstants.UNDERLINE +
+                destClusterId;
 
-        sb.append(serviceName);
-        sb.append(SkyWalkerConstants.UNDERLINE);
-        sb.append(groupName);
-        sb.append(SkyWalkerConstants.UNDERLINE);
-        sb.append(sourceClusterId);
-        sb.append(SkyWalkerConstants.UNDERLINE);
-        sb.append(destClusterId);
-        return SkyWalkerUtil.StringToMd5(sb.toString());
+        return SkyWalkerUtil.StringToMd5(sb);
     }
 
     /**
@@ -106,12 +103,11 @@ public class SkyWalkerUtil {
      */
     public static String generateClusterId(ClusterAddRequest addClusterRequest) {
 
-        StringBuilder sb = new StringBuilder();
-        sb.append(addClusterRequest.getClusterName());
-        sb.append(SkyWalkerConstants.UNDERLINE);
-        sb.append(addClusterRequest.getClusterType());
+        String sb = addClusterRequest.getClusterName() +
+                SkyWalkerConstants.UNDERLINE +
+                addClusterRequest.getClusterType();
 
-        return SkyWalkerUtil.StringToMd5(sb.toString());
+        return SkyWalkerUtil.StringToMd5(sb);
     }
 
     /**

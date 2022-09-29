@@ -49,31 +49,24 @@ public class ClusterAddProcessor implements Processor<ClusterAddRequest, Cluster
     private ObjectMapper objectMapper;
 
     @Override
-    public void process(ClusterAddRequest clusterAddRequest, ClusterAddResult clusterAddResult,
-        Object... others) throws Exception {
+    public void process(ClusterAddRequest clusterAddRequest, ClusterAddResult clusterAddResult, Object... others) throws Exception {
         ClusterDO clusterDO = new ClusterDO();
 
         if (null == clusterAddRequest.getConnectKeyList() || 0 == clusterAddRequest.getConnectKeyList().size()) {
-
-            throw new SkyWalkerException("集群列表不能为空！");
+            throw new SkyWalkerException("Cluster cannot be empty");
         }
 
-        if (StringUtils.isBlank(clusterAddRequest.getClusterName()) || StringUtils
-            .isBlank(clusterAddRequest.getClusterType())) {
-
-            throw new SkyWalkerException("集群名字或者类型不能为空！");
+        if (StringUtils.isBlank(clusterAddRequest.getClusterName()) || StringUtils.isBlank(clusterAddRequest.getClusterType())) {
+            throw new SkyWalkerException("Cluster name or type cannot be empty");
         }
 
         if (!ClusterTypeEnum.contains(clusterAddRequest.getClusterType())) {
-
-            throw new SkyWalkerException("集群类型不存在：" + clusterAddRequest.getClusterType());
+            throw new SkyWalkerException("Cluster type does not exist：" + clusterAddRequest.getClusterType());
         }
 
         String clusterId = SkyWalkerUtil.generateClusterId(clusterAddRequest);
-
         if (null != clusterAccessService.findByClusterId(clusterId)) {
-
-            throw new SkyWalkerException("重复插入，clusterId已存在：" + clusterId);
+            throw new SkyWalkerException(String.format("Repeated insertion, clusterId[%s] already exists", clusterId));
         }
 
         clusterDO.setClusterId(clusterId);
@@ -83,6 +76,7 @@ public class ClusterAddProcessor implements Processor<ClusterAddRequest, Cluster
         clusterDO.setUserName(clusterAddRequest.getUserName());
         clusterDO.setPassword(clusterAddRequest.getPassword());
         clusterDO.setNamespace(clusterAddRequest.getNamespace());
+
         clusterAccessService.insert(clusterDO);
     }
 }

@@ -101,9 +101,8 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
 
             TreeCache treeCache = getTreeCache(taskDO);
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
-            // 初次执行任务统一注册所有实例
             registerAllInstances(taskDO, destNamingService);
-            //注册ZK监听
+
             Objects.requireNonNull(treeCache).getListenable().addListener((client, event) -> {
                 try {
 
@@ -161,7 +160,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         if (!ALL_SERVICE_NAME_PATTERN.equals(taskDO.getServiceName())) {
             registerALLInstances0(taskDO, destNamingService, zk, taskDO.getServiceName());
         } else {
-            // 同步全部
+
             List<String> serviceList = zk.getChildren().forPath(DUBBO_ROOT_PATH);
             for (String serviceName : serviceList) {
                 registerALLInstances0(taskDO, destNamingService, zk, serviceName);

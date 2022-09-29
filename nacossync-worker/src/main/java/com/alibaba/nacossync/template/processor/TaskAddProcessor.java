@@ -62,14 +62,11 @@ public class TaskAddProcessor implements Processor<TaskAddRequest, TaskAddResult
                 .getSourceClusterId());
 
         if (null == destCluster || null == sourceCluster) {
-
-            throw new SkyWalkerException("请检查源或者目标集群是否存在");
-
+            throw new SkyWalkerException("Please check if the source or target cluster exists");
         }
 
         if (null == syncManagerService.getSyncService(sourceCluster.getClusterId(), destCluster.getClusterId())) {
-
-            throw new SkyWalkerException("不支持当前同步类型");
+            throw new SkyWalkerException("The sync type is not supported");
         }
 
         String taskId = SkyWalkerUtil.generateTaskId(taskAddRequest);

@@ -32,6 +32,7 @@ import com.ecwid.consul.v1.ConsulClient;
 import com.ecwid.consul.v1.QueryParams;
 import com.ecwid.consul.v1.Response;
 import com.ecwid.consul.v1.agent.model.NewService;
+import com.ecwid.consul.v1.health.HealthServicesRequest;
 import com.ecwid.consul.v1.health.model.HealthService;
 import com.google.common.collect.Lists;
 import java.net.URLEncoder;
@@ -111,7 +112,6 @@ public class NacosSyncToConsulServiceImpl implements SyncService {
                         Set<String> instanceKeySet = new HashSet<>();
                         List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
                             NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()));
-                        // 先将新的注册一遍
                         for (Instance instance : sourceInstances) {
                             if (needSync(instance.getMetadata())) {
                                 consulClient.agentServiceRegister(buildSyncInstance(instance, taskDO));
@@ -120,7 +120,6 @@ public class NacosSyncToConsulServiceImpl implements SyncService {
                             }
                         }
 
-                        // 再将不存在的删掉
                         Response<List<HealthService>> serviceResponse =
                             consulClient.getHealthServices(taskDO.getServiceName(), true, QueryParams.DEFAULT);
                         List<HealthService> healthServices = serviceResponse.getValue();

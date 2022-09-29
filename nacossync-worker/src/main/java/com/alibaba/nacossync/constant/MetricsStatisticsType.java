@@ -5,25 +5,25 @@ package com.alibaba.nacossync.constant;
 
 /**
  * @author NacosSync
- * @version $Id: MetricsStatisticsType.java, v 0.1 2019年02月28日 下午2:17 NacosSync Exp $
+ * @version $Id: MetricsStatisticsType.java, v 0.1 2019/02/28 2:17 NacosSync Exp $
  */
 public enum MetricsStatisticsType {
 
-    CACHE_SIZE("nacosSync.finished.taskMap.cacheSize", "任务执行完成缓存列表数"),
+    CACHE_SIZE("nacosSync.finished.taskMap.cacheSize", "The number of task execution completed cache lists"),
 
-    TASK_SIZE("nacosSync.task.size", "同步任务数"),
+    TASK_SIZE("nacosSync.task.size", "Number of sync tasks"),
 
-    CLUSTER_SIZE("nacosSync.cluster.size", "集群数"),
+    CLUSTER_SIZE("nacosSync.cluster.size", "Number of clusters"),
 
-    SYNC_TASK_RT("nacosSync.add.task.rt", "同步任务执行耗时"),
+    SYNC_TASK_RT("nacosSync.add.task.rt", "Time-consuming synchronization task execution"),
 
-    DELETE_TASK_RT("nacosSync.delete.task.rt", "删除任务耗时"),
+    DELETE_TASK_RT("nacosSync.delete.task.rt", "Time consuming to delete tasks"),
 
-    DISPATCHER_TASK("nacosSync.dispatcher.task", "从数据库中分发任务"),
+    DISPATCHER_TASK("nacosSync.dispatcher.task", "Distribute tasks from the database"),
 
-    SYNC_ERROR("nacosSync.sync.task.error", "所有同步执行时的异常"),
+    SYNC_ERROR("nacosSync.sync.task.error", "Exceptions on all synchronous executions"),
 
-    DELETE_ERROR("nacosSync.delete.task.error", "所有删除同步执行时的异常");
+    DELETE_ERROR("nacosSync.delete.task.error", "Exception when all deletes are executed synchronously");
 
     /**
      * metricsName

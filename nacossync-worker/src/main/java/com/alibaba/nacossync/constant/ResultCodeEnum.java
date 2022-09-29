@@ -22,8 +22,8 @@ package com.alibaba.nacossync.constant;
  */
 public enum ResultCodeEnum {
     
-    SUCCESS("SUCCESS", "请求成功", "请求成功"),
-    SYSTEM_ERROR("SYSTEM_ERROR", "系统异常", "系统异常");
+    SUCCESS("SUCCESS", "request succeeded", "request succeeded"),
+    SYSTEM_ERROR("SYSTEM_ERROR", "system exception", "system exception");
 
     private String code;
     private String errorMessage;

@@ -21,15 +21,15 @@ import java.util.List;
  */
 public enum ClusterTypeEnum {
 
-    CS("CS", "configserver集群"),
+    CS("CS", "configserver cluster"),
 
-    NACOS("NACOS", "nacos集群"),
+    NACOS("NACOS", "nacos cluster"),
 
-    EUREKA("EUREKA", "eureka集群"),
+    EUREKA("EUREKA", "eureka cluster"),
 
-    CONSUL("CONSUL", "consul集群"),
+    CONSUL("CONSUL", "consul cluster"),
 
-    ZK("ZK", "zookeeper集群");
+    ZK("ZK", "zookeeper cluster");
 
 
     private String code;

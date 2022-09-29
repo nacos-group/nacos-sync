@@ -45,7 +45,7 @@ public class TaskDeleteProcessor implements Processor<TaskDeleteRequest, BaseRes
                         Object... others) {
         TaskDO taskDO = taskAccessService.findByTaskId(taskDeleteRequest.getTaskId());
         eventBus.post(new DeleteTaskEvent(taskDO));
-        log.info("删除同步任务数据之前，发出一个同步事件:" + taskDO);
+        log.info("Emit a sync event before deleting sync task data:" + taskDO);
         taskAccessService.deleteTaskById(taskDeleteRequest.getTaskId());
     }
 }

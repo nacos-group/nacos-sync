@@ -50,15 +50,14 @@ public final class StringUtils {
     /**
      * parse key-value pair.
      *
-     * @param str           string.
-     * @param itemSeparator item separator.
+     * @param str string.
      * @return key-value map;
      */
-    private static Map<String, String> parseKeyValuePair(String str, String itemSeparator) {
-        String[] tmp = str.split(itemSeparator);
-        Map<String, String> map = new HashMap<String, String>(tmp.length);
-        for (int i = 0; i < tmp.length; i++) {
-            Matcher matcher = KVP_PATTERN.matcher(tmp[i]);
+    private static Map<String, String> parseKeyValuePair(String str) {
+        String[] tmp = str.split("&");
+        Map<String, String> map = new HashMap<>(tmp.length);
+        for (String s : tmp) {
+            Matcher matcher = KVP_PATTERN.matcher(s);
             if (!matcher.matches()) {
                 continue;
             }
@@ -81,7 +80,7 @@ public final class StringUtils {
                 return new HashMap<>();
             }
             decodePath = substringAfter(decodePath, "?");
-            return parseKeyValuePair(decodePath, "&");
+            return parseKeyValuePair(decodePath);
 
         } catch (UnsupportedEncodingException e) {
             log.warn("parse query string failed", e);

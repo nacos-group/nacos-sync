@@ -46,14 +46,6 @@ public class TaskDeleteInBatchProcessor implements Processor<TaskDeleteInBatchRe
     @Override
     public void process(TaskDeleteInBatchRequest taskBatchDeleteRequest, BaseResult baseResult,
                         Object... others) {
-//    	
-//    	String[] taskIds= taskBatchDeleteRequest.getTaskIds();
-//    	List<TaskDO> taskDOs = new ArrayList<TaskDO>();
-//    	for (String taskId : taskIds) {
-//    		TaskDO taskDO = new TaskDO();
-//    		taskDO.setTaskId(taskId);
-//    		taskDOs.add(taskDO);
-//		}
         taskAccessService.deleteTaskInBatch(taskBatchDeleteRequest.getTaskIds());
     }
 }

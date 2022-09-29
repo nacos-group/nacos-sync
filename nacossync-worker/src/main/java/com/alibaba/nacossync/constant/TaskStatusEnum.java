@@ -25,11 +25,11 @@ public enum TaskStatusEnum {
     /**
      * synchronization of task
      */
-    SYNC("SYNC", "任务同步"),
+    SYNC("SYNC", "sync task"),
     /**
      * delete the task
      */
-    DELETE("DELETE", "任务需要被删除");
+    DELETE("DELETE", "Task needs to be deleted");
 
     private String code;
     private String desc;

@@ -29,11 +29,10 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 public class EurekaBeatReactor {
-    private ScheduledExecutorService executorService;
+    private final ScheduledExecutorService executorService;
 
-    private volatile long clientBeatInterval = 5 * 1000;
     private final Map<String, InstanceInfo> eurekaBeat = new ConcurrentHashMap<>();
-    private EurekaHttpClient eurekaHttpClient;
+    private final EurekaHttpClient eurekaHttpClient;
 
     public EurekaBeatReactor(EurekaHttpClient eurekaHttpClient) {
         this.eurekaHttpClient = eurekaHttpClient;
@@ -71,6 +70,7 @@ public class EurekaBeatReactor {
             } catch (Exception e) {
                 log.error("[CLIENT-BEAT] Exception while scheduling beat.", e);
             } finally {
+                long clientBeatInterval = 5 * 1000;
                 executorService.schedule(this, clientBeatInterval, TimeUnit.MILLISECONDS);
             }
         }

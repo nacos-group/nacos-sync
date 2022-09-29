@@ -215,8 +215,7 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
     }
 
     protected String buildSyncInstance(Instance instance, TaskDO taskDO) throws UnsupportedEncodingException {
-        Map<String, String> metaData = new HashMap<>();
-        metaData.putAll(instance.getMetadata());
+        Map<String, String> metaData = new HashMap<>(instance.getMetadata());
         metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
             skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
@@ -230,10 +229,10 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
 
 
     /**
-     * 获取zk path child 监听缓存类
+     * Get the zk path child listener cache class
      *
-     * @param taskDO 任务对象
-     * @return zk节点操作缓存对象
+     * @param taskDO task object
+     * @return cache object
      */
     private PathChildrenCache getPathCache(TaskDO taskDO) {
         return pathChildrenCacheMap.computeIfAbsent(taskDO.getTaskId(), (key) -> {
