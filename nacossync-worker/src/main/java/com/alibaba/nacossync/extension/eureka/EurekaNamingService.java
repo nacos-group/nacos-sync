@@ -14,12 +14,15 @@ package com.alibaba.nacossync.extension.eureka;
 
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.discovery.shared.Application;
+import com.netflix.discovery.shared.Applications;
 import com.netflix.discovery.shared.transport.EurekaHttpClient;
 import com.netflix.discovery.shared.transport.EurekaHttpResponse;
+import io.swagger.models.auth.In;
 import org.springframework.http.HttpStatus;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * @author liu jun jie
@@ -55,6 +58,21 @@ public class EurekaNamingService {
         if (Objects.requireNonNull(HttpStatus.resolve(eurekaHttpResponse.getStatusCode())).is2xxSuccessful()) {
             return eurekaHttpResponse.getEntity().getInstances();
         }
+        return null;
+    }
+
+    public List<InstanceInfo> getApplications() {
+        EurekaHttpResponse<Applications> eurekaHttpResponse = eurekaHttpClient.getApplications();
+        if (Objects.requireNonNull(HttpStatus.resolve(eurekaHttpResponse.getStatusCode())).is2xxSuccessful()) {
+            List<Application> applications = eurekaHttpResponse.getEntity().getRegisteredApplications();
+            if (applications != null && !applications.isEmpty()) {
+                return applications.stream()
+                        .map(Application::getInstances)
+                        .flatMap(List::stream)
+                        .collect(Collectors.toList());
+            }
+         }
+
         return null;
     }
 }

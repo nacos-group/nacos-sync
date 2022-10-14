@@ -5,12 +5,14 @@ import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.listener.NamingEvent;
 import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.alibaba.nacos.api.naming.pojo.ListView;
 import com.alibaba.nacos.common.utils.CollectionUtils;
 import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
+import com.alibaba.nacossync.util.NacosUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -139,11 +141,56 @@ public abstract class AbstractNacosSync implements SyncService {
             log.info("TaskId:{}, The last synchronization task has not ended", taskId);
             return;
         }
+
         try {
-            List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
-                    getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
-            this.removeInvalidInstance(taskDO, sourceInstances);
-            this.syncNewInstance(taskDO, sourceInstances);
+            String serviceName = taskDO.getServiceName();
+            if (serviceName.equals("*") || "".equals(serviceName)) {
+                ListView<String> servers = sourceNamingService.getServicesOfServer(1, Integer.MAX_VALUE, getGroupNameOrDefault(taskDO.getGroupName()));
+                if (servers != null) {
+                    List<String> services = servers.getData();
+                    if (services != null && !services.isEmpty()) {
+                        for (String syncServiceName : services) {
+                            taskDO.setServiceName(syncServiceName);
+                            List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
+                                    getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
+                            this.removeInvalidInstance(taskDO, sourceInstances);
+                            this.syncNewInstance(taskDO, sourceInstances);
+
+                            this.listenerMap.putIfAbsent(taskId, event -> {
+                                if (event instanceof NamingEvent) {
+                                    try {
+                                        doSync(taskId, taskDO, sourceNamingService);
+                                    } catch (Exception e) {
+                                        log.error("event process fail, taskId:{}", taskId, e);
+                                        metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
+                                    }
+                                }
+                            });
+                            sourceNamingService.subscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                                    listenerMap.get(taskId));
+                        }
+                    }
+                }
+            } else {
+
+                List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
+                        getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
+                this.removeInvalidInstance(taskDO, sourceInstances);
+                this.syncNewInstance(taskDO, sourceInstances);
+
+                this.listenerMap.putIfAbsent(taskId, event -> {
+                    if (event instanceof NamingEvent) {
+                        try {
+                            doSync(taskId, taskDO, sourceNamingService);
+                        } catch (Exception e) {
+                            log.error("event process fail, taskId:{}", taskId, e);
+                            metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
+                        }
+                    }
+                });
+                sourceNamingService.subscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                        listenerMap.get(taskId));
+            }
         } finally {
             syncTaskTap.remove(taskId);
         }
@@ -154,13 +201,11 @@ public abstract class AbstractNacosSync implements SyncService {
         String taskId = taskDO.getTaskId();
         Set<String> instanceKeys = sourceInstanceSnapshot.get(taskId);
         for (Instance instance : sourceInstances) {
-            if (needSync(instance.getMetadata())) {
-                String instanceKey = composeInstanceKey(instance.getIp(), instance.getPort());
-                if (CollectionUtils.isEmpty(instanceKeys) || !instanceKeys.contains(instanceKey)) {
-                    register(taskDO, instance);
-                }
-                latestSyncInstance.add(instanceKey);
+            String instanceKey = composeInstanceKey(instance.getIp(), instance.getPort());
+            if (CollectionUtils.isEmpty(instanceKeys) || !instanceKeys.contains(instanceKey)) {
+                register(taskDO, instance);
             }
+            latestSyncInstance.add(instanceKey);
         }
         
         if (CollectionUtils.isNotEmpty(latestSyncInstance)) {
