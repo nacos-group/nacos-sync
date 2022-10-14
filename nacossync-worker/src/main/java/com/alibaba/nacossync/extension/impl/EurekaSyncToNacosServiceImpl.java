@@ -192,12 +192,19 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
     private void addValidInstance(TaskDO taskDO, NamingService destNamingService, List<InstanceInfo> eurekaInstances)
         throws NacosException {
         for (InstanceInfo instance : eurekaInstances) {
-            if (needSync(instance.getMetadata())) {
+            InstanceInfo.InstanceStatus status = instance.getStatus();
+            if (status != InstanceInfo.InstanceStatus.UP) {
+                log.info("Remove service instance from nacos, serviceName={}, Ip={}, port={}",
+                        instance.getAppName(), instance.getIPAddr(), instance.getPort());
+                destNamingService.deregisterInstance(taskDO.getServiceName(),
+                        NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), buildSyncInstance(instance,
+                                taskDO));
+            } else {
                 log.info("Add service instance from Eureka, serviceName={}, Ip={}, port={}",
-                    instance.getAppName(), instance.getIPAddr(), instance.getPort());
+                        instance.getAppName(), instance.getIPAddr(), instance.getPort());
                 destNamingService.registerInstance(taskDO.getServiceName(),
-                    NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), buildSyncInstance(instance,
-                        taskDO));
+                        NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), buildSyncInstance(instance,
+                                taskDO));
             }
         }
     }

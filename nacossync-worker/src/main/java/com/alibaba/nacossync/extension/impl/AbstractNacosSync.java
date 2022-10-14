@@ -136,7 +136,7 @@ public abstract class AbstractNacosSync implements SyncService {
         return true;
     }
     
-    private void doSync(String taskId, TaskDO taskDO, NamingService sourceNamingService) throws NacosException {
+    private void doSync(String taskId, TaskDO taskDO, NamingService sourceNamingService) throws Exception {
         if (syncTaskTap.putIfAbsent(taskId, 1) != null) {
             log.info("TaskId:{}, The last synchronization task has not ended", taskId);
             return;
@@ -196,18 +196,23 @@ public abstract class AbstractNacosSync implements SyncService {
         }
     }
     
-    private void syncNewInstance(TaskDO taskDO, List<Instance> sourceInstances) throws NacosException {
+    private void syncNewInstance(TaskDO taskDO, List<Instance> sourceInstances) throws Exception {
         Set<String> latestSyncInstance = new TreeSet<>();
         String taskId = taskDO.getTaskId();
         Set<String> instanceKeys = sourceInstanceSnapshot.get(taskId);
         for (Instance instance : sourceInstances) {
-            String instanceKey = composeInstanceKey(instance.getIp(), instance.getPort());
-            if (CollectionUtils.isEmpty(instanceKeys) || !instanceKeys.contains(instanceKey)) {
-                register(taskDO, instance);
+            boolean healthy = instance.isHealthy();
+            if (!healthy) {
+                deregisterInstance(taskDO);
+            } else {
+                String instanceKey = composeInstanceKey(instance.getIp(), instance.getPort());
+                if (CollectionUtils.isEmpty(instanceKeys) || !instanceKeys.contains(instanceKey)) {
+                    register(taskDO, instance);
+                }
+                latestSyncInstance.add(instanceKey);
             }
-            latestSyncInstance.add(instanceKey);
         }
-        
+
         if (CollectionUtils.isNotEmpty(latestSyncInstance)) {
             log.info("Task Id: {}, Number of synchronized instances: {}", taskId, latestSyncInstance.size());
             sourceInstanceSnapshot.put(taskId, latestSyncInstance);
