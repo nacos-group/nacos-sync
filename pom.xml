@@ -25,8 +25,8 @@
     </modules>
     <packaging>pom</packaging>
     <properties>
-        <revision>0.4.8</revision>
-        <spring-boot.version>2.5.14</spring-boot.version>
+        <revision>0.4.9</revision>
+        <spring-boot.version>2.7.7</spring-boot.version>
         <spring-cloud.version>2020.0.2</spring-cloud.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <zookeeper.version>3.4.9</zookeeper.version>
@@ -39,8 +39,8 @@
         <commoms-lang3.verison>3.12.0</commoms-lang3.verison>
         <guava.verison>30.1-jre</guava.verison>
         <versions-maven-plugin.version>2.2</versions-maven-plugin.version>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
         <maven-jar-plugin.version>3.2.0</maven-jar-plugin.version>
         <maven-enforcer-plugin.version>1.4.1</maven-enforcer-plugin.version>
         <maven-source-plugin.version>3.0.1</maven-source-plugin.version>

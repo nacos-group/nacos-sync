@@ -22,7 +22,7 @@ import com.alibaba.nacossync.extension.SyncManagerService;
 import com.alibaba.nacossync.extension.impl.NacosSyncToNacosServiceImpl;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
-import com.alibaba.nacossync.timer.FastSyncHelper;
+import com.alibaba.nacossync.util.Tuple;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -82,8 +82,8 @@ public class FastSyncHelperTest {
         sourceList.add("1");
         sourceList.add("2");
         sourceList.add("3");
-        List<List<String>> lists = FastSyncHelper.averageAssign(sourceList, limit);
-        Assert.assertEquals(lists.get(0).size(),limit);
-        Assert.assertNotEquals(lists.get(0).size(),3);
+        List<Tuple<Integer, List<String>>> lists = FastSyncHelper.averageAssign(sourceList, limit);
+        Assert.assertEquals(lists.get(0).getT2().size(),limit);
+        Assert.assertNotEquals(lists.get(0).getT2().size(),3);
     }
 }

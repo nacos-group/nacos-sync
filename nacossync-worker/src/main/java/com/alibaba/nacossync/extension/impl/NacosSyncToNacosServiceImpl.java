@@ -10,10 +10,8 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package com.alibaba.nacossync.extension.impl;
 
-import static com.alibaba.nacossync.constant.SkyWalkerConstants.SOURCE_CLUSTERID_KEY;
-import static com.alibaba.nacossync.util.NacosUtils.getGroupNameOrDefault;
+package com.alibaba.nacossync.extension.impl;
 
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
@@ -33,6 +31,13 @@ import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
+import com.alibaba.nacossync.template.processor.TaskUpdateProcessor;
+import com.alibaba.nacossync.timer.FastSyncHelper;
+import com.alibaba.nacossync.util.StringUtils;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import javax.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -44,13 +49,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import javax.annotation.PostConstruct;
 
-import com.alibaba.nacossync.template.processor.TaskUpdateProcessor;
-import com.alibaba.nacossync.timer.FastSyncHelper;
-import com.alibaba.nacossync.util.StringUtils;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import static com.alibaba.nacossync.constant.SkyWalkerConstants.SOURCE_CLUSTERID_KEY;
+import static com.alibaba.nacossync.util.NacosUtils.getGroupNameOrDefault;
 
 /**
  * @author yangyshdan
@@ -79,7 +80,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     @Autowired
     private ClusterAccessService clusterAccessService;
     
-    public static Map<String, Set<NamingService>> serviceClient=new ConcurrentHashMap<>();
+    public static Map<String, Set<NamingService>> serviceClient = new ConcurrentHashMap<>();
     
     @Autowired
     private FastSyncHelper fastSyncHelper;
@@ -138,60 +139,37 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                     String operationKey = taskDO.getTaskId() + serviceName;
                     skyWalkerCacheServices.removeFinishedTask(operationKey);
                     allSyncTaskMap.remove(operationKey);
+                    NamingService destNamingService = popNamingService(taskDO);
+                    sourceNamingService.unsubscribe(serviceName, getGroupNameOrDefault(taskDO.getGroupName()),
+                            listenerMap.remove(taskDO.getTaskId() + serviceName));
                     
-                    String key = taskDO.getId() + ":" + serviceName;
-                    NamingService destNamingService ;
-                    Set<NamingService> namingServices = serviceClient.get(key);
-                    if(namingServices!=null && namingServices.size()>0){
-                        destNamingService = namingServices.iterator().next();
-                    }else {
-                        log.warn("{} 无可用 namingservice",key);
-                        continue;
-                    }
-                    sourceNamingService
-                            .unsubscribe(serviceName, getGroupNameOrDefault(taskDO.getGroupName()),
-                                    listenerMap.remove(taskDO.getTaskId() + serviceName ));
-                    
-                    List<Instance> sourceInstances = sourceNamingService
-                            .getAllInstances(serviceName, getGroupNameOrDefault(taskDO.getGroupName()),
-                                    new ArrayList<>(), false);
+                    List<Instance> sourceInstances = sourceNamingService.getAllInstances(serviceName,
+                            getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), false);
                     for (Instance instance : sourceInstances) {
                         if (needSync(instance.getMetadata())) {
-                            destNamingService
-                                    .deregisterInstance(serviceName, getGroupNameOrDefault(taskDO.getGroupName()),
-                                            instance.getIp(), instance.getPort());
+                            destNamingService.deregisterInstance(serviceName,
+                                    getGroupNameOrDefault(taskDO.getGroupName()), instance.getIp(), instance.getPort());
                         }
                     }
                 }
             } else {
                 //处理服务级别的任务删除
                 String operationId = taskUpdateProcessor.getTaskIdAndOperationIdMap(taskDO.getTaskId());
-                if(StringUtils.isEmpty(operationId)) {
+                if (StringUtils.isEmpty(operationId)) {
                     log.warn("operationId is null data synchronization is not currently performed.{}", operationId);
                     return false;
                 }
                 
-                sourceNamingService
-                        .unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
-                                listenerMap.remove(operationId));
-                List<Instance> sourceInstances = sourceNamingService
-                        .getAllInstances(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
-                                new ArrayList<>(), false);
+                sourceNamingService.unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                        listenerMap.remove(operationId));
+                List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
+                        getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), false);
                 
-                NamingService destNamingService ;
-                String key = taskDO.getId() + ":" + taskDO.getServiceName();
-                Set<NamingService> namingServices = serviceClient.get(key);
-                if(namingServices!=null && namingServices.size()>0){
-                    destNamingService = namingServices.iterator().next();
-                }else {
-                    log.warn("{} 无可用 namingservice",key);
-                    return false;
-                }
+                NamingService destNamingService = popNamingService(taskDO);
                 for (Instance instance : sourceInstances) {
                     if (needSync(instance.getMetadata())) {
-                        destNamingService
-                                .deregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
-                                        instance);
+                        destNamingService.deregisterInstance(taskDO.getServiceName(),
+                                getGroupNameOrDefault(taskDO.getGroupName()), instance);
                     }
                 }
                 // 移除任务
@@ -246,28 +224,21 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     
     /**
      * basic sync
+     *
      * @param taskDO
      */
-    public void timeSync(TaskDO taskDO){
+    public void timeSync(TaskDO taskDO) {
         log.debug("线程{}开始同步{}", Thread.currentThread().getId(), System.currentTimeMillis());
         String operationId = taskDO.getOperationId();
         try {
-            NamingService sourceNamingService = nacosServerHolder.getSourceNamingService(taskDO.getTaskId(),taskDO.getSourceClusterId());
+            NamingService sourceNamingService = nacosServerHolder.getSourceNamingService(taskDO.getTaskId(),
+                    taskDO.getSourceClusterId());
             //获取目标集群client
-            NamingService destNamingService ;
-            //从已经使用过的缓存中获取client
-            String key = taskDO.getId() + ":" + taskDO.getServiceName();
-            Set<NamingService> namingServices = serviceClient.get(key);
-            if(namingServices!=null && namingServices.size()>0){
-                destNamingService = namingServices.iterator().next();
-            }else {
-                log.warn("{} 无可用NamingService",key);
-                return;
-            }
+            NamingService destNamingService = popNamingService(taskDO);
             long startTime = System.currentTimeMillis();
             doSync(operationId, taskDO, sourceNamingService, destNamingService);
             log.info("同步一个服务注册耗时:{} ms", System.currentTimeMillis() - startTime);
-        }catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -293,8 +264,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
             int level = clusterAccessService.findClusterLevel(taskDO.getSourceClusterId());
             if (CollectionUtils.isNotEmpty(sourceInstances) && sourceInstances.get(0).isEphemeral()) {
                 //处临实例的批量数据同步,需要获取当前所有的服务实例，TODO，当Client为1.x的时候，执行和持久化实例一样的同步方式
-                handlerPersistenceInstance(taskDO,destNamingService,sourceInstances, level);
-            }else if (CollectionUtils.isEmpty(sourceInstances)){
+                handlerPersistenceInstance(taskDO, destNamingService, sourceInstances, level);
+            } else if (CollectionUtils.isEmpty(sourceInstances)) {
                 //如果当前源集群是空的 ，那么直接注销目标集群的实例
                 log.debug("service {} need sync Ephemeral instance num is null: serviceName ", taskDO.getServiceName());
                 processDeRegisterInstances(taskDO, destNamingService);
@@ -308,34 +279,33 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     }
     
     private void handlerPersistenceInstance(TaskDO taskDO, NamingService destNamingService,
-            List<Instance> sourceInstances, int level) throws NacosException{
+            List<Instance> sourceInstances, int level) throws NacosException {
         List<Instance> needRegisterInstance = new ArrayList<>();
         for (Instance instance : sourceInstances) {
             if (needSync(instance.getMetadata(), level, taskDO.getDestClusterId())) {
                 needRegisterInstance.add(instance);
             }
         }
-        List<Instance>  destAllInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
+        List<Instance> destAllInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
                 getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
         
         // 获取目标集群自己已经同步的实例
         List<Instance> destHasSyncInstances = destAllInstances.stream()
-                .filter(instance -> hasSync(instance, taskDO.getSourceClusterId()))
-                .collect(Collectors.toList());
+                .filter(instance -> hasSync(instance, taskDO.getSourceClusterId())).collect(Collectors.toList());
         
         //获取新增的实例，遍历新增
         List<Instance> newInstances = new ArrayList<>(needRegisterInstance);
         instanceRemove(destHasSyncInstances, newInstances);
         //注册
         for (Instance newInstance : newInstances) {
-            destNamingService.registerInstance(taskDO.getServiceName(),
-                    getGroupNameOrDefault(taskDO.getGroupName()),buildSyncInstance(newInstance, taskDO));
+            destNamingService.registerInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                    buildSyncInstance(newInstance, taskDO));
         }
-
+        
         List<Instance> notRemoveInstances = new ArrayList<>();
         for (Instance destHasSyncInstance : destHasSyncInstances) {
             for (Instance instance : needRegisterInstance) {
-                if (instanceEquals(destHasSyncInstance,instance)) {
+                if (instanceEquals(destHasSyncInstance, instance)) {
                     notRemoveInstances.add(destHasSyncInstance);
                 }
             }
@@ -343,24 +313,22 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         destHasSyncInstances.removeAll(notRemoveInstances);
         
         if (CollectionUtils.isNotEmpty(destHasSyncInstances)) {
-            log.info("taskid：{}，服务 {} 发生反注册，执行数量 {} ",taskDO.getTaskId(),taskDO.getServiceName(),destHasSyncInstances.size());
+            log.info("taskid：{}，服务 {} 发生反注册，执行数量 {} ", taskDO.getTaskId(), taskDO.getServiceName(),
+                    destHasSyncInstances.size());
         }
         
         for (Instance destAllInstance : destHasSyncInstances) {
-            destNamingService.deregisterInstance(taskDO.getServiceName(),
-                    getGroupNameOrDefault(taskDO.getGroupName()), destAllInstance);
+            destNamingService.deregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                    destAllInstance);
         }
     }
     
     
     public static boolean instanceEquals(Instance ins1, Instance ins2) {
-        return  (ins1.getIp().equals(ins2.getIp())) &&
-                (ins1.getPort() == ins2.getPort()) &&
-                (ins1.getWeight() == ins2.getWeight()) &&
-                (ins1.isHealthy() == ins2.isHealthy()) &&
-                (ins1.isEphemeral() ==  ins2.isEphemeral()) &&
-                (ins1.getClusterName().equals(ins2.getClusterName())) &&
-                (ins1.getServiceName().equals(ins2.getServiceName()));
+        return (ins1.getIp().equals(ins2.getIp())) && (ins1.getPort() == ins2.getPort()) && (ins1.getWeight()
+                == ins2.getWeight()) && (ins1.isHealthy() == ins2.isHealthy()) && (ins1.isEphemeral()
+                == ins2.isEphemeral()) && (ins1.getClusterName().equals(ins2.getClusterName()))
+                && (ins1.getServiceName().equals(ins2.getServiceName()));
     }
     
     private void instanceRemove(List<Instance> destHasSyncInstances, List<Instance> newInstances) {
@@ -378,7 +346,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     }
     
     private boolean hasSync(Instance instance, String sourceClusterId) {
-        if (instance.getMetadata()!=null) {
+        if (instance.getMetadata() != null) {
             String sourceClusterKey = instance.getMetadata().get(SkyWalkerConstants.SOURCE_CLUSTERID_KEY);
             return sourceClusterKey != null && sourceClusterKey.equals(sourceClusterId);
         }
@@ -388,11 +356,12 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     
     /**
      * 当源集群需要同步的实例个数为0时,目标集群如果还有源集群同步的实例，执行反注册
+     *
      * @param taskDO
      * @param destNamingService
      * @throws NacosException
      */
-    private void processDeRegisterInstances(TaskDO taskDO, NamingService destNamingService) throws NacosException{
+    private void processDeRegisterInstances(TaskDO taskDO, NamingService destNamingService) throws NacosException {
         //如果此时sourceInstance中的实例为空，证明此时实例下线或实例不存在
         List<Instance> destInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
                 getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), false);
@@ -400,7 +369,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         if (CollectionUtils.isEmpty(destInstances)) {
             return;
         }
-        deRegisterFilter(destInstances,taskDO.getSourceClusterId());
+        deRegisterFilter(destInstances, taskDO.getSourceClusterId());
         if (CollectionUtils.isNotEmpty(destInstances)) {
             //逐个执行反注册,拿出一个实例即可, 需要处理redo，否则会被重新注册上来
             for (Instance destInstance : destInstances) {
@@ -430,7 +399,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         return false;
     }
     
-    private boolean needSync(Map<String, String> sourceMetaData,int level, String destClusterId){
+    private boolean needSync(Map<String, String> sourceMetaData, int level, String destClusterId) {
         //普通集群（默认）
         if (level == 0) {
             return SyncService.super.needSync(sourceMetaData);
@@ -443,12 +412,26 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     }
     
     private void recordNamingService(TaskDO taskDO, NamingService destNamingService) {
-        String key = taskDO.getId() + ":" + taskDO.getServiceName();
-        serviceClient.computeIfAbsent(key, clientKey->{
+        String key = buildClientKey(taskDO);
+        serviceClient.computeIfAbsent(key, clientKey -> {
             Set<NamingService> hashSet = new ConcurrentHashSet<>();
             hashSet.add(destNamingService);
             return hashSet;
         });
+    }
+    
+    public NamingService popNamingService(TaskDO taskDO) {
+        String key = buildClientKey(taskDO);
+        Set<NamingService> namingServices = serviceClient.get(key);
+        if (CollectionUtils.isNotEmpty(namingServices)) {
+            return namingServices.iterator().next();
+        }
+        log.warn("{} 无可用 namingservice", key);
+        return null;
+    }
+    
+    private static String buildClientKey(TaskDO taskDO) {
+        return taskDO.getId() + ":" + taskDO.getServiceName();
     }
     
     private Instance buildSyncInstance(Instance instance, TaskDO taskDO) {
@@ -467,7 +450,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                 skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
         metaData.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
         //标识是同步实例
-        metaData.put(SkyWalkerConstants.SYNC_INSTANCE_TAG, taskDO.getSourceClusterId()+"@@"+taskDO.getVersion());
+        metaData.put(SkyWalkerConstants.SYNC_INSTANCE_TAG, taskDO.getSourceClusterId() + "@@" + taskDO.getVersion());
         temp.setMetadata(metaData);
         return temp;
     }
