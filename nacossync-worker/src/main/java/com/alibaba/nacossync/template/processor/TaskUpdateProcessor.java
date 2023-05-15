@@ -43,7 +43,7 @@ public class TaskUpdateProcessor implements Processor<TaskUpdateRequest, BaseRes
     @Autowired
     private TaskAccessService taskAccessService;
     
-    private Map<String,String> TaskIdAndOperationIdMap = new ConcurrentHashMap<>();
+    private Map<String,String> taskIdAndOperationIdMap = new ConcurrentHashMap<>();
 
     @Override
     public void process(TaskUpdateRequest taskUpdateRequest, BaseResult baseResult,
@@ -64,7 +64,7 @@ public class TaskUpdateProcessor implements Processor<TaskUpdateRequest, BaseRes
         
         taskDO.setTaskStatus(taskUpdateRequest.getTaskStatus());
         //在id生成之前保存好操作id，可以在删除操作里面进行
-        TaskIdAndOperationIdMap.put(taskDO.getTaskId(),taskDO.getOperationId());
+        taskIdAndOperationIdMap.put(taskDO.getTaskId(),taskDO.getOperationId());
         
         taskDO.setOperationId(SkyWalkerUtil.generateOperationId());
 
@@ -72,6 +72,6 @@ public class TaskUpdateProcessor implements Processor<TaskUpdateRequest, BaseRes
     }
     
     public String getTaskIdAndOperationIdMap(String taskId) {
-        return TaskIdAndOperationIdMap.get(taskId);
+        return taskIdAndOperationIdMap.remove(taskId);
     }
 }
