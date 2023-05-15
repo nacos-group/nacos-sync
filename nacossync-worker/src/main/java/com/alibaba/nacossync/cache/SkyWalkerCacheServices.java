@@ -96,10 +96,25 @@ public class SkyWalkerCacheServices {
 
         return finishedTaskMap.get(operationId);
     }
+    
+    public FinishedTask getFinishedTask(String operationId) {
+        if (StringUtils.isEmpty(operationId)) {
+            return null;
+        }
+        return finishedTaskMap.get(operationId);
+    }
+    
+    public FinishedTask removeFinishedTask(String operationId) {
+        if (StringUtils.isEmpty(operationId)) {
+            return null;
+        }
+        return finishedTaskMap.remove(operationId);
+    }
 
     public Map<String, FinishedTask> getFinishedTaskMap() {
 
         return finishedTaskMap;
     }
+    
 
 }

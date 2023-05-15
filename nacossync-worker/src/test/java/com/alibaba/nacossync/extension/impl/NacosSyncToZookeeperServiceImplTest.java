@@ -60,7 +60,7 @@ public class NacosSyncToZookeeperServiceImplTest {
 
     @Test(expected = Exception.class)
     public void testNacosSyncToZookeeperWithException() throws Exception {
-        Assert.assertFalse(nacosSyncToZookeeperService.sync(null));
+        Assert.assertFalse(nacosSyncToZookeeperService.sync(null,null));
     }
     @Test(expected = Exception.class)
     public void testNacosDeleteToZookeeperWithException() throws Exception {
@@ -75,7 +75,7 @@ public class NacosSyncToZookeeperServiceImplTest {
         doReturn(sourceNamingService).when(nacosServerHolder).get(any());
 
         //TODO Test the core logic in the future
-        return nacosSyncToZookeeperService.sync(taskDO);
+        return nacosSyncToZookeeperService.sync(taskDO, null);
     }
 
     public boolean mockDelete(TaskDO taskDO) throws Exception {

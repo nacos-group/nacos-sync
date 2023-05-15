@@ -52,9 +52,9 @@ public class SyncManagerService implements InitializingBean, ApplicationContextA
 
     }
 
-    public boolean sync(TaskDO taskDO) {
+    public boolean sync(TaskDO taskDO, Integer index) {
 
-        return getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId()).sync(taskDO);
+        return getSyncService(taskDO.getSourceClusterId(), taskDO.getDestClusterId()).sync(taskDO, index);
 
     }
 

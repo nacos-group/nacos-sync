@@ -101,7 +101,7 @@ public abstract class AbstractNacosSync implements SyncService {
     }
     
     @Override
-    public boolean sync(TaskDO taskDO) {
+    public boolean sync(TaskDO taskDO, Integer index) {
         String taskId = taskDO.getTaskId();
         try {
             NamingService sourceNamingService = nacosServerHolder.get(taskDO.getSourceClusterId());
@@ -128,7 +128,7 @@ public abstract class AbstractNacosSync implements SyncService {
         return true;
     }
     
-    private void doSync(String taskId, TaskDO taskDO, NamingService sourceNamingService) throws NacosException {
+    private void doSync(String taskId, TaskDO taskDO, NamingService sourceNamingService) throws Exception {
         if (syncTaskTap.putIfAbsent(taskId, 1) != null) {
             log.info("任务Id:{}上一个同步任务尚未结束", taskId);
             return;
@@ -172,7 +172,7 @@ public abstract class AbstractNacosSync implements SyncService {
     }
     
     
-    private void removeInvalidInstance(TaskDO taskDO, List<Instance> sourceInstances) throws NacosException {
+    private void removeInvalidInstance(TaskDO taskDO, List<Instance> sourceInstances) throws Exception {
         String taskId = taskDO.getTaskId();
         if (this.sourceInstanceSnapshot.containsKey(taskId)) {
             Set<String> oldInstanceKeys = this.sourceInstanceSnapshot.get(taskId);
@@ -187,13 +187,23 @@ public abstract class AbstractNacosSync implements SyncService {
         }
     }
     
+    @Override
+    public boolean needDelete(Map<String, String> destMetaData, TaskDO taskDO) {
+        return SyncService.super.needDelete(destMetaData, taskDO);
+    }
+    
+    @Override
+    public boolean needSync(Map<String, String> sourceMetaData) {
+        return SyncService.super.needSync(sourceMetaData);
+    }
+    
     public abstract String composeInstanceKey(String ip, int port);
     
     public abstract void register(TaskDO taskDO, Instance instance);
     
     public abstract void deregisterInstance(TaskDO taskDO) throws Exception;
     
-    public abstract void removeInvalidInstance(TaskDO taskDO, Set<String> invalidInstanceKeys);
+    public abstract void removeInvalidInstance(TaskDO taskDO, Set<String> invalidInstanceKeys) throws Exception;
     
     public NacosServerHolder getNacosServerHolder() {
         return nacosServerHolder;
