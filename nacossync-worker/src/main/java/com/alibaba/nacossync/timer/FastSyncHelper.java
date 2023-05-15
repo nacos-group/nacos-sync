@@ -20,7 +20,6 @@ package com.alibaba.nacossync.timer;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.extension.SyncManagerService;
-import com.alibaba.nacossync.extension.impl.NacosSyncToNacosServiceImpl;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.Tuple;
@@ -56,16 +55,14 @@ public class FastSyncHelper {
     
     private final SyncManagerService syncManagerService;
     
-    private final NacosSyncToNacosServiceImpl nacosSyncToNacosService;
     
     private final ExecutorService executorService = Executors.newFixedThreadPool(MAX_THREAD_NUM);
     
     public FastSyncHelper(SkyWalkerCacheServices skyWalkerCacheServices, MetricsManager metricsManager,
-            SyncManagerService syncManagerService, NacosSyncToNacosServiceImpl nacosSyncToNacosService) {
+            SyncManagerService syncManagerService) {
         this.skyWalkerCacheServices = skyWalkerCacheServices;
         this.metricsManager = metricsManager;
         this.syncManagerService = syncManagerService;
-        this.nacosSyncToNacosService = nacosSyncToNacosService;
     }
     
     
@@ -74,11 +71,11 @@ public class FastSyncHelper {
      *
      * @param taskDOS task list
      */
-    public void syncWithThread(List<TaskDO> taskDOS) {
+    public void syncWithThread(List<TaskDO> taskDOS, Consumer<TaskDO> timeSyncInvoke) {
         sync(taskDOS, tuple -> {
             for (TaskDO task : tuple.getT2()) {
                 //执行兜底的定时同步
-                nacosSyncToNacosService.timeSync(task);
+                timeSyncInvoke.accept(task);
             }
         });
     }
@@ -124,7 +121,6 @@ public class FastSyncHelper {
         
     }
     
-
     
     private void syncByIndex(TaskDO taskDO, String serviceName, int index) {
         long startTime = System.currentTimeMillis();
