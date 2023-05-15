@@ -32,6 +32,8 @@ import com.alibaba.nacossync.extension.SyncManagerService;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 
+import java.util.concurrent.ThreadPoolExecutor;
+
 /**
  * @author NacosSync
  * @version $Id: EventListener.java, v 0.1 2018-09-27 AM1:21 NacosSync Exp $$
@@ -52,6 +54,9 @@ public class EventListener {
     @Autowired
     private SkyWalkerCacheServices skyWalkerCacheServices;
 
+    @Autowired
+    private ThreadPoolExecutor threadPoolExecutor;
+
     @PostConstruct
     public void register() {
         eventBus.register(this);
@@ -60,34 +65,38 @@ public class EventListener {
     @Subscribe
     public void listenerSyncTaskEvent(SyncTaskEvent syncTaskEvent) {
 
-        try {
-            long start = System.currentTimeMillis();
-            if (syncManagerService.sync(syncTaskEvent.getTaskDO())) {                
-                skyWalkerCacheServices.addFinishedTask(syncTaskEvent.getTaskDO());
-                metricsManager.record(MetricsStatisticsType.SYNC_TASK_RT, System.currentTimeMillis() - start);
-            } else {
-                log.warn("listenerSyncTaskEvent sync failure");
-            }                
-        } catch (Exception e) {
-            log.warn("listenerSyncTaskEvent process error", e);
-        }
+        threadPoolExecutor.execute(() -> {
+            try {
+                long start = System.currentTimeMillis();
+                if (syncManagerService.sync(syncTaskEvent.getTaskDO())) {
+                    skyWalkerCacheServices.addFinishedTask(syncTaskEvent.getTaskDO());
+                    metricsManager.record(MetricsStatisticsType.SYNC_TASK_RT, System.currentTimeMillis() - start);
+                } else {
+                    log.warn("listenerSyncTaskEvent sync failure");
+                }
+            } catch (Exception e) {
+                log.warn("listenerSyncTaskEvent process error", e);
+            }
+        });
 
     }
 
     @Subscribe
     public void listenerDeleteTaskEvent(DeleteTaskEvent deleteTaskEvent) {
 
-        try {
-            long start = System.currentTimeMillis();
-            if (syncManagerService.delete(deleteTaskEvent.getTaskDO())) {
-                skyWalkerCacheServices.addFinishedTask(deleteTaskEvent.getTaskDO());
-                metricsManager.record(MetricsStatisticsType.DELETE_TASK_RT, System.currentTimeMillis() - start);
-            } else {
-                log.warn("listenerDeleteTaskEvent delete failure");
-            }                
-        } catch (Exception e) {
-            log.warn("listenerDeleteTaskEvent process error", e);
-        }
+        threadPoolExecutor.execute(() -> {
+            try {
+                long start = System.currentTimeMillis();
+                if (syncManagerService.delete(deleteTaskEvent.getTaskDO())) {
+                    skyWalkerCacheServices.addFinishedTask(deleteTaskEvent.getTaskDO());
+                    metricsManager.record(MetricsStatisticsType.DELETE_TASK_RT, System.currentTimeMillis() - start);
+                } else {
+                    log.warn("listenerDeleteTaskEvent delete failure");
+                }
+            } catch (Exception e) {
+                log.warn("listenerDeleteTaskEvent process error", e);
+            }
+        });
 
     }
 
