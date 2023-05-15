@@ -7,13 +7,11 @@ import com.alibaba.nacos.api.naming.listener.NamingEvent;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacos.common.utils.CollectionUtils;
 import com.alibaba.nacossync.constant.MetricsStatisticsType;
-import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import javax.annotation.PostConstruct;
@@ -130,7 +128,7 @@ public abstract class AbstractNacosSync implements SyncService {
         return true;
     }
     
-    private void doSync(String taskId, TaskDO taskDO, NamingService sourceNamingService) throws NacosException {
+    private void doSync(String taskId, TaskDO taskDO, NamingService sourceNamingService) throws Exception {
         if (syncTaskTap.putIfAbsent(taskId, 1) != null) {
             log.info("任务Id:{}上一个同步任务尚未结束", taskId);
             return;
@@ -174,7 +172,7 @@ public abstract class AbstractNacosSync implements SyncService {
     }
     
     
-    private void removeInvalidInstance(TaskDO taskDO, List<Instance> sourceInstances) throws NacosException {
+    private void removeInvalidInstance(TaskDO taskDO, List<Instance> sourceInstances) throws Exception {
         String taskId = taskDO.getTaskId();
         if (this.sourceInstanceSnapshot.containsKey(taskId)) {
             Set<String> oldInstanceKeys = this.sourceInstanceSnapshot.get(taskId);
@@ -190,7 +188,7 @@ public abstract class AbstractNacosSync implements SyncService {
     }
     
     @Override
-    public boolean needDelete(Map<String, String> destMetaData, TaskDO taskDO){
+    public boolean needDelete(Map<String, String> destMetaData, TaskDO taskDO) {
         return SyncService.super.needDelete(destMetaData, taskDO);
     }
     
@@ -205,7 +203,7 @@ public abstract class AbstractNacosSync implements SyncService {
     
     public abstract void deregisterInstance(TaskDO taskDO) throws Exception;
     
-    public abstract void removeInvalidInstance(TaskDO taskDO, Set<String> invalidInstanceKeys);
+    public abstract void removeInvalidInstance(TaskDO taskDO, Set<String> invalidInstanceKeys) throws Exception;
     
     public NacosServerHolder getNacosServerHolder() {
         return nacosServerHolder;
