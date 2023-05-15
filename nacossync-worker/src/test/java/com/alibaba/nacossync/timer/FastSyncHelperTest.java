@@ -38,6 +38,7 @@ import static org.mockito.Mockito.mock;
 
 /**
  * test data synchronization.
+ *
  * @ClassName: FastSyncHelperTest
  * @Author: ChenHao26
  * @Date: 2022/7/26 15:16
@@ -68,22 +69,22 @@ public class FastSyncHelperTest {
         List<TaskDO> list = new ArrayList<>();
         list.add(taskDO);
         try {
-            fastSyncHelper.syncWithThread(list);
-        }catch (Exception e) {
-            Assert.assertEquals(e,InterruptedException.class);
+            fastSyncHelper.syncWithThread(list, nacosSyncToNacosService::timeSync);
+        } catch (Exception e) {
+            Assert.assertEquals(e, InterruptedException.class);
             e.printStackTrace();
         }
     }
     
     @Test
-    public void testAverageAssign(){
+    public void testAverageAssign() {
         int limit = 2;
         List<String> sourceList = new ArrayList<>();
         sourceList.add("1");
         sourceList.add("2");
         sourceList.add("3");
         List<Tuple<Integer, List<String>>> lists = FastSyncHelper.averageAssign(sourceList, limit);
-        Assert.assertEquals(lists.get(0).getT2().size(),limit);
-        Assert.assertNotEquals(lists.get(0).getT2().size(),3);
+        Assert.assertEquals(lists.get(0).getT2().size(), limit);
+        Assert.assertNotEquals(lists.get(0).getT2().size(), 3);
     }
 }

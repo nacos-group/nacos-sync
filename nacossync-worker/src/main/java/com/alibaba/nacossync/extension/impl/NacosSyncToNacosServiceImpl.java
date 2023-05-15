@@ -35,9 +35,9 @@ import com.alibaba.nacossync.template.processor.TaskUpdateProcessor;
 import com.alibaba.nacossync.timer.FastSyncHelper;
 import com.alibaba.nacossync.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import javax.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -60,7 +60,7 @@ import static com.alibaba.nacossync.util.NacosUtils.getGroupNameOrDefault;
 
 @Slf4j
 @NacosSyncService(sourceCluster = ClusterTypeEnum.NACOS, destinationCluster = ClusterTypeEnum.NACOS)
-public class NacosSyncToNacosServiceImpl implements SyncService {
+public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBean {
     
     private Map<String, EventListener> listenerMap = new ConcurrentHashMap<>();
     
@@ -91,8 +91,10 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
     /**
      * 因为网络故障等原因，nacos sync的同步任务会失败，导致目标集群注册中心缺少同步实例， 为避免目标集群注册中心长时间缺少同步实例，每隔5分钟启动一个兜底工作线程执行一遍全部的同步任务。
      */
-    @PostConstruct
-    public void startBasicSyncTaskThread() {
+    
+    
+    @Override
+    public void afterPropertiesSet() {
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r);
             t.setDaemon(true);
@@ -110,7 +112,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
                 List<TaskDO> taskDOList = new ArrayList<>(taskCollections);
                 
                 if (CollectionUtils.isNotEmpty(taskDOList)) {
-                    fastSyncHelper.syncWithThread(taskDOList);
+                    fastSyncHelper.syncWithThread(taskDOList, this::timeSync);
                 }
                 
             } catch (Throwable e) {
@@ -454,4 +456,6 @@ public class NacosSyncToNacosServiceImpl implements SyncService {
         temp.setMetadata(metaData);
         return temp;
     }
+    
+    
 }
