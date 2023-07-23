@@ -29,12 +29,16 @@ import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.NacosUtils;
 import com.netflix.appinfo.InstanceInfo;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.netflix.discovery.shared.Application;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.CollectionUtils;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static com.alibaba.nacossync.util.DubboConstants.ALL_SERVICE_NAME_PATTERN;
 
 /**
  * eureka
@@ -93,20 +97,8 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
             EurekaNamingService eurekaNamingService = eurekaServerHolder.get(taskDO.getSourceClusterId());
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
 
-            List<InstanceInfo> eurekaInstances = eurekaNamingService.getApplications(taskDO.getServiceName());
-            List<Instance> nacosInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
-                NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()));
+            registerAllInstances(taskDO, destNamingService);
 
-            if (CollectionUtils.isEmpty(eurekaInstances)) {
-                // Clear all instance from Nacos
-                deleteAllInstance(taskDO, destNamingService, nacosInstances);
-            } else {
-                if (!CollectionUtils.isEmpty(nacosInstances)) {
-                    // Remove invalid instance from Nacos
-                    removeInvalidInstance(taskDO, destNamingService, eurekaInstances, nacosInstances);
-                }
-                addValidInstance(taskDO, destNamingService, eurekaInstances);
-            }
             specialSyncEventBus.subscribe(taskDO, t->sync(t, index));
         } catch (Exception e) {
             log.error("sync task from eureka to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
@@ -116,13 +108,44 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
         return true;
     }
 
-    private void addValidInstance(TaskDO taskDO, NamingService destNamingService, List<InstanceInfo> eurekaInstances)
+    private void registerAllInstances(TaskDO taskDO, NamingService destNamingService) throws Exception {
+        EurekaNamingService eurekaNamingService = eurekaServerHolder.get(taskDO.getSourceClusterId());
+        if (!ALL_SERVICE_NAME_PATTERN.equals(taskDO.getServiceName())) {
+            registerALLInstances0(taskDO, destNamingService, eurekaNamingService, taskDO.getServiceName());
+        } else {
+            // 同步全部
+            List<Application> applications = eurekaNamingService.getApplications();
+            for (Application application : applications) {
+                registerALLInstances0(taskDO, destNamingService, eurekaNamingService, application.getName());
+            }
+        }
+    }
+
+    private void registerALLInstances0(TaskDO taskDO, NamingService destNamingService, EurekaNamingService eurekaNamingService,
+                                       String serviceName) throws Exception {
+        List<InstanceInfo> eurekaInstances = eurekaNamingService.getApplications(serviceName);
+        List<Instance> nacosInstances = destNamingService.getAllInstances(serviceName,
+                NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()));
+
+        if (CollectionUtils.isEmpty(eurekaInstances)) {
+            // Clear all instance from Nacos
+            deleteAllInstance(taskDO, destNamingService, nacosInstances, serviceName);
+        } else {
+            if (!CollectionUtils.isEmpty(nacosInstances)) {
+                // Remove invalid instance from Nacos
+                removeInvalidInstance(taskDO, destNamingService, eurekaInstances, nacosInstances, serviceName);
+            }
+            addValidInstance(taskDO, destNamingService, eurekaInstances, serviceName);
+        }
+    }
+
+    private void addValidInstance(TaskDO taskDO, NamingService destNamingService, List<InstanceInfo> eurekaInstances, String serviceName)
         throws NacosException {
         for (InstanceInfo instance : eurekaInstances) {
             if (needSync(instance.getMetadata())) {
                 log.info("Add service instance from Eureka, serviceName={}, Ip={}, port={}",
                     instance.getAppName(), instance.getIPAddr(), instance.getPort());
-                destNamingService.registerInstance(taskDO.getServiceName(),
+                destNamingService.registerInstance(serviceName,
                     NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), buildSyncInstance(instance,
                         taskDO));
             }
@@ -146,12 +169,12 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
     }
 
     private void removeInvalidInstance(TaskDO taskDO, NamingService destNamingService,
-        List<InstanceInfo> eurekaInstances, List<Instance> nacosInstances) throws NacosException {
+        List<InstanceInfo> eurekaInstances, List<Instance> nacosInstances, String serviceName) throws NacosException {
         for (Instance instance : nacosInstances) {
             if (!isExistInEurekaInstance(eurekaInstances, instance) && needDelete(instance.getMetadata(), taskDO)) {
                 log.info("Remove invalid service instance from Nacos, serviceName={}, Ip={}, port={}",
                     instance.getServiceName(), instance.getIp(), instance.getPort());
-                destNamingService.deregisterInstance(taskDO.getServiceName(),
+                destNamingService.deregisterInstance(serviceName,
                     NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), instance.getIp(), instance.getPort());
             }
         }
@@ -163,11 +186,11 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
             && instance.getPort() == nacosInstance.getPort());
     }
 
-    private void deleteAllInstance(TaskDO taskDO, NamingService destNamingService, List<Instance> allInstances)
+    private void deleteAllInstance(TaskDO taskDO, NamingService destNamingService, List<Instance> allInstances, String serviceName)
         throws NacosException {
         for (Instance instance : allInstances) {
             if (needDelete(instance.getMetadata(), taskDO)) {
-                destNamingService.deregisterInstance(taskDO.getServiceName(),
+                destNamingService.deregisterInstance(serviceName,
                     NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), instance);
             }
 

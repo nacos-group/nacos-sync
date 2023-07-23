@@ -5,12 +5,17 @@ import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.listener.NamingEvent;
 import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.alibaba.nacos.client.naming.NacosNamingService;
 import com.alibaba.nacos.common.utils.CollectionUtils;
 import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.extension.SyncService;
+import com.alibaba.nacossync.extension.eureka.EurekaNamingService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
+import com.alibaba.nacossync.util.NacosUtils;
+import com.netflix.appinfo.InstanceInfo;
+import com.netflix.discovery.shared.Application;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -26,6 +31,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static com.alibaba.nacossync.util.DubboConstants.ALL_SERVICE_NAME_PATTERN;
 import static com.alibaba.nacossync.util.NacosUtils.getGroupNameOrDefault;
 
 @Slf4j
@@ -118,14 +124,28 @@ public abstract class AbstractNacosSync implements SyncService {
                     }
                 }
             });
-            sourceNamingService.subscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
-                    listenerMap.get(taskId));
+            subscribeAllService(taskDO);
         } catch (Exception e) {
             log.error("sync task from nacos to specify destination was failed, taskId:{}", taskId, e);
             metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
             return false;
         }
         return true;
+    }
+
+    private void subscribeAllService(TaskDO taskDO) throws Exception {
+        NamingService namingService = nacosServerHolder.get(taskDO.getSourceClusterId());
+        if (!ALL_SERVICE_NAME_PATTERN.equals(taskDO.getServiceName())) {
+            namingService.subscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                    listenerMap.get(taskDO.getTaskId()));
+        } else {
+            // 订阅全部
+            List<String> serviceList = namingService.getServicesOfServer(0, Integer.MAX_VALUE, taskDO.getGroupName()).getData();
+            for (String serviceName : serviceList) {
+                namingService.subscribe(serviceName, getGroupNameOrDefault(taskDO.getGroupName()),
+                        listenerMap.get(taskDO.getTaskId()));
+            }
+        }
     }
     
     private void doSync(String taskId, TaskDO taskDO, NamingService sourceNamingService) throws Exception {
@@ -134,20 +154,37 @@ public abstract class AbstractNacosSync implements SyncService {
             return;
         }
         try {
-            // 直接从本地保存的serviceInfoMap中取订阅的服务实例
-            List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
-                    getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
-            // 先删除不存在的
-            this.removeInvalidInstance(taskDO, sourceInstances);
-            
-            // 同步实例
-            this.syncNewInstance(taskDO, sourceInstances);
+            registerAllInstances(taskDO);
         } finally {
             syncTaskTap.remove(taskId);
         }
     }
+
+    private void registerAllInstances(TaskDO taskDO) throws Exception {
+        NamingService namingService = nacosServerHolder.get(taskDO.getSourceClusterId());
+        if (!ALL_SERVICE_NAME_PATTERN.equals(taskDO.getServiceName())) {
+            registerALLInstances0(taskDO, namingService, taskDO.getServiceName());
+        } else {
+            // 同步全部
+            List<String> serviceList = namingService.getServicesOfServer(0, Integer.MAX_VALUE, taskDO.getGroupName()).getData();
+            for (String serviceName : serviceList) {
+                registerALLInstances0(taskDO, namingService, serviceName);
+            }
+        }
+    }
+
+    private void registerALLInstances0(TaskDO taskDO, NamingService sourceNamingService, String serviceName) throws Exception {
+        // 直接从本地保存的serviceInfoMap中取订阅的服务实例
+        List<Instance> sourceInstances = sourceNamingService.getAllInstances(serviceName,
+                getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
+        // 先删除不存在的
+        this.removeInvalidInstance(taskDO, sourceInstances);
+
+        // 同步实例
+        this.syncNewInstance(taskDO, sourceInstances, serviceName);
+    }
     
-    private void syncNewInstance(TaskDO taskDO, List<Instance> sourceInstances) throws NacosException {
+    private void syncNewInstance(TaskDO taskDO, List<Instance> sourceInstances, String serviceName) throws NacosException {
         Set<String> latestSyncInstance = new TreeSet<>();
         //再次添加新实例
         String taskId = taskDO.getTaskId();
@@ -156,7 +193,7 @@ public abstract class AbstractNacosSync implements SyncService {
             if (needSync(instance.getMetadata())) {
                 String instanceKey = composeInstanceKey(instance.getIp(), instance.getPort());
                 if (CollectionUtils.isEmpty(instanceKeys) || !instanceKeys.contains(instanceKey)) {
-                    register(taskDO, instance);
+                    register(taskDO, instance, serviceName);
                 }
                 latestSyncInstance.add(instanceKey);
             }
@@ -199,7 +236,7 @@ public abstract class AbstractNacosSync implements SyncService {
     
     public abstract String composeInstanceKey(String ip, int port);
     
-    public abstract void register(TaskDO taskDO, Instance instance);
+    public abstract void register(TaskDO taskDO, Instance instance, String serviceName);
     
     public abstract void deregisterInstance(TaskDO taskDO) throws Exception;
     
