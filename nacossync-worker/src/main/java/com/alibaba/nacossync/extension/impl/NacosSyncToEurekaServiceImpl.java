@@ -39,28 +39,28 @@ import java.util.Set;
 @Slf4j
 @NacosSyncService(sourceCluster = ClusterTypeEnum.NACOS, destinationCluster = ClusterTypeEnum.EUREKA)
 public class NacosSyncToEurekaServiceImpl extends AbstractNacosSync {
-    
-    
+
+
     private final EurekaServerHolder eurekaServerHolder;
-    
+
     private final SkyWalkerCacheServices skyWalkerCacheServices;
-    
+
     public NacosSyncToEurekaServiceImpl(EurekaServerHolder eurekaServerHolder,
             SkyWalkerCacheServices skyWalkerCacheServices) {
         this.eurekaServerHolder = eurekaServerHolder;
         this.skyWalkerCacheServices = skyWalkerCacheServices;
     }
-    
-    
+
+
     @Override
     public String composeInstanceKey(String ip, int port) {
         return ip + ":" + port;
     }
     
     @Override
-    public void register(TaskDO taskDO, Instance instance) {
+    public void register(TaskDO taskDO, Instance instance, String serviceName) {
         EurekaNamingService destNamingService = eurekaServerHolder.get(taskDO.getDestClusterId());
-        destNamingService.registerInstance(buildSyncInstance(instance, taskDO));
+        destNamingService.registerInstance(buildSyncInstance(instance, taskDO, serviceName));
     }
     
     @Override
@@ -91,7 +91,7 @@ public class NacosSyncToEurekaServiceImpl extends AbstractNacosSync {
     }
     
     
-    private InstanceInfo buildSyncInstance(Instance instance, TaskDO taskDO) {
+    private InstanceInfo buildSyncInstance(Instance instance, TaskDO taskDO, String serviceName) {
         DataCenterInfo dataCenterInfo = new MyDataCenterInfo(DataCenterInfo.Name.MyOwn);
         final Map<String, String> instanceMetadata = instance.getMetadata();
         HashMap<String, String> metadata = new HashMap<>(16);
@@ -101,8 +101,7 @@ public class NacosSyncToEurekaServiceImpl extends AbstractNacosSync {
         metadata.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
         metadata.putAll(instanceMetadata);
         String homePageUrl = obtainHomePageUrl(instance, instanceMetadata);
-        String serviceName = taskDO.getServiceName();
-        
+
         return new InstanceInfo(instance.getIp() + ":" + serviceName + ":" + instance.getPort(), serviceName, null,
                 instance.getIp(), null, new InstanceInfo.PortWrapper(true, instance.getPort()), null,
                 homePageUrl + "/actuator/env", homePageUrl + "/actuator/info", homePageUrl + "/actuator/health", null,
@@ -125,6 +124,4 @@ public class NacosSyncToEurekaServiceImpl extends AbstractNacosSync {
         }
         return path;
     }
-    
-    
 }

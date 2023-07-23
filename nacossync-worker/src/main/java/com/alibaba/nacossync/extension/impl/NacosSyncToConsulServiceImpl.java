@@ -61,7 +61,7 @@ public class NacosSyncToConsulServiceImpl extends AbstractNacosSync {
     }
     
     @Override
-    public void register(TaskDO taskDO, Instance instance) {
+    public void register(TaskDO taskDO, Instance instance, String serviceName) {
         ConsulClient consulClient = consulServerHolder.get(taskDO.getDestClusterId());
         consulClient.agentServiceRegister(buildSyncInstance(instance, taskDO));
     }

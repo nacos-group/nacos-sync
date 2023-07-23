@@ -14,6 +14,7 @@ package com.alibaba.nacossync.extension.eureka;
 
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.discovery.shared.Application;
+import com.netflix.discovery.shared.Applications;
 import com.netflix.discovery.shared.transport.EurekaHttpClient;
 import com.netflix.discovery.shared.transport.EurekaHttpResponse;
 import org.springframework.http.HttpStatus;
@@ -54,6 +55,14 @@ public class EurekaNamingService {
                 eurekaHttpClient.getApplication(serviceName);
         if (Objects.requireNonNull(HttpStatus.resolve(eurekaHttpResponse.getStatusCode())).is2xxSuccessful()) {
             return eurekaHttpResponse.getEntity().getInstances();
+        }
+        return null;
+    }
+
+    public List<Application> getApplications() {
+        EurekaHttpResponse<Applications> eurekaHttpResponse = eurekaHttpClient.getApplications();
+        if (Objects.requireNonNull(HttpStatus.resolve(eurekaHttpResponse.getStatusCode())).is2xxSuccessful()) {
+            return eurekaHttpResponse.getEntity().getRegisteredApplications();
         }
         return null;
     }
