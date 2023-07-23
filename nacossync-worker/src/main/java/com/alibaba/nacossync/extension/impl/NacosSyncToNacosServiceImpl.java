@@ -52,10 +52,10 @@ public class NacosSyncToNacosServiceImpl extends AbstractNacosSync {
     }
     
     @Override
-    public void register(TaskDO taskDO, Instance instance) {
+    public void register(TaskDO taskDO, Instance instance, String serviceName) {
         NamingService destNamingService = getNacosServerHolder().get(taskDO.getDestClusterId());
         try {
-            destNamingService.registerInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+            destNamingService.registerInstance(serviceName, getGroupNameOrDefault(taskDO.getGroupName()),
                     buildSyncInstance(instance, taskDO));
         } catch (NacosException e) {
             log.error("Register instance={} to Nacos failed", taskDO.getServiceName(), e);
