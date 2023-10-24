@@ -17,13 +17,30 @@
 
 package com.alibaba.nacossync.template.processor;
 
+import static com.alibaba.nacossync.constant.SkyWalkerConstants.GROUP_NAME_PARAM;
+import static com.alibaba.nacossync.constant.SkyWalkerConstants.PAGE_NO;
+import static com.alibaba.nacossync.constant.SkyWalkerConstants.PAGE_SIZE;
+import static com.alibaba.nacossync.constant.SkyWalkerConstants.SERVICE_NAME_PARAM;
+
+import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+import javax.annotation.Nullable;
+import javax.ws.rs.HttpMethod;
+
+import org.springframework.stereotype.Service;
+import org.springframework.util.ReflectionUtils;
+
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.CommonParams;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.client.naming.NacosNamingService;
-import com.alibaba.nacos.client.naming.net.NamingProxy;
+import com.alibaba.nacos.client.naming.remote.NamingClientProxyDelegate;
+import com.alibaba.nacos.client.naming.remote.http.NamingHttpClientProxy;
 import com.alibaba.nacos.client.naming.utils.UtilAndComs;
-import com.alibaba.nacos.common.utils.HttpMethod;
 import com.alibaba.nacos.common.utils.JacksonUtils;
 import com.alibaba.nacos.common.utils.StringUtils;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
@@ -39,22 +56,9 @@ import com.alibaba.nacossync.pojo.request.TaskAddRequest;
 import com.alibaba.nacossync.pojo.result.TaskAddResult;
 import com.alibaba.nacossync.template.Processor;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
+
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.util.ReflectionUtils;
-
-import javax.annotation.Nullable;
-import java.lang.reflect.Field;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-
-import static com.alibaba.nacossync.constant.SkyWalkerConstants.GROUP_NAME_PARAM;
-import static com.alibaba.nacossync.constant.SkyWalkerConstants.PAGE_NO;
-import static com.alibaba.nacossync.constant.SkyWalkerConstants.PAGE_SIZE;
-import static com.alibaba.nacossync.constant.SkyWalkerConstants.SERVICE_NAME_PARAM;
 
 /**
  * @author NacosSync
@@ -151,7 +155,9 @@ public class TaskAddAllProcessor implements Processor<TaskAddAllRequest, TaskAdd
         
         protected NamingService delegate;
         
-        protected NamingProxy serverProxy;
+        protected NamingHttpClientProxy httpClientProxy;
+        
+        private final String namespaceId;
         
         protected EnhanceNamingService(NamingService namingService) {
             if (!(namingService instanceof NacosNamingService)) {
@@ -160,11 +166,22 @@ public class TaskAddAllProcessor implements Processor<TaskAddAllRequest, TaskAdd
             }
             this.delegate = namingService;
             
-            // serverProxy
-            final Field serverProxyField = ReflectionUtils.findField(NacosNamingService.class, "serverProxy");
-            assert serverProxyField != null;
-            ReflectionUtils.makeAccessible(serverProxyField);
-            this.serverProxy = (NamingProxy) ReflectionUtils.getField(serverProxyField, delegate);
+            // clientProxy
+            final Field clientProxyField = ReflectionUtils.findField(NacosNamingService.class, "clientProxy");
+            assert clientProxyField != null;
+            ReflectionUtils.makeAccessible(clientProxyField);
+            NamingClientProxyDelegate clientProxy = (NamingClientProxyDelegate) ReflectionUtils.getField(clientProxyField, delegate);
+            
+            // grpcClientProxy
+            final Field httpClientProxyField = ReflectionUtils.findField(NamingClientProxyDelegate.class, "httpClientProxy");
+            assert httpClientProxyField != null;
+            ReflectionUtils.makeAccessible(httpClientProxyField);
+            this.httpClientProxy = (NamingHttpClientProxy) ReflectionUtils.getField(httpClientProxyField, clientProxy);
+            
+            final Field namespaceIdField = ReflectionUtils.findField(NamingHttpClientProxy.class, "namespaceId");
+            assert namespaceIdField != null;
+            ReflectionUtils.makeAccessible(namespaceIdField);
+            this.namespaceId = (String) ReflectionUtils.getField(namespaceIdField, this.httpClientProxy);
         }
         
         public CatalogServiceResult catalogServices(@Nullable String serviceName, @Nullable String group)
@@ -199,13 +216,13 @@ public class TaskAddAllProcessor implements Processor<TaskAddAllRequest, TaskAdd
             // serviceNameParam
             // groupNameParam
             final Map<String, String> params = new HashMap<>(8);
-            params.put(CommonParams.NAMESPACE_ID, serverProxy.getNamespaceId());
+            params.put(CommonParams.NAMESPACE_ID, this.namespaceId);
             params.put(SERVICE_NAME_PARAM, serviceName);
             params.put(GROUP_NAME_PARAM, group);
             params.put(PAGE_NO, String.valueOf(pageNo));
             params.put(PAGE_SIZE, String.valueOf(pageSize));
             
-            final String result = this.serverProxy.reqApi(UtilAndComs.nacosUrlBase + "/catalog/services", params,
+            final String result = this.httpClientProxy.reqApi(UtilAndComs.nacosUrlBase + "/catalog/services", params,
                     HttpMethod.GET);
             if (StringUtils.isNotEmpty(result)) {
                 return JacksonUtils.toObj(result, CatalogServiceResult.class);

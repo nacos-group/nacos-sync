@@ -141,18 +141,20 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                     String operationKey = taskDO.getTaskId() + serviceName;
                     skyWalkerCacheServices.removeFinishedTask(operationKey);
                     allSyncTaskMap.remove(operationKey);
-                    NamingService destNamingService = popNamingService(taskDO);
                     sourceNamingService.unsubscribe(serviceName, getGroupNameOrDefault(taskDO.getGroupName()),
                             listenerMap.remove(taskDO.getTaskId() + serviceName));
                     
                     List<Instance> sourceInstances = sourceNamingService.getAllInstances(serviceName,
                             getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), false);
+                    List<Instance> deregisterInstances = new ArrayList<>();
                     for (Instance instance : sourceInstances) {
                         if (needSync(instance.getMetadata())) {
-                            destNamingService.deregisterInstance(serviceName,
-                                    getGroupNameOrDefault(taskDO.getGroupName()), instance.getIp(), instance.getPort());
+                            deregisterInstances.add(instance);
                         }
                     }
+                    NamingService destNamingService = popNamingService(taskDO);
+                    destNamingService.batchDeregisterInstance(serviceName,
+                            getGroupNameOrDefault(taskDO.getGroupName()), deregisterInstances);
                 }
             } else {
                 //处理服务级别的任务删除
@@ -167,13 +169,15 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                 List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
                         getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), false);
                 
-                NamingService destNamingService = popNamingService(taskDO);
+                List<Instance> deregisterInstances = new ArrayList<>();
                 for (Instance instance : sourceInstances) {
                     if (needSync(instance.getMetadata())) {
-                        destNamingService.deregisterInstance(taskDO.getServiceName(),
-                                getGroupNameOrDefault(taskDO.getGroupName()), instance);
+                        deregisterInstances.add(instance);
                     }
                 }
+                NamingService destNamingService = popNamingService(taskDO);
+                destNamingService.batchDeregisterInstance(taskDO.getServiceName(),
+                        getGroupNameOrDefault(taskDO.getGroupName()), deregisterInstances);
                 // 移除任务
                 skyWalkerCacheServices.removeFinishedTask(operationId);
                 // 移除所有需要同步的Task
@@ -298,12 +302,14 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         //获取新增的实例，遍历新增
         List<Instance> newInstances = new ArrayList<>(needRegisterInstance);
         instanceRemove(destHasSyncInstances, newInstances);
-        //注册
+        //构建同步实例列表
+        List<Instance> newSyncInstances = new ArrayList<>(newInstances.size());
         for (Instance newInstance : newInstances) {
-            destNamingService.registerInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
-                    buildSyncInstance(newInstance, taskDO));
+            newSyncInstances.add(buildSyncInstance(newInstance, taskDO));
         }
-        
+        //批量注册
+        destNamingService.batchRegisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                newSyncInstances);
         List<Instance> notRemoveInstances = new ArrayList<>();
         for (Instance destHasSyncInstance : destHasSyncInstances) {
             for (Instance instance : needRegisterInstance) {
@@ -318,11 +324,10 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             log.info("taskid：{}，服务 {} 发生反注册，执行数量 {} ", taskDO.getTaskId(), taskDO.getServiceName(),
                     destHasSyncInstances.size());
         }
-        
-        for (Instance destAllInstance : destHasSyncInstances) {
-            destNamingService.deregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
-                    destAllInstance);
-        }
+
+        //批量反注册
+        destNamingService.batchDeregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                destHasSyncInstances);
     }
     
     
@@ -373,11 +378,9 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         }
         deRegisterFilter(destInstances, taskDO.getSourceClusterId());
         if (CollectionUtils.isNotEmpty(destInstances)) {
-            //逐个执行反注册,拿出一个实例即可, 需要处理redo，否则会被重新注册上来
-            for (Instance destInstance : destInstances) {
-                destNamingService.deregisterInstance(taskDO.getServiceName(),
-                        getGroupNameOrDefault(taskDO.getGroupName()), destInstance);
-            }
+            //批量反注册
+            destNamingService.batchDeregisterInstance(taskDO.getServiceName(),
+                    getGroupNameOrDefault(taskDO.getGroupName()), destInstances);
         }
     }
     
