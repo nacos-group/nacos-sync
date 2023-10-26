@@ -107,7 +107,12 @@ public class ClusterAccessService implements PageQueryService<ClusterDO> {
     public int findClusterLevel(String sourceClusterId){
         ClusterDO clusterDO = clusterRepository.findByClusterId(sourceClusterId);
         if (clusterDO != null) {
-            return clusterDO.getClusterLevel();
+            Integer level = clusterDO.getClusterLevel();
+            if (level == null) {
+                //此字段未设置时取默认0按普通集群处理（目前控制台新增集群的代码并未设置此字段）
+                return 0;
+            }
+            return level;
         }
         return -1;
     }
