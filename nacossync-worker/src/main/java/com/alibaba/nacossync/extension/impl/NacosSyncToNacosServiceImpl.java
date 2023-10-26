@@ -288,8 +288,10 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             List<Instance> sourceInstances, int level) throws NacosException {
         List<Instance> needRegisterInstance = new ArrayList<>();
         for (Instance instance : sourceInstances) {
+            log.debug("检查实例: {}", instance);
             if (needSync(instance.getMetadata(), level, taskDO.getDestClusterId())) {
                 needRegisterInstance.add(instance);
+                log.debug("检查结果: 需注册");
             }
         }
         List<Instance> destAllInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
@@ -305,9 +307,12 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         //构建同步实例列表
         List<Instance> newSyncInstances = new ArrayList<>(newInstances.size());
         for (Instance newInstance : newInstances) {
-            newSyncInstances.add(buildSyncInstance(newInstance, taskDO));
+            Instance newSyncInstance = buildSyncInstance(newInstance, taskDO);
+            log.debug("准备同步实例: {}", newSyncInstance);
+            newSyncInstances.add(newSyncInstance);
         }
         //批量注册
+        log.debug("准备批量注册: {}", taskDO);
         destNamingService.batchRegisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
                 newSyncInstances);
         List<Instance> notRemoveInstances = new ArrayList<>();
@@ -315,6 +320,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             for (Instance instance : needRegisterInstance) {
                 if (instanceEquals(destHasSyncInstance, instance)) {
                     notRemoveInstances.add(destHasSyncInstance);
+                    log.debug("目标集群保留实例: {}", destHasSyncInstance);
                 }
             }
         }
@@ -323,11 +329,11 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         if (CollectionUtils.isNotEmpty(destHasSyncInstances)) {
             log.info("taskid：{}，服务 {} 发生反注册，执行数量 {} ", taskDO.getTaskId(), taskDO.getServiceName(),
                     destHasSyncInstances.size());
+            //批量反注册
+            destNamingService.batchDeregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                    destHasSyncInstances);
         }
 
-        //批量反注册
-        destNamingService.batchDeregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
-                destHasSyncInstances);
     }
     
     
@@ -341,10 +347,12 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     private void instanceRemove(List<Instance> destHasSyncInstances, List<Instance> newInstances) {
         List<Instance> needRemoveInstance = new ArrayList<>();
         for (Instance destHasSyncInstance : destHasSyncInstances) {
+            log.debug("检查目标集群实例: {}", destHasSyncInstance);
             for (Instance newInstance : newInstances) {
                 if (destHasSyncInstance.equals(newInstance)) {
                     //如果目标集群已经存在了源集群同步过来的实例，就不需要同步了
                     needRemoveInstance.add(newInstance);
+                    log.debug("检查结果: 不需同步");
                 }
             }
         }
@@ -444,7 +452,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         temp.setIp(instance.getIp());
         temp.setPort(instance.getPort());
         temp.setClusterName(instance.getClusterName());
-        temp.setServiceName(instance.getServiceName());
+        //instance的serviceName含组名前缀，但Nacos2服务端检查serviceName参数时不能包含组名前缀，故不再设置serviceName。
         temp.setEnabled(instance.isEnabled());
         temp.setHealthy(instance.isHealthy());
         temp.setWeight(instance.getWeight());
