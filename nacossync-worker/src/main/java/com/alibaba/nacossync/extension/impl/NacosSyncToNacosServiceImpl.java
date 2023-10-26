@@ -286,81 +286,47 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     
     private void handlerPersistenceInstance(TaskDO taskDO, NamingService destNamingService,
             List<Instance> sourceInstances, int level) throws NacosException {
-        List<Instance> needRegisterInstance = new ArrayList<>();
-        for (Instance instance : sourceInstances) {
-            log.debug("检查实例: {}", instance);
-            if (needSync(instance.getMetadata(), level, taskDO.getDestClusterId())) {
-                needRegisterInstance.add(instance);
-                log.debug("检查结果: 需注册");
-            }
-        }
-        List<Instance> destAllInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
-                getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
         
-        // 获取目标集群自己已经同步的实例
-        List<Instance> destHasSyncInstances = destAllInstances.stream()
-                .filter(instance -> hasSync(instance, taskDO.getSourceClusterId())).collect(Collectors.toList());
-        
-        //获取新增的实例，遍历新增
-        List<Instance> newInstances = new ArrayList<>(needRegisterInstance);
-        instanceRemove(destHasSyncInstances, newInstances);
-        //构建同步实例列表
-        List<Instance> newSyncInstances = new ArrayList<>(newInstances.size());
-        for (Instance newInstance : newInstances) {
-            Instance newSyncInstance = buildSyncInstance(newInstance, taskDO);
-            log.debug("准备同步实例: {}", newSyncInstance);
-            newSyncInstances.add(newSyncInstance);
-        }
-        //批量注册
-        log.debug("准备批量注册: {}", taskDO);
-        destNamingService.batchRegisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
-                newSyncInstances);
-        List<Instance> notRemoveInstances = new ArrayList<>();
-        for (Instance destHasSyncInstance : destHasSyncInstances) {
-            for (Instance instance : needRegisterInstance) {
-                if (instanceEquals(destHasSyncInstance, instance)) {
-                    notRemoveInstances.add(destHasSyncInstance);
-                    log.debug("目标集群保留实例: {}", destHasSyncInstance);
-                }
-            }
-        }
-        destHasSyncInstances.removeAll(notRemoveInstances);
-        
-        if (CollectionUtils.isNotEmpty(destHasSyncInstances)) {
-            log.info("taskid：{}，服务 {} 发生反注册，执行数量 {} ", taskDO.getTaskId(), taskDO.getServiceName(),
-                    destHasSyncInstances.size());
-            //批量反注册
-            destNamingService.batchDeregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
-                    destHasSyncInstances);
+        //nacos2批量注册接口是全量更新，所以要构建全量实例列表
+        List<Instance> fullSyncInstances = new ArrayList<>();
+
+        //直接注册到源集群的实例：排除从其他集群同步过来的实例，以避免A->B->A循环同步实例
+        List<Instance> needSourceClusterSyncInstances = sourceInstances.stream()
+            .filter(instance -> !isSyncInstance(instance)).collect(Collectors.toList());;
+
+        for (Instance instance : needSourceClusterSyncInstances) {
+            Instance sourceClusterSyncInstance = buildSyncInstance(instance, taskDO);
+            log.debug("从源集群同步到目标集群的实例：{}", sourceClusterSyncInstance);
+            fullSyncInstances.add(sourceClusterSyncInstance);
         }
 
-    }
-    
-    
-    public static boolean instanceEquals(Instance ins1, Instance ins2) {
-        return (ins1.getIp().equals(ins2.getIp())) && (ins1.getPort() == ins2.getPort()) && (ins1.getWeight()
-                == ins2.getWeight()) && (ins1.isHealthy() == ins2.isHealthy()) && (ins1.isEphemeral()
-                == ins2.isEphemeral()) && (ins1.getClusterName().equals(ins2.getClusterName()))
-                && (ins1.getServiceName().equals(ins2.getServiceName()));
-    }
-    
-    private void instanceRemove(List<Instance> destHasSyncInstances, List<Instance> newInstances) {
-        List<Instance> needRemoveInstance = new ArrayList<>();
-        for (Instance destHasSyncInstance : destHasSyncInstances) {
-            log.debug("检查目标集群实例: {}", destHasSyncInstance);
-            for (Instance newInstance : newInstances) {
-                if (destHasSyncInstance.equals(newInstance)) {
-                    //如果目标集群已经存在了源集群同步过来的实例，就不需要同步了
-                    needRemoveInstance.add(newInstance);
-                    log.debug("检查结果: 不需同步");
-                }
-            }
+        List<Instance> destAllInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
+                getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
+
+        //直接注册到目标集群的实例以及其他集群同步到目标集群的实例（排除从源集群同步的实例）
+        List<Instance> needAddedToFullSyncInstances = destAllInstances.stream()
+                .filter(instance -> !isSyncFromCluster(instance, taskDO.getSourceClusterId())).collect(Collectors.toList());
+
+        for (Instance instance : needAddedToFullSyncInstances) {
+            log.debug("保留直接注册到目标集群的实例以及其他集群同步到目标集群的实例：{}", instance);
+            fullSyncInstances.add(instance);
         }
-        // eg:A Cluster 已经同步到 B Cluster的实例数据，就不需要再重复同步过来了
-        newInstances.removeAll(needRemoveInstance);
+        
+        //批量注册
+        log.debug("全量批量注册: {}", taskDO);
+        destNamingService.batchRegisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                fullSyncInstances);
     }
     
-    private boolean hasSync(Instance instance, String sourceClusterId) {
+    private boolean isSyncInstance(Instance instance) {
+        if (instance.getMetadata() != null) {
+            String sourceClusterKey = instance.getMetadata().get(SkyWalkerConstants.SOURCE_CLUSTERID_KEY);
+            return sourceClusterKey != null;
+        }
+        return false;
+    }
+    
+    private boolean isSyncFromCluster(Instance instance, String sourceClusterId) {
         if (instance.getMetadata() != null) {
             String sourceClusterKey = instance.getMetadata().get(SkyWalkerConstants.SOURCE_CLUSTERID_KEY);
             return sourceClusterKey != null && sourceClusterKey.equals(sourceClusterId);
@@ -408,18 +374,6 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     private boolean needDeregister(String destClusterId, String sourceClusterId) {
         if (!StringUtils.isEmpty(destClusterId)) {
             return destClusterId.equals(sourceClusterId);
-        }
-        return false;
-    }
-    
-    private boolean needSync(Map<String, String> sourceMetaData, int level, String destClusterId) {
-        //普通集群（默认）
-        if (level == 0) {
-            return SyncService.super.needSync(sourceMetaData);
-        }
-        //中心集群，只要不是目标集群传过来的实例，都需要同步（扩展功能）
-        if (!destClusterId.equals(sourceMetaData.get(SOURCE_CLUSTERID_KEY))) {
-            return true;
         }
         return false;
     }
