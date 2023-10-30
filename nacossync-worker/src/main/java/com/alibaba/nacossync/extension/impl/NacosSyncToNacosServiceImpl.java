@@ -311,7 +311,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             if (needSync(instance.getMetadata(), level, destClusterId)) {
                 Instance syncInstance = buildSyncInstance(instance, destClusterId, sourceClusterId, syncSourceKey, version);
                 log.debug("需要从源集群同步到目标集群的临时实例：{}", syncInstance);
-                needRegisterInstances.add(instance);
+                needRegisterInstances.add(syncInstance);
             }
         }
 
@@ -368,6 +368,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         if (CollectionUtils.isNotEmpty(destHasSyncInstances)) {
             log.info("taskid：{}，服务 {} 发生反注册，执行数量 {} ", taskDO.getTaskId(), serviceName, destHasSyncInstances.size());
             for (Instance needDeregisterInstance : destHasSyncInstances) {
+                removeUnwantedAttrsForNacosRedo(needDeregisterInstance);
+                log.debug("逐个反注册持久实例: {}", needDeregisterInstance);
                 destNamingService.deregisterInstance(serviceName, groupName, needDeregisterInstance);
             }
         }        
