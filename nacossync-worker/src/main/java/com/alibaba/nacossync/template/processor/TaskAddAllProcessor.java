@@ -170,7 +170,7 @@ public class TaskAddAllProcessor implements Processor<TaskAddAllRequest, TaskAdd
             ReflectionUtils.makeAccessible(clientProxyField);
             NamingClientProxyDelegate clientProxy = (NamingClientProxyDelegate) ReflectionUtils.getField(clientProxyField, delegate);
             
-            // grpcClientProxy
+            // httpClientProxy
             final Field httpClientProxyField = ReflectionUtils.findField(NamingClientProxyDelegate.class, "httpClientProxy");
             assert httpClientProxyField != null;
             ReflectionUtils.makeAccessible(httpClientProxyField);
