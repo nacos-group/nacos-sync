@@ -340,7 +340,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             }
         }
         
-        // 获取目标集群指定service的全量实例 
+        // 获取目标集群指定service的全量实例
         List<Instance> destAllInstances = destNamingService.getAllInstances(serviceName,
                 groupName, new ArrayList<>(), true);
         
@@ -350,7 +350,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                 .filter(instance -> hasSync(instance, sourceClusterId)).collect(Collectors.toList());
         
         // 获取当前源集群指定service的新增实例（尚未注册到目标集群的实例）、目标集群和源集群同时存在指定service的实例
-        List<Instance> newInstances = new ArrayList<>(needRegisterInstances);        
+        List<Instance> newInstances = new ArrayList<>(needRegisterInstances);
         List<Instance> bothExistedInstances = instanceRemove(destHasSyncInstances, newInstances);
         
         // 逐个注册源集群新增的实例到目标集群
@@ -372,9 +372,9 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                 log.debug("逐个反注册持久实例: {}", needDeregisterInstance);
                 destNamingService.deregisterInstance(serviceName, groupName, needDeregisterInstance);
             }
-        }        
+        }
     }
-        
+    
     public static boolean instanceEquals(Instance ins1, Instance ins2) {
         return (ins1.getIp().equals(ins2.getIp())) && (ins1.getPort() == ins2.getPort()) && (ins1.getWeight()
                 == ins2.getWeight()) && (ins1.isHealthy() == ins2.isHealthy()) && (ins1.isEphemeral()
@@ -451,7 +451,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         if (CollectionUtils.isNotEmpty(instances)) {
             if (instances.get(0).isEphemeral()) {
                 log.debug("批量反注册来自源集群的同步实例: {}", taskDO);
-                destNamingService.batchDeregisterInstance(serviceName, groupName, instances);               
+                destNamingService.batchDeregisterInstance(serviceName, groupName, instances);
             } else {
                 // 目前nacos2提供的批量反注册接口不支持持久实例，因此只能逐个反注册
                 for (Instance instance : instances) {
