@@ -17,23 +17,6 @@
 
 package com.alibaba.nacossync.template.processor;
 
-import static com.alibaba.nacossync.constant.SkyWalkerConstants.GROUP_NAME_PARAM;
-import static com.alibaba.nacossync.constant.SkyWalkerConstants.PAGE_NO;
-import static com.alibaba.nacossync.constant.SkyWalkerConstants.PAGE_SIZE;
-import static com.alibaba.nacossync.constant.SkyWalkerConstants.SERVICE_NAME_PARAM;
-
-import java.lang.reflect.Field;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-
-import javax.annotation.Nullable;
-import javax.ws.rs.HttpMethod;
-
-import org.springframework.stereotype.Service;
-import org.springframework.util.ReflectionUtils;
-
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.CommonParams;
 import com.alibaba.nacos.api.naming.NamingService;
@@ -56,9 +39,24 @@ import com.alibaba.nacossync.pojo.request.TaskAddRequest;
 import com.alibaba.nacossync.pojo.result.TaskAddResult;
 import com.alibaba.nacossync.template.Processor;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
-
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.util.ReflectionUtils;
+
+import javax.annotation.Nullable;
+import javax.ws.rs.HttpMethod;
+
+import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+import static com.alibaba.nacossync.constant.SkyWalkerConstants.GROUP_NAME_PARAM;
+import static com.alibaba.nacossync.constant.SkyWalkerConstants.PAGE_NO;
+import static com.alibaba.nacossync.constant.SkyWalkerConstants.PAGE_SIZE;
+import static com.alibaba.nacossync.constant.SkyWalkerConstants.SERVICE_NAME_PARAM;
 
 /**
  * @author NacosSync
@@ -172,7 +170,7 @@ public class TaskAddAllProcessor implements Processor<TaskAddAllRequest, TaskAdd
             ReflectionUtils.makeAccessible(clientProxyField);
             NamingClientProxyDelegate clientProxy = (NamingClientProxyDelegate) ReflectionUtils.getField(clientProxyField, delegate);
             
-            // grpcClientProxy
+            // httpClientProxy
             final Field httpClientProxyField = ReflectionUtils.findField(NamingClientProxyDelegate.class, "httpClientProxy");
             assert httpClientProxyField != null;
             ReflectionUtils.makeAccessible(httpClientProxyField);
