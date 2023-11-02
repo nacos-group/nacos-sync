@@ -84,7 +84,7 @@ public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
             try {
                 return ConfigFactory.createConfigService(properties);
             } catch (NacosException e) {
-                log.error("start config service fail,clusterld:{}", id, e);
+                log.error("start config service fail,clusterId:{}", id, e);
                 return null;
             }
         });
@@ -95,7 +95,7 @@ public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
             try {
                 return NamingFactory.createNamingService(properties);
             } catch (NacosException e) {
-                log.error("start naming service fail,clusterld:{}", id, e);
+                log.error("start naming service fail,clusterId:{}", id, e);
                 return null;
             }
         });

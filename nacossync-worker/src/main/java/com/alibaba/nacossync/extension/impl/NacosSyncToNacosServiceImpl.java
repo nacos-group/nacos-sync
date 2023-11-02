@@ -644,7 +644,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                         }
                     }
                     if (hasPublished) {
-                            return;
+                        return;
                     }
                     String lastMd5 = MD5Utils.md5Hex(appNameStr, StandardCharsets.UTF_8.name());
                     destConfigService.publishConfigCas(interfaceName, DubboConstants.METADATA_MAPPING_KEY,
