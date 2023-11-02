@@ -13,6 +13,8 @@
 package com.alibaba.nacossync.extension.holder;
 
 import com.alibaba.nacos.api.PropertyKeyConst;
+import com.alibaba.nacos.api.config.ConfigFactory;
+import com.alibaba.nacos.api.config.ConfigService;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingFactory;
 import com.alibaba.nacos.api.naming.NamingService;
@@ -29,7 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.logging.log4j.util.Strings;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -45,6 +46,8 @@ public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
     private final TaskAccessService taskAccessService;
     
     private static ConcurrentHashMap<String,NamingService> globalNameService = new ConcurrentHashMap<>(16);
+    
+    private static ConcurrentHashMap<String,ConfigService> globalConfigService = new ConcurrentHashMap<>(16);
 
     public NacosServerHolder(ClusterAccessService clusterAccessService, TaskAccessService taskAccessService) {
         this.clusterAccessService = clusterAccessService;
@@ -68,8 +71,6 @@ public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
         String serverList = Joiner.on(",").join(allClusterConnectKey);
         Properties properties = new Properties();
         properties.setProperty(PropertyKeyConst.SERVER_ADDR, serverList);
-        properties.setProperty(PropertyKeyConst.NAMESPACE, Optional.ofNullable(clusterDO.getNamespace()).orElse(
-            Strings.EMPTY));
         Optional.ofNullable(clusterDO.getUserName()).ifPresent(value ->
             properties.setProperty(PropertyKeyConst.USERNAME, value)
         );
@@ -77,9 +78,27 @@ public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
         Optional.ofNullable(clusterDO.getPassword()).ifPresent(value ->
             properties.setProperty(PropertyKeyConst.PASSWORD, value)
         );
-        NamingService namingService = NamingFactory.createNamingService(properties);
-        globalNameService.put(clusterId,namingService);
-        return namingService;
+        
+        // configService不能设置namespace,否则获取不到dubbo服务元数据
+        globalConfigService.computeIfAbsent(newClusterId, id -> {
+            try {
+                return ConfigFactory.createConfigService(properties);
+            } catch (NacosException e) {
+                log.error("start config service fail,clusterld:{}", id, e);
+                return null;
+            }
+        });
+        
+        properties.setProperty(PropertyKeyConst.NAMESPACE, Optional.ofNullable(clusterDO.getNamespace()).orElse(
+                Strings.EMPTY));
+        return globalNameService.computeIfAbsent(newClusterId, id -> {
+            try {
+                return NamingFactory.createNamingService(properties);
+            } catch (NacosException e) {
+                log.error("start naming service fail,clusterld:{}", id, e);
+                return null;
+            }
+        });
     }
     
     /**
@@ -91,6 +110,10 @@ public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
         return globalNameService.get(clusterId);
     }
     
+    public ConfigService getConfigService(String clusterId) {
+        return globalConfigService.get(clusterId);
+    }
+
     public NamingService getSourceNamingService(String taskId, String sourceClusterId) {
         String key = taskId + sourceClusterId;
         return serviceMap.computeIfAbsent(key, k->{

@@ -13,6 +13,7 @@
 
 package com.alibaba.nacossync.extension.impl;
 
+import com.alibaba.nacos.api.config.ConfigService;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.listener.EventListener;
@@ -21,6 +22,9 @@ import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacos.api.naming.pojo.ListView;
 import com.alibaba.nacos.common.utils.CollectionUtils;
 import com.alibaba.nacos.common.utils.ConcurrentHashSet;
+import com.alibaba.nacos.common.utils.MD5Utils;
+import com.alibaba.nacos.shaded.com.google.gson.Gson;
+import com.alibaba.nacos.shaded.com.google.gson.JsonSyntaxException;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.MetricsStatisticsType;
@@ -33,14 +37,17 @@ import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.template.processor.TaskUpdateProcessor;
 import com.alibaba.nacossync.timer.FastSyncHelper;
+import com.alibaba.nacossync.util.DubboConstants;
 import com.alibaba.nacossync.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,6 +67,10 @@ import static com.alibaba.nacossync.util.NacosUtils.getGroupNameOrDefault;
 @Slf4j
 @NacosSyncService(sourceCluster = ClusterTypeEnum.NACOS, destinationCluster = ClusterTypeEnum.NACOS)
 public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBean {
+    
+    private static final Gson GSON = new Gson();
+    
+    private static final long GET_CFG_TIMEOUT = 3000L;
     
     private Map<String, EventListener> listenerMap = new ConcurrentHashMap<>();
     
@@ -307,9 +318,11 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         String sourceClusterId = taskDO.getSourceClusterId();
         String syncSourceKey = skyWalkerCacheServices.getClusterType(sourceClusterId).getCode();
         String version = taskDO.getVersion();
+        Set<String> interfaceNames = new HashSet<>(16);
         for (Instance instance : sourceInstances) {
             if (needSync(instance.getMetadata(), level, destClusterId)) {
-                Instance syncInstance = buildSyncInstance(instance, destClusterId, sourceClusterId, syncSourceKey, version);
+                Instance syncInstance = buildSyncInstance(instance, serviceName,
+                        destClusterId, sourceClusterId, syncSourceKey, version, interfaceNames);
                 log.debug("需要从源集群同步到目标集群的临时实例：{}", syncInstance);
                 needRegisterInstances.add(syncInstance);
             }
@@ -319,6 +332,9 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             //批量注册
             log.debug("将源集群指定service的临时实例全量同步到目标集群: {}", taskDO);
             destNamingService.batchRegisterInstance(serviceName, groupName, needRegisterInstances);
+            
+            //同步接口名到应用名的映射关系
+            syncInterfacesMapping(serviceName, destClusterId, interfaceNames);
         } else {
             //注销目标集群指定service来自当前源集群同步的所有实例
             processDeRegisterInstances(taskDO, destNamingService, serviceName, groupName);
@@ -356,11 +372,16 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         // 逐个注册源集群新增的实例到目标集群
         String syncSourceKey = skyWalkerCacheServices.getClusterType(sourceClusterId).getCode();
         String version = taskDO.getVersion();
+        Set<String> interfaceNames = new HashSet<>(16);
         for (Instance newInstance : newInstances) {
-            Instance syncInstance = buildSyncInstance(newInstance, destClusterId, sourceClusterId, syncSourceKey, version);
+            Instance syncInstance = buildSyncInstance(newInstance, serviceName,
+                    destClusterId, sourceClusterId, syncSourceKey, version, interfaceNames);
             log.debug("从源集群同步到目标集群的持久实例：{}", syncInstance);
             destNamingService.registerInstance(serviceName, groupName, syncInstance);
         }
+        
+        //同步接口名到应用名的映射关系
+        syncInterfacesMapping(serviceName, destClusterId, interfaceNames);
         
         // 获取目标集群来自当前源集群同步的指定service实例中需要注销的实例（实例在源集群中已注销）
         destHasSyncInstances.removeAll(bothExistedInstances);
@@ -511,7 +532,12 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         return taskDO.getId() + ":" + taskDO.getServiceName();
     }
     
-    private Instance buildSyncInstance(Instance instance, String destClusterId, String sourceClusterId, String syncSourceKey, String version) {
+    private Instance buildSyncInstance(Instance instance, String serviceName,
+            String destClusterId, String sourceClusterId, String syncSourceKey, String version, Set<String> interfaces) {
+        
+        //同步实例revision元数据
+        syncInstanceRevision(instance, serviceName, destClusterId, sourceClusterId, interfaces);
+        
         Instance temp = new Instance();
         temp.setIp(instance.getIp());
         temp.setPort(instance.getPort());
@@ -529,6 +555,106 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         metaData.put(SkyWalkerConstants.SYNC_INSTANCE_TAG, sourceClusterId + "@@" + version);
         temp.setMetadata(metaData);
         return temp;
+    }
+    
+    @SuppressWarnings("unchecked")
+    private void syncInstanceRevision(Instance instance, String serviceName, String destClusterId,
+            String sourceClusterId, Set<String> interfaceNames) {
+        if (serviceName.startsWith(DubboConstants.CATALOG_KEY + DubboConstants.SEPARATOR_KEY)) {
+            //dubbo接口级别服务实例
+            return;
+        }
+
+        String revision = instance.getMetadata().get(DubboConstants.METADATA_REVISION_KEY);
+        if (revision == null) {
+            return;
+        }
+        
+        //同步应用级别服务实例的revision元数据
+        ConfigService sourceConfigService = nacosServerHolder.getConfigService(sourceClusterId);
+        ConfigService destConfigService = nacosServerHolder.getConfigService(destClusterId);
+        if (sourceConfigService == null || destConfigService == null) {
+            return;
+        }
+
+        String content;
+        try {
+            content = sourceConfigService.getConfig(serviceName, revision, GET_CFG_TIMEOUT);
+            if (content == null) {
+                return;
+            }
+        } catch (NacosException e) {
+            log.error("get instance revision fail,service:{},revision:{},sourceClusterId:{}",
+                    serviceName, revision, sourceClusterId, e);
+            return;
+        }
+
+        try {
+            destConfigService.publishConfig(serviceName, revision, content);
+        } catch (NacosException e) {
+            log.error("publish instance revision fail,service:{},revision:{},destClusterId:{}",
+                    serviceName, revision, sourceClusterId, e);
+            return;
+        }
+
+        Map<String, Object> metaDataJson = null;
+        try {
+            metaDataJson = GSON.fromJson(content, Map.class);
+            if (metaDataJson == null) {
+                return;
+            }
+        } catch (JsonSyntaxException ex) {
+            log.error("parse json content fail,content:{},service:{},revision:{},sourceClusterId:{}",
+                    content, serviceName, revision, sourceClusterId, ex);
+            return;
+        }
+        
+        //收集当前应用服务的全部接口名称
+        Map<String, Object> serviceMetaDataMap = (Map<String, Object>) metaDataJson.get(DubboConstants.METADATA_SERVICES_KEY);
+        for (String serviceMetaDataKey : serviceMetaDataMap.keySet()) {
+            String interfaceName;
+            if (serviceMetaDataKey.contains(DubboConstants.SEPARATOR_KEY)) {
+                String[] split = serviceMetaDataKey.split(DubboConstants.SEPARATOR_KEY);
+                interfaceName = split[0];
+            } else {
+                interfaceName = serviceMetaDataKey;
+            }
+            interfaceNames.add(interfaceName);
+        }
+    }
+
+    private void syncInterfacesMapping(String serviceName, String destClusterId, Set<String> interfaceNames) {
+        if (interfaceNames.isEmpty()) {
+            return;
+        }
+        ConfigService destConfigService = nacosServerHolder.getConfigService(destClusterId);
+        for (String interfaceName : interfaceNames) {
+            try {
+                String appNameStr = destConfigService.getConfig(interfaceName, DubboConstants.METADATA_MAPPING_KEY,
+                        GET_CFG_TIMEOUT);
+                if (appNameStr == null) {
+                    destConfigService.publishConfig(interfaceName, DubboConstants.METADATA_MAPPING_KEY, serviceName);
+                } else {
+                    boolean hasPublished = false;
+                    String[] appNames = appNameStr.split(",");
+                    for (String appName : appNames) {
+                        if (serviceName.equals(appName)) {
+                            hasPublished = true;
+                            break;
+                        }
+                    }
+                    if (hasPublished) {
+                            return;
+                    }
+                    String lastMd5 = MD5Utils.md5Hex(appNameStr, StandardCharsets.UTF_8.name());
+                    destConfigService.publishConfigCas(interfaceName, DubboConstants.METADATA_MAPPING_KEY,
+                            serviceName + "," + appNameStr, lastMd5);
+                }
+            } catch (NacosException e) {
+                log.error("sync interface mapping fail,service:{},interface:{},destClusterId:{}", serviceName,
+                        interfaceName, destClusterId, e);
+            }
+        }
     }
     
 }
