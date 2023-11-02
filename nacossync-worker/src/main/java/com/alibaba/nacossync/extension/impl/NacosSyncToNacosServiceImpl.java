@@ -611,13 +611,14 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         
         //收集当前应用服务的全部接口名称
         Map<String, Object> serviceMetaDataMap = (Map<String, Object>) metaDataJson.get(DubboConstants.METADATA_SERVICES_KEY);
-        for (String serviceMetaDataKey : serviceMetaDataMap.keySet()) {
-            String interfaceName;
-            if (serviceMetaDataKey.contains(DubboConstants.SEPARATOR_KEY)) {
-                String[] split = serviceMetaDataKey.split(DubboConstants.SEPARATOR_KEY);
-                interfaceName = split[0];
-            } else {
-                interfaceName = serviceMetaDataKey;
+        for (Map.Entry<String, Object> entry : serviceMetaDataMap.entrySet()) {
+            Map<String, Object> serviceMetaData = (Map<String, Object>) entry.getValue();
+            if (serviceMetaData == null) {
+                continue;
+            }
+            String interfaceName = (String) serviceMetaData.get(DubboConstants.METADATA_NAME_KEY);
+            if (interfaceName == null) {
+                continue;
             }
             interfaceNames.add(interfaceName);
         }
