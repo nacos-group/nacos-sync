@@ -53,6 +53,7 @@ public final class DubboConstants {
     public static final String METADATA_REVISION_KEY = "dubbo.metadata.revision";
     public static final String METADATA_SERVICES_KEY = "services";
     public static final String METADATA_MAPPING_KEY = "mapping";
+    public static final String METADATA_NAME_KEY = "name";
 
     /**
      *  if Dubbo version greater than 2.7.2, service name is providers:interface:version:
