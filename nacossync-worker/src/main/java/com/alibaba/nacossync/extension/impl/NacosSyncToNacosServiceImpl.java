@@ -38,12 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -142,7 +137,13 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                     String operationKey = taskDO.getTaskId() + serviceName;
                     skyWalkerCacheServices.removeFinishedTask(operationKey);
                     allSyncTaskMap.remove(operationKey);
-                    NamingService destNamingService = popNamingService(taskDO);
+
+                    String specServiceKey = taskDO.getId() + ":" + serviceName;
+                    NamingService destNamingService = Optional.ofNullable(serviceClient.get(specServiceKey))
+                            .flatMap(namingServices -> namingServices.stream().findFirst())
+                            .orElse(popNamingService(taskDO));
+
+                    // NamingService destNamingService = popNamingService(taskDO);
                     // bugfix：解决task status为DELETE，项目重启之后sync的task不会执行状态为DELETE的任务，不会将namingService记录在本类的serviceClient中，这里获取使用会NPE
                     if (destNamingService != null) {
                         sourceNamingService.unsubscribe(serviceName, getGroupNameOrDefault(taskDO.getGroupName()),
