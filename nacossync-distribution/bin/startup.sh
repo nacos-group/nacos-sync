@@ -2,6 +2,14 @@
 
 ACTION=$1
 JAVA_OPT=$2
+shift # 移除第一个参数，即 ACTION
+
+# 处理传递的JVM参数
+JAVA_OPT=""
+while [[ "$1" == -* ]]; do
+    JAVA_OPT="${JAVA_OPT} $1"
+    shift
+done
 
 cygwin=false
 darwin=false
