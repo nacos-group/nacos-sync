@@ -74,7 +74,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     
     @Autowired
     private NacosServerHolder nacosServerHolder;
-    
+
+    // 同步开始之前，会将同步task缓存至此，key：operationId
     private ConcurrentHashMap<String, TaskDO> allSyncTaskMap = new ConcurrentHashMap<>();
     
     @Autowired
@@ -126,7 +127,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         try {
             NamingService sourceNamingService = nacosServerHolder.getSourceNamingService(taskDO.getTaskId(),
                     taskDO.getSourceClusterId());
-            
+
             if ("ALL".equals(taskDO.getServiceName())) {
                 String operationId = taskUpdateProcessor.getTaskIdAndOperationIdMap(taskDO.getTaskId());
                 if (!StringUtils.isEmpty(operationId)) {
@@ -142,15 +143,18 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                     skyWalkerCacheServices.removeFinishedTask(operationKey);
                     allSyncTaskMap.remove(operationKey);
                     NamingService destNamingService = popNamingService(taskDO);
-                    sourceNamingService.unsubscribe(serviceName, getGroupNameOrDefault(taskDO.getGroupName()),
-                            listenerMap.remove(taskDO.getTaskId() + serviceName));
-                    
-                    List<Instance> sourceInstances = sourceNamingService.getAllInstances(serviceName,
-                            getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), false);
-                    for (Instance instance : sourceInstances) {
-                        if (needSync(instance.getMetadata())) {
-                            destNamingService.deregisterInstance(serviceName,
-                                    getGroupNameOrDefault(taskDO.getGroupName()), instance.getIp(), instance.getPort());
+                    // bugfix：解决task status为DELETE，项目重启之后sync的task不会执行状态为DELETE的任务，不会将namingService记录在本类的serviceClient中，这里获取使用会NPE
+                    if (destNamingService != null) {
+                        sourceNamingService.unsubscribe(serviceName, getGroupNameOrDefault(taskDO.getGroupName()),
+                                listenerMap.remove(taskDO.getTaskId() + serviceName));
+
+                        List<Instance> sourceInstances = sourceNamingService.getAllInstances(serviceName,
+                                getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), false);
+                        for (Instance instance : sourceInstances) {
+                            if (needSync(instance.getMetadata())) {
+                                destNamingService.deregisterInstance(serviceName,
+                                        getGroupNameOrDefault(taskDO.getGroupName()), instance.getIp(), instance.getPort());
+                            }
                         }
                     }
                 }
@@ -192,8 +196,11 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         log.info("线程 {} 开始同步 {} ", Thread.currentThread().getId(), System.currentTimeMillis());
         String operationId = taskDO.getOperationId();
         try {
+            // 创建namingService并缓存至serviceMap中，key:taskId+sourceClusterId
             NamingService sourceNamingService = nacosServerHolder.getSourceNamingService(taskDO.getTaskId(),
                     taskDO.getSourceClusterId());
+            // 创建dest集群 namingService，并缓存至nacosServerHolder#globalNameService属性中，key：destClusterId；（这个缓存只缓存nacos的namingService）
+            // 在AbstractServerHolderImpl#serviceMap中也缓存一份，key：sourceClusterId:destClusterId:index；（这个缓存缓存所有的service，例如eureka、nacos等）
             NamingService destNamingService = getDestNamingService(taskDO, index);
             allSyncTaskMap.put(operationId, taskDO);
             //防止暂停同步任务后,重新同步/或删除任务以后新建任务不会再接收到新的事件导致不能同步,所以每次订阅事件之前,先全量同步一次任务
@@ -252,11 +259,13 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     
     private void doSync(String taskId, TaskDO taskDO, NamingService sourceNamingService,
             NamingService destNamingService) throws NacosException {
+        // 如果该任务还在执行中，则放弃本次同步
         if (syncTaskTap.putIfAbsent(taskId, 1) != null) {
             log.info("任务Id:{}上一个同步任务尚未结束", taskId);
             return;
         }
         //记录目标集群的Client
+        // 将destNamingService缓存至该类的serviceClient中，key：taskId:serviceName，value：namingService；好处是可以使用taskDO对象（id+serviceName）可以直接获取dest namingService
         recordNamingService(taskDO, destNamingService);
         try {
             
@@ -288,6 +297,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                 needRegisterInstance.add(instance);
             }
         }
+        // 获取目标
         List<Instance> destAllInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
                 getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
         

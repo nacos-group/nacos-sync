@@ -22,15 +22,15 @@ import com.alibaba.nacossync.dao.TaskAccessService;
 import com.alibaba.nacossync.pojo.model.ClusterDO;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.base.Joiner;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.util.Strings;
+import org.springframework.stereotype.Service;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.logging.log4j.util.Strings;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
 /**
  * @author paderlol
@@ -56,6 +56,7 @@ public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
         throws Exception {
         String newClusterId;
         if (clusterId.contains(":")) {
+            // clusterId：sourceClusterId:destClusterId:index
             String[] split = clusterId.split(":");
             newClusterId = split[1];
         } else {

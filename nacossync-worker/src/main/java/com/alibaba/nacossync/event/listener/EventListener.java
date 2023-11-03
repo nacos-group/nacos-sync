@@ -16,21 +16,19 @@
  */
 package com.alibaba.nacossync.event.listener;
 
-import javax.annotation.PostConstruct;
-
-import com.alibaba.nacossync.constant.MetricsStatisticsType;
-import com.alibaba.nacossync.monitor.MetricsManager;
-import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
+import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.event.DeleteTaskEvent;
 import com.alibaba.nacossync.event.SyncTaskEvent;
 import com.alibaba.nacossync.extension.SyncManagerService;
+import com.alibaba.nacossync.monitor.MetricsManager;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import javax.annotation.PostConstruct;
 
 /**
  * @author NacosSync
@@ -62,6 +60,7 @@ public class EventListener {
 
         try {
             long start = System.currentTimeMillis();
+            // 如果该任务同步完成,则在finishedTaskMap中添加key:operationId,value:finishedTask
             if (syncManagerService.sync(syncTaskEvent.getTaskDO(), null)) {
                 skyWalkerCacheServices.addFinishedTask(syncTaskEvent.getTaskDO());
                 metricsManager.record(MetricsStatisticsType.SYNC_TASK_RT, System.currentTimeMillis() - start);

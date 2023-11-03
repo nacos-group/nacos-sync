@@ -89,6 +89,7 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
 
                 taskDOS.forEach(taskDO -> {
 
+                    // 通过task operationId来判断该任务是否完成,有值即未完成
                     if ((null != skyWalkerCacheServices.getFinishedTask(taskDO))) {
 
                         return;
