@@ -1,6 +1,7 @@
 #!/bin/bash
 
 ACTION=$1
+JAVA_OPT=$2
 
 cygwin=false
 darwin=false
