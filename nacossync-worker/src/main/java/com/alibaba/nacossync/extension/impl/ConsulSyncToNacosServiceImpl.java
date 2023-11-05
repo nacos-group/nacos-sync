@@ -80,8 +80,9 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
             specialSyncEventBus.unsubscribe(taskDO);
 
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
+            String servideName = taskDO.getServiceName();
             String groupName = NacosUtils.getGroupNameOrDefault(taskDO.getGroupName());
-            List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName(), groupName);
+            List<Instance> allInstances = destNamingService.getAllInstances(servideName, groupName);
             List<Instance> needDeregisterInstances = new ArrayList<>();
             for (Instance instance : allInstances) {
                 if (needDelete(instance.getMetadata(), taskDO)) {
@@ -91,7 +92,7 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
                 }
             }
             if (CollectionUtils.isNotEmpty(needDeregisterInstances)) {
-                NacosSyncToNacosServiceImpl.doDeregisterInstance(taskDO, destNamingService, taskDO.getServiceName(), groupName, needDeregisterInstances);
+                NacosSyncToNacosServiceImpl.doDeregisterInstance(taskDO, destNamingService, servideName, groupName, needDeregisterInstances);
             }
         } catch (Exception e) {
             log.error("delete task from consul to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
