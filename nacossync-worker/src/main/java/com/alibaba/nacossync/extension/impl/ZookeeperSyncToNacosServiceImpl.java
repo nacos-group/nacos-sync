@@ -172,7 +172,19 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
                 destNamingService.deregisterInstance(deregisterNacosServiceName,
                         groupName, ipAndPortParam.get(INSTANCE_IP_KEY),
                         Integer.parseInt(ipAndPortParam.get(INSTANCE_PORT_KEY)));
-                nacosServiceNameMap.remove(serviceName);
+                List<Instance> destAllInstances = destNamingService.getAllInstances(deregisterNacosServiceName,
+                        groupName, new ArrayList<>(), true);
+                boolean hasSyncInstancesFromTaskSource = false;
+                for (Instance destInstance : destAllInstances) {
+                    if (needDelete(destInstance.getMetadata(), taskDO)) {
+                        // 目标集群还有当前同步任务的源集群同步的实例
+                        hasSyncInstancesFromTaskSource = true;
+                    }
+                }
+                if (!hasSyncInstancesFromTaskSource) {
+                    // 目标集群没有当前同步任务的源集群同步的实例
+                    nacosServiceNameMap.remove(serviceName);
+                }
                 break;
             default:
                 break;
@@ -256,6 +268,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
                     }
                 }
                 if (CollectionUtils.isEmpty(needDeregisterInstances)) {
+                    nacosServiceNameMap.remove(serviceName);
                     return true;
                 }
                 NacosSyncToNacosServiceImpl.doDeregisterInstance(taskDO, destNamingService, nacosServiceName,
