@@ -467,7 +467,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         return needDeregisterInstances;
     }
     
-    private void doDeregisterInstance(TaskDO taskDO, NamingService destNamingService, String serviceName, String groupName,
+    public static void doDeregisterInstance(TaskDO taskDO, NamingService destNamingService, String serviceName, String groupName,
             List<Instance> instances) throws NacosException {
         if (CollectionUtils.isNotEmpty(instances)) {
             if (instances.get(0).isEphemeral()) {
@@ -483,7 +483,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         }
     }
     
-    private void removeUnwantedAttrsForNacosRedo(Instance instance) {
+    public static void removeUnwantedAttrsForNacosRedo(Instance instance) {
         //清空查询实例返回的instanceId以保证nacos批量注册接口正常匹配redo缓存（nacos-sync调用批量注册接口时未设置instanceId，redo缓存实例对象的instanceId属性为null）
         instance.setInstanceId(null);
         //清空查询实例返回的serviceName（nacos2.x查询实例返回的serviceName包含组名，nacos2.x批量接口参数检验规则要求服务名不能包含组名）

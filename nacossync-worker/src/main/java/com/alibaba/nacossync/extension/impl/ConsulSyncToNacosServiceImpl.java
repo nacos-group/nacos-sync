@@ -15,6 +15,7 @@ package com.alibaba.nacossync.extension.impl;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.alibaba.nacos.common.utils.CollectionUtils;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.MetricsStatisticsType;
@@ -32,6 +33,8 @@ import com.ecwid.consul.v1.ConsulClient;
 import com.ecwid.consul.v1.QueryParams;
 import com.ecwid.consul.v1.Response;
 import com.ecwid.consul.v1.health.model.HealthService;
+
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -77,16 +80,19 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
             specialSyncEventBus.unsubscribe(taskDO);
 
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
-            List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
-                NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()));
+            String groupName = NacosUtils.getGroupNameOrDefault(taskDO.getGroupName());
+            List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName(), groupName);
+            List<Instance> needDeregisterInstances = new ArrayList<>();
             for (Instance instance : allInstances) {
                 if (needDelete(instance.getMetadata(), taskDO)) {
-
-                    destNamingService.deregisterInstance(taskDO.getServiceName(),
-                        NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), instance.getIp(), instance.getPort());
+                    NacosSyncToNacosServiceImpl.removeUnwantedAttrsForNacosRedo(instance);
+                    log.debug("需要反注册的实例: {}", instance);
+                    needDeregisterInstances.add(instance);
                 }
             }
-
+            if (CollectionUtils.isNotEmpty(needDeregisterInstances)) {
+                NacosSyncToNacosServiceImpl.doDeregisterInstance(taskDO, destNamingService, taskDO.getServiceName(), groupName, needDeregisterInstances);
+            }
         } catch (Exception e) {
             log.error("delete task from consul to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
             metricsManager.recordError(MetricsStatisticsType.DELETE_ERROR);
@@ -117,26 +123,47 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
 
     private void cleanAllOldInstance(TaskDO taskDO, NamingService destNamingService, Set<String> instanceKeys)
         throws NacosException {
-        List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName());
+        String serviceName = taskDO.getServiceName();
+        String groupName = NacosUtils.getGroupNameOrDefault(taskDO.getGroupName());
+        List<Instance> allInstances = destNamingService.getAllInstances(serviceName, groupName);
+        List<Instance> needDeregisterInstances = new ArrayList<>();
         for (Instance instance : allInstances) {
             if (needDelete(instance.getMetadata(), taskDO)
                 && !instanceKeys.contains(composeInstanceKey(instance.getIp(), instance.getPort()))) {
-
-                destNamingService.deregisterInstance(taskDO.getServiceName(),
-                    NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), instance.getIp(), instance.getPort());
+                NacosSyncToNacosServiceImpl.removeUnwantedAttrsForNacosRedo(instance);
+                log.debug("需要反注册的实例: {}", instance);
+                needDeregisterInstances.add(instance);
             }
+        }
+        if (CollectionUtils.isNotEmpty(needDeregisterInstances)) {
+            NacosSyncToNacosServiceImpl.doDeregisterInstance(taskDO, destNamingService, serviceName, groupName, needDeregisterInstances);
         }
     }
 
     private void overrideAllInstance(TaskDO taskDO, NamingService destNamingService,
         List<HealthService> healthServiceList, Set<String> instanceKeys) throws NacosException {
+        String serviceName = taskDO.getServiceName();
+        String groupName = NacosUtils.getGroupNameOrDefault(taskDO.getGroupName());
+        List<Instance> needRegisterInstances = new ArrayList<>();
         for (HealthService healthService : healthServiceList) {
             if (needSync(ConsulUtils.transferMetadata(healthService.getService().getTags()))) {
-                destNamingService.registerInstance(taskDO.getServiceName(),
-                    NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()),
-                    buildSyncInstance(healthService, taskDO));
+                Instance syncInstance = buildSyncInstance(healthService, taskDO);
+                log.debug("需要从源集群同步到目标集群的实例：{}", syncInstance);
+                needRegisterInstances.add(syncInstance);
                 instanceKeys.add(composeInstanceKey(healthService.getService().getAddress(),
-                    healthService.getService().getPort()));
+                        healthService.getService().getPort()));
+            }
+        }
+        if (CollectionUtils.isNotEmpty(needRegisterInstances)) {
+            if (needRegisterInstances.get(0).isEphemeral()) {
+                //批量注册
+                log.debug("将源集群指定service的临时实例全量同步到目标集群: {}", taskDO);
+                destNamingService.batchRegisterInstance(serviceName, groupName, needRegisterInstances);
+            } else {
+                for (Instance instance : needRegisterInstances) {
+                    log.debug("从源集群同步到目标集群的持久实例：{}", instance);
+                    destNamingService.registerInstance(serviceName, groupName, instance);
+                }
             }
         }
     }

@@ -29,6 +29,8 @@ import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.NacosUtils;
 import com.netflix.appinfo.InstanceInfo;
+
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -118,13 +120,29 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
 
     private void addValidInstance(TaskDO taskDO, NamingService destNamingService, List<InstanceInfo> eurekaInstances)
         throws NacosException {
+        String serviceName = taskDO.getServiceName();
+        String groupName = NacosUtils.getGroupNameOrDefault(taskDO.getGroupName());
+        List<Instance> needRegisterInstances = new ArrayList<>();
         for (InstanceInfo instance : eurekaInstances) {
             if (needSync(instance.getMetadata())) {
                 log.info("Add service instance from Eureka, serviceName={}, Ip={}, port={}",
-                    instance.getAppName(), instance.getIPAddr(), instance.getPort());
-                destNamingService.registerInstance(taskDO.getServiceName(),
-                    NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), buildSyncInstance(instance,
-                        taskDO));
+                        instance.getAppName(), instance.getIPAddr(), instance.getPort());
+                Instance syncInstance = buildSyncInstance(instance, taskDO);
+                log.debug("需要从源集群同步到目标集群的实例：{}", syncInstance);
+                needRegisterInstances.add(syncInstance);
+            }
+        }
+        if (CollectionUtils.isEmpty(needRegisterInstances)) {
+            return;
+        }
+        if (needRegisterInstances.get(0).isEphemeral()) {
+            // 批量注册
+            log.debug("将源集群指定service的临时实例全量同步到目标集群: {}", taskDO);
+            destNamingService.batchRegisterInstance(serviceName, groupName, needRegisterInstances);
+        } else {
+            for (Instance instance : needRegisterInstances) {
+                log.debug("从源集群同步到目标集群的持久实例：{}", instance);
+                destNamingService.registerInstance(serviceName, groupName, instance);
             }
         }
     }
@@ -135,26 +153,40 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
         if (CollectionUtils.isEmpty(eurekaInstances)) {
             return;
         }
+        List<Instance> needDeregisterInstances = new ArrayList<>();
         for (InstanceInfo instance : eurekaInstances) {
             if (needSync(instance.getMetadata())) {
                 log.info("Delete service instance from Eureka, serviceName={}, Ip={}, port={}",
                     instance.getAppName(), instance.getIPAddr(), instance.getPort());
-                destNamingService.deregisterInstance(taskDO.getServiceName(),
-                    NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), buildSyncInstance(instance, taskDO));
+                Instance needDeregisterInstance = buildSyncInstance(instance, taskDO);
+                log.debug("需要反注册的实例: {}", needDeregisterInstance);
+                needDeregisterInstances.add(needDeregisterInstance);
             }
         }
+        if (CollectionUtils.isEmpty(needDeregisterInstances)) {
+            return;
+        }
+        NacosSyncToNacosServiceImpl.doDeregisterInstance(taskDO, destNamingService, taskDO.getServiceName(),
+                NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), needDeregisterInstances);
     }
 
     private void removeInvalidInstance(TaskDO taskDO, NamingService destNamingService,
         List<InstanceInfo> eurekaInstances, List<Instance> nacosInstances) throws NacosException {
+        List<Instance> needDeregisterInstances = new ArrayList<>();
         for (Instance instance : nacosInstances) {
             if (!isExistInEurekaInstance(eurekaInstances, instance) && needDelete(instance.getMetadata(), taskDO)) {
                 log.info("Remove invalid service instance from Nacos, serviceName={}, Ip={}, port={}",
                     instance.getServiceName(), instance.getIp(), instance.getPort());
-                destNamingService.deregisterInstance(taskDO.getServiceName(),
-                    NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), instance.getIp(), instance.getPort());
+                NacosSyncToNacosServiceImpl.removeUnwantedAttrsForNacosRedo(instance);
+                log.debug("需要反注册的实例: {}", instance);
+                needDeregisterInstances.add(instance);
             }
         }
+        if (CollectionUtils.isEmpty(needDeregisterInstances)) {
+            return;
+        }
+        NacosSyncToNacosServiceImpl.doDeregisterInstance(taskDO, destNamingService, taskDO.getServiceName(),
+                NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), needDeregisterInstances);
     }
 
     private boolean isExistInEurekaInstance(List<InstanceInfo> eurekaInstances, Instance nacosInstance) {
@@ -165,20 +197,26 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
 
     private void deleteAllInstance(TaskDO taskDO, NamingService destNamingService, List<Instance> allInstances)
         throws NacosException {
+        List<Instance> needDeregisterInstances = new ArrayList<>();
         for (Instance instance : allInstances) {
             if (needDelete(instance.getMetadata(), taskDO)) {
-                destNamingService.deregisterInstance(taskDO.getServiceName(),
-                    NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), instance);
+                NacosSyncToNacosServiceImpl.removeUnwantedAttrsForNacosRedo(instance);
+                log.debug("需要反注册的实例: {}", instance);
+                needDeregisterInstances.add(instance);
             }
-
         }
+        if (CollectionUtils.isEmpty(needDeregisterInstances)) {
+            return;
+        }
+        NacosSyncToNacosServiceImpl.doDeregisterInstance(taskDO, destNamingService, taskDO.getServiceName(),
+                NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), needDeregisterInstances);
     }
 
     private Instance buildSyncInstance(InstanceInfo instance, TaskDO taskDO) {
         Instance temp = new Instance();
         temp.setIp(instance.getIPAddr());
         temp.setPort(instance.getPort());
-        temp.setServiceName(instance.getAppName());
+        //查询nacos集群实例返回的serviceName含组名前缀，但Nacos2服务端检查批量注册请求serviceName参数时不能包含组名前缀，因此注册实例到目标集群时不再设置serviceName。
         temp.setHealthy(true);
 
         Map<String, String> metaData = new HashMap<>(instance.getMetadata());
