@@ -457,7 +457,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         temp.setHealthy(instance.isHealthy());
         temp.setWeight(instance.getWeight());
         temp.setEphemeral(instance.isEphemeral());
-        Map<String, String> metaData = new HashMap<>(instance.getMetadata());
+        Map<String, String> metaData = new HashMap<>(Optional.ofNullable(instance.getMetadata()).orElse(new HashMap<>()));
         metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
                 skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
