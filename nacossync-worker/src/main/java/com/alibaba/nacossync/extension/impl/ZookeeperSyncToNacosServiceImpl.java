@@ -153,7 +153,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
                             // 从当前源集群同步到目标集群的实例
                             if (!instanceEquals(instance, destInstance) ) {
                                 log.debug("需要从源集群同步到目标集群的临时实例：{}", destInstance);
-                                needRegisterInstances.add(instance);
+                                needRegisterInstances.add(destInstance);
                             }
                         }
                     }
@@ -179,6 +179,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
                     if (needDelete(destInstance.getMetadata(), taskDO)) {
                         // 目标集群还有当前同步任务的源集群同步的实例
                         hasSyncInstancesFromTaskSource = true;
+                        break;
                     }
                 }
                 if (!hasSyncInstancesFromTaskSource) {
@@ -228,7 +229,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
                 }
             }
         }
-        String groupName = taskDO.getGroupName();
+        String groupName = getGroupNameOrDefault(taskDO.getGroupName());
         for (Map.Entry<String, List<Instance>> entry : needRegisterInstanceMap.entrySet()) {
             String nacosServiceName = entry.getKey();
             List<Instance> needRegisterInstances = entry.getValue();
