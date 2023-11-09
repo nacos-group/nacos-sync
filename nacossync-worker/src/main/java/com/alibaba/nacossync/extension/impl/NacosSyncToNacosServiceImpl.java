@@ -318,11 +318,13 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         String sourceClusterId = taskDO.getSourceClusterId();
         String syncSourceKey = skyWalkerCacheServices.getClusterType(sourceClusterId).getCode();
         String version = taskDO.getVersion();
+        Set<String> revisions = new HashSet<>(16);
         Set<String> interfaceNames = new HashSet<>(16);
         for (Instance instance : sourceInstances) {
             if (needSync(instance.getMetadata(), level, destClusterId)) {
                 Instance syncInstance = buildSyncInstance(instance, serviceName,
-                        destClusterId, sourceClusterId, syncSourceKey, version, interfaceNames);
+                        destClusterId, sourceClusterId, syncSourceKey, version,
+                        revisions, interfaceNames);
                 log.debug("需要从源集群同步到目标集群的临时实例：{}", syncInstance);
                 needRegisterInstances.add(syncInstance);
             }
@@ -372,10 +374,12 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         // 逐个注册源集群新增的实例到目标集群
         String syncSourceKey = skyWalkerCacheServices.getClusterType(sourceClusterId).getCode();
         String version = taskDO.getVersion();
+        Set<String> revisions = new HashSet<>(16);
         Set<String> interfaceNames = new HashSet<>(16);
         for (Instance newInstance : newInstances) {
             Instance syncInstance = buildSyncInstance(newInstance, serviceName,
-                    destClusterId, sourceClusterId, syncSourceKey, version, interfaceNames);
+                    destClusterId, sourceClusterId, syncSourceKey, version,
+                    revisions, interfaceNames);
             log.debug("从源集群同步到目标集群的持久实例：{}", syncInstance);
             destNamingService.registerInstance(serviceName, groupName, syncInstance);
         }
@@ -533,10 +537,11 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     }
     
     private Instance buildSyncInstance(Instance instance, String serviceName,
-            String destClusterId, String sourceClusterId, String syncSourceKey, String version, Set<String> interfaces) {
+            String destClusterId, String sourceClusterId, String syncSourceKey, String version,
+            Set<String> revisions, Set<String> interfaces) {
         
         //同步实例revision元数据
-        syncInstanceRevision(instance, serviceName, destClusterId, sourceClusterId, interfaces);
+        syncInstanceRevision(instance, serviceName, destClusterId, sourceClusterId, revisions, interfaces);
         
         Instance temp = new Instance();
         temp.setIp(instance.getIp());
@@ -558,17 +563,18 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     }
     
     @SuppressWarnings("unchecked")
-    private void syncInstanceRevision(Instance instance, String serviceName, String destClusterId,
-            String sourceClusterId, Set<String> interfaceNames) {
+    private void syncInstanceRevision(Instance instance, String serviceName, String destClusterId, String sourceClusterId,
+            Set<String> revisions, Set<String> interfaceNames) {
         if (serviceName.startsWith(DubboConstants.CATALOG_KEY + DubboConstants.SEPARATOR_KEY)) {
             //dubbo接口级别服务实例
             return;
         }
 
         String revision = instance.getMetadata().get(DubboConstants.METADATA_REVISION_KEY);
-        if (revision == null) {
+        if (revision == null || revisions.contains(revision)) {
             return;
         }
+        revisions.add(revision);
         
         //同步应用级别服务实例的revision元数据
         ConfigService sourceConfigService = nacosServerHolder.getConfigService(sourceClusterId);
