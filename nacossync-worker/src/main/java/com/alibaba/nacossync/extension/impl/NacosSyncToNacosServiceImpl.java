@@ -78,16 +78,18 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     
     private static final String GET_MAPPING_CFG_URL = "/nacos/v1/cs/configs";
 
-    private static final Map<String, String> GET_MAPPING_CFG_PARAMS = new HashMap<>(8);
+    private static final Map<String, String> GET_MAPPING_CFG_BASE_PARAMS = new HashMap<>(8);
     static {
-        GET_MAPPING_CFG_PARAMS.put("search", "blur");
-        GET_MAPPING_CFG_PARAMS.put("dataId", "");
-        GET_MAPPING_CFG_PARAMS.put("group", "mapping");
+        GET_MAPPING_CFG_BASE_PARAMS.put("search", "blur");
+        GET_MAPPING_CFG_BASE_PARAMS.put("dataId", "");
+        GET_MAPPING_CFG_BASE_PARAMS.put("group", "mapping");
     }
     
-    private static final String PAGE_NO = "pageNo";
+    private static final String PAGE_NO_KEY = "pageNo";
     
-    private static final String PAGE_SIZE = "pageSize";
+    private static final String PAGE_SIZE_KEY = "pageSize";
+    
+    private static final int PAGE_SIZE = 100;
     
     private Map<String, EventListener> listenerMap = new ConcurrentHashMap<>();
     
@@ -695,22 +697,28 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         }
     }
 
-    private void setInterfaceNamesByQueryMetaDataCenter(String serviceName, String sourceClusterId, Set<String> interfaceNames) {
+    private void setInterfaceNamesByQueryMetaDataCenter(String serviceName,
+            String sourceClusterId, Set<String> interfaceNames) {
         NamingHttpClientProxy namingHttpClientProxy = nacosServerHolder.getNamingHttpProxy(sourceClusterId);
         if (namingHttpClientProxy == null) {
             log.error("clusterid: {} null namingHttpClientProxy!", sourceClusterId);
             return;
         }
         int pageNo = 1;
-        int pageSize = 100;
-        final MappingMetaData metaData = queryMappingMetaData(sourceClusterId, namingHttpClientProxy, pageNo, pageSize);
+        final MappingMetaData metaData = queryMappingMetaData(sourceClusterId,
+                namingHttpClientProxy, pageNo, PAGE_SIZE);
+        if (metaData == null) {
+            return;
+        }
         MappingMetaData tmpMetaData = metaData;
-        while (tmpMetaData != null && tmpMetaData.pageItems.size() >= pageSize) {
+        while (tmpMetaData.pageItems.size() >= PAGE_SIZE) {
             pageNo++;
-            tmpMetaData = queryMappingMetaData(sourceClusterId, namingHttpClientProxy, pageNo, pageSize);
-            if (tmpMetaData != null) {
-                metaData.pageItems.addAll(tmpMetaData.pageItems);
+            tmpMetaData = queryMappingMetaData(sourceClusterId,
+                    namingHttpClientProxy, pageNo, PAGE_SIZE);
+            if (tmpMetaData == null) {
+                break;
             }
+            metaData.pageItems.addAll(tmpMetaData.pageItems);
         }
         for (MappingItem item : metaData.pageItems) {
             String appNamesContent = item.getContent();
@@ -729,11 +737,13 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
 
     private MappingMetaData queryMappingMetaData(String sourceClusterId,
             NamingHttpClientProxy namingHttpClientProxy, int pageNo, int pageSize) {
-        GET_MAPPING_CFG_PARAMS.put(PAGE_NO, String.valueOf(pageNo));
-        GET_MAPPING_CFG_PARAMS.put(PAGE_SIZE, String.valueOf(pageSize));
+        Map<String, String> params = new HashMap<>(GET_MAPPING_CFG_BASE_PARAMS);
+        params.put(PAGE_NO_KEY, String.valueOf(pageNo));
+        params.put(PAGE_SIZE_KEY, String.valueOf(pageSize));
         String metaDataString = null;
         try {
-            metaDataString = namingHttpClientProxy.reqApi(GET_MAPPING_CFG_URL, GET_MAPPING_CFG_PARAMS, HttpMethod.GET);
+            metaDataString = namingHttpClientProxy.reqApi(GET_MAPPING_CFG_URL,
+                    params, HttpMethod.GET);
         } catch (NacosException e) {
             log.error("query mapping metadata from: {} failed.", sourceClusterId, e);
             return null;
