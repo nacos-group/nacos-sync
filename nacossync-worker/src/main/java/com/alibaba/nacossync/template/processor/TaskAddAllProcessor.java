@@ -21,7 +21,6 @@ import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.CommonParams;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.client.naming.NacosNamingService;
-import com.alibaba.nacos.client.naming.remote.NamingClientProxyDelegate;
 import com.alibaba.nacos.client.naming.remote.http.NamingHttpClientProxy;
 import com.alibaba.nacos.client.naming.utils.UtilAndComs;
 import com.alibaba.nacos.common.utils.JacksonUtils;
@@ -100,12 +99,14 @@ public class TaskAddAllProcessor implements Processor<TaskAddAllRequest, TaskAdd
             throw new SkyWalkerException("current sync type not supported.");
         }
         // TODO 目前仅支持 Nacos 为源的同步类型，待完善更多类型支持。
-        final NamingService sourceNamingService = nacosServerHolder.get(sourceCluster.getClusterId());
-        if (sourceNamingService == null) {
+        String sourceClusterId = sourceCluster.getClusterId();
+        final NamingService sourceNamingService = nacosServerHolder.get(sourceClusterId);
+        final NamingHttpClientProxy sourceNamingHttpClientProxy = nacosServerHolder.getNamingHttpProxy(sourceClusterId);
+        if (sourceNamingService == null || sourceNamingHttpClientProxy == null) {
             throw new SkyWalkerException("only support sync type that the source of the Nacos.");
         }
         
-        final EnhanceNamingService enhanceNamingService = new EnhanceNamingService(sourceNamingService);
+        final EnhanceNamingService enhanceNamingService = new EnhanceNamingService(sourceNamingService, sourceNamingHttpClientProxy);
         final CatalogServiceResult catalogServiceResult = enhanceNamingService.catalogServices(null, null);
         if (catalogServiceResult == null || catalogServiceResult.getCount() <= 0) {
             throw new SkyWalkerException("sourceCluster data empty");
@@ -157,25 +158,14 @@ public class TaskAddAllProcessor implements Processor<TaskAddAllRequest, TaskAdd
         
         private final String namespaceId;
         
-        protected EnhanceNamingService(NamingService namingService) {
+        protected EnhanceNamingService(NamingService namingService, NamingHttpClientProxy namingHttpClientProxy) {
             if (!(namingService instanceof NacosNamingService)) {
                 throw new IllegalArgumentException(
                         "namingService only support instance of com.alibaba.nacos.client.naming.NacosNamingService.");
             }
             this.delegate = namingService;
             
-            // clientProxy
-            final Field clientProxyField = ReflectionUtils.findField(NacosNamingService.class, "clientProxy");
-            assert clientProxyField != null;
-            ReflectionUtils.makeAccessible(clientProxyField);
-            NamingClientProxyDelegate clientProxy = (NamingClientProxyDelegate) ReflectionUtils.getField(clientProxyField, delegate);
-            
-            // httpClientProxy
-            final Field httpClientProxyField = ReflectionUtils.findField(NamingClientProxyDelegate.class, "httpClientProxy");
-            assert httpClientProxyField != null;
-            ReflectionUtils.makeAccessible(httpClientProxyField);
-            this.httpClientProxy = (NamingHttpClientProxy) ReflectionUtils.getField(httpClientProxyField, clientProxy);
-            
+            this.httpClientProxy = namingHttpClientProxy;
             final Field namespaceIdField = ReflectionUtils.findField(NamingHttpClientProxy.class, "namespaceId");
             assert namespaceIdField != null;
             ReflectionUtils.makeAccessible(namespaceIdField);

@@ -54,6 +54,8 @@ public final class DubboConstants {
     public static final String METADATA_SERVICES_KEY = "services";
     public static final String METADATA_MAPPING_KEY = "mapping";
     public static final String METADATA_NAME_KEY = "name";
+    public static final String METADATA_STORAGE_TYPE_KEY = "dubbo.metadata.storage-type";
+    public static final String METADATA_STORAGE_TYPE_REMOTE = "remote";
 
     /**
      *  if Dubbo version greater than 2.7.2, service name is providers:interface:version:

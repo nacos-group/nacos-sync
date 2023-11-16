@@ -15,13 +15,16 @@ package com.alibaba.nacossync.extension.impl;
 
 import com.alibaba.nacos.api.config.ConfigService;
 import com.alibaba.nacos.api.exception.NacosException;
+import com.alibaba.nacos.api.exception.runtime.NacosDeserializationException;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.listener.NamingEvent;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacos.api.naming.pojo.ListView;
+import com.alibaba.nacos.client.naming.remote.http.NamingHttpClientProxy;
 import com.alibaba.nacos.common.utils.CollectionUtils;
 import com.alibaba.nacos.common.utils.ConcurrentHashSet;
+import com.alibaba.nacos.common.utils.JacksonUtils;
 import com.alibaba.nacos.common.utils.MD5Utils;
 import com.alibaba.nacos.shaded.com.google.gson.Gson;
 import com.alibaba.nacos.shaded.com.google.gson.JsonSyntaxException;
@@ -39,6 +42,7 @@ import com.alibaba.nacossync.template.processor.TaskUpdateProcessor;
 import com.alibaba.nacossync.timer.FastSyncHelper;
 import com.alibaba.nacossync.util.DubboConstants;
 import com.alibaba.nacossync.util.StringUtils;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,7 +60,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-
+import javax.ws.rs.HttpMethod;
 import static com.alibaba.nacossync.util.NacosUtils.getGroupNameOrDefault;
 
 /**
@@ -71,6 +75,19 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     private static final Gson GSON = new Gson();
     
     private static final long GET_CFG_TIMEOUT = 3000L;
+    
+    private static final String GET_MAPPING_CFG_URL = "/nacos/v1/cs/configs";
+
+    private static final Map<String, String> GET_MAPPING_CFG_PARAMS = new HashMap<>(8);
+    static {
+        GET_MAPPING_CFG_PARAMS.put("search", "blur");
+        GET_MAPPING_CFG_PARAMS.put("dataId", "");
+        GET_MAPPING_CFG_PARAMS.put("group", "mapping");
+    }
+    
+    private static final String PAGE_NO = "pageNo";
+    
+    private static final String PAGE_SIZE = "pageSize";
     
     private Map<String, EventListener> listenerMap = new ConcurrentHashMap<>();
     
@@ -336,7 +353,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             destNamingService.batchRegisterInstance(serviceName, groupName, needRegisterInstances);
             
             //同步接口名到应用名的映射关系
-            syncInterfacesMapping(serviceName, destClusterId, interfaceNames);
+            syncInterfacesMapping(serviceName, sourceClusterId, destClusterId, interfaceNames);
         } else {
             //注销目标集群指定service来自当前源集群同步的所有实例
             processDeRegisterInstances(taskDO, destNamingService, serviceName, groupName);
@@ -385,7 +402,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         }
         
         //同步接口名到应用名的映射关系
-        syncInterfacesMapping(serviceName, destClusterId, interfaceNames);
+        syncInterfacesMapping(serviceName, sourceClusterId, destClusterId, interfaceNames);
         
         // 获取目标集群来自当前源集群同步的指定service实例中需要注销的实例（实例在源集群中已注销）
         destHasSyncInstances.removeAll(bothExistedInstances);
@@ -575,8 +592,13 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             return;
         }
         revisions.add(revision);
+
+        String storeType = instance.getMetadata().get(DubboConstants.METADATA_STORAGE_TYPE_KEY);
+        if (!DubboConstants.METADATA_STORAGE_TYPE_REMOTE.equals(storeType)) {
+            return;
+        }
         
-        //同步应用级别服务实例的revision元数据
+        //dubbo.metadata.storage-type=remote: 同步应用级别服务实例的revision元数据
         ConfigService sourceConfigService = nacosServerHolder.getConfigService(sourceClusterId);
         ConfigService destConfigService = nacosServerHolder.getConfigService(destClusterId);
         if (sourceConfigService == null || destConfigService == null) {
@@ -630,9 +652,18 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         }
     }
 
-    private void syncInterfacesMapping(String serviceName, String destClusterId, Set<String> interfaceNames) {
-        if (interfaceNames.isEmpty()) {
+    private void syncInterfacesMapping(String serviceName, String sourceClusterId, String destClusterId, Set<String> interfaceNames) {
+        if (serviceName.startsWith(DubboConstants.CATALOG_KEY + DubboConstants.SEPARATOR_KEY)) {
+            //dubbo接口级别服务实例
             return;
+        }
+
+        if (interfaceNames.isEmpty()) {
+            //通过查询源集群mapping元数据获取应用对应的接口名
+            setInterfaceNamesByQueryMetaDataCenter(serviceName, sourceClusterId, interfaceNames);
+            if (interfaceNames.isEmpty()) {
+                return;
+            }
         }
         ConfigService destConfigService = nacosServerHolder.getConfigService(destClusterId);
         for (String interfaceName : interfaceNames) {
@@ -663,5 +694,69 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             }
         }
     }
-    
+
+    private void setInterfaceNamesByQueryMetaDataCenter(String serviceName, String sourceClusterId, Set<String> interfaceNames) {
+        NamingHttpClientProxy namingHttpClientProxy = nacosServerHolder.getNamingHttpProxy(sourceClusterId);
+        if (namingHttpClientProxy == null) {
+            log.error("clusterid: {} null namingHttpClientProxy!", sourceClusterId);
+            return;
+        }
+        int pageNo = 1;
+        int pageSize = 100;
+        final MappingMetaData metaData = queryMappingMetaData(sourceClusterId, namingHttpClientProxy, pageNo, pageSize);
+        MappingMetaData tmpMetaData = metaData;
+        while (tmpMetaData != null && tmpMetaData.pageItems.size() >= pageSize) {
+            pageNo++;
+            tmpMetaData = queryMappingMetaData(sourceClusterId, namingHttpClientProxy, pageNo, pageSize);
+            if (tmpMetaData != null) {
+                metaData.pageItems.addAll(tmpMetaData.pageItems);
+            }
+        }
+        for (MappingItem item : metaData.pageItems) {
+            String appNamesContent = item.getContent();
+            if (appNamesContent == null) {
+                continue;
+            }
+            String[] appNames = appNamesContent.split(",");
+            for (String appName : appNames) {
+                if (serviceName.equals(appName)) {
+                    interfaceNames.add(item.getDataId());
+                    break;
+                }
+            }
+        }
+    }
+
+    private MappingMetaData queryMappingMetaData(String sourceClusterId,
+            NamingHttpClientProxy namingHttpClientProxy, int pageNo, int pageSize) {
+        GET_MAPPING_CFG_PARAMS.put(PAGE_NO, String.valueOf(pageNo));
+        GET_MAPPING_CFG_PARAMS.put(PAGE_SIZE, String.valueOf(pageSize));
+        String metaDataString = null;
+        try {
+            metaDataString = namingHttpClientProxy.reqApi(GET_MAPPING_CFG_URL, GET_MAPPING_CFG_PARAMS, HttpMethod.GET);
+        } catch (NacosException e) {
+            log.error("query mapping metadata from: {} failed.", sourceClusterId, e);
+            return null;
+        }
+        MappingMetaData metaData;
+        try {
+            metaData = JacksonUtils.toObj(metaDataString, MappingMetaData.class);
+        } catch (NacosDeserializationException e) {
+            log.error("parse mapping metadata: {} from: {} failed.", metaDataString, sourceClusterId, e);
+            return null;
+        }
+        return metaData;
+    }
+
+    @Data
+    private static class MappingItem {
+        private String dataId;
+        private String group;
+        private String content;
+    }
+
+    @Data
+    private static class MappingMetaData {
+        private List<MappingItem> pageItems;
+    }
 }

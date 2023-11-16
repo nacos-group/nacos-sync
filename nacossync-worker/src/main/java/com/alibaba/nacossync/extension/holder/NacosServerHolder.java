@@ -18,12 +18,16 @@ import com.alibaba.nacos.api.config.ConfigService;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingFactory;
 import com.alibaba.nacos.api.naming.NamingService;
+import com.alibaba.nacos.client.naming.NacosNamingService;
+import com.alibaba.nacos.client.naming.remote.NamingClientProxyDelegate;
+import com.alibaba.nacos.client.naming.remote.http.NamingHttpClientProxy;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.dao.ClusterAccessService;
 import com.alibaba.nacossync.dao.TaskAccessService;
 import com.alibaba.nacossync.pojo.model.ClusterDO;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.base.Joiner;
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -32,6 +36,7 @@ import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ReflectionUtils;
 
 /**
  * @author paderlol
@@ -45,7 +50,9 @@ public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
     
     private final TaskAccessService taskAccessService;
     
-    private static ConcurrentHashMap<String,NamingService> globalNameService = new ConcurrentHashMap<>(16);
+    private static ConcurrentHashMap<String,NamingService> globalNamingService = new ConcurrentHashMap<>(16);
+    
+    private static ConcurrentHashMap<String,NamingHttpClientProxy> globalNamingHttpProxy = new ConcurrentHashMap<>(16);
     
     private static ConcurrentHashMap<String,ConfigService> globalConfigService = new ConcurrentHashMap<>(16);
 
@@ -91,9 +98,24 @@ public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
         
         properties.setProperty(PropertyKeyConst.NAMESPACE, Optional.ofNullable(clusterDO.getNamespace()).orElse(
                 Strings.EMPTY));
-        return globalNameService.computeIfAbsent(newClusterId, id -> {
+        return globalNamingService.computeIfAbsent(newClusterId, id -> {
             try {
-                return NamingFactory.createNamingService(properties);
+                NacosNamingService namingService = (NacosNamingService) NamingFactory.createNamingService(properties);
+                
+                // clientProxy
+                final Field clientProxyField = ReflectionUtils.findField(NacosNamingService.class, "clientProxy");
+                assert clientProxyField != null;
+                ReflectionUtils.makeAccessible(clientProxyField);
+                NamingClientProxyDelegate clientProxy = (NamingClientProxyDelegate) ReflectionUtils.getField(clientProxyField, namingService);
+                
+                // httpClientProxy
+                final Field httpClientProxyField = ReflectionUtils.findField(NamingClientProxyDelegate.class, "httpClientProxy");
+                assert httpClientProxyField != null;
+                ReflectionUtils.makeAccessible(httpClientProxyField);
+                NamingHttpClientProxy httpClientProxy = (NamingHttpClientProxy) ReflectionUtils.getField(httpClientProxyField, clientProxy);
+                globalNamingHttpProxy.put(id, httpClientProxy);
+                
+                return namingService;
             } catch (NacosException e) {
                 log.error("start naming service fail,clusterId:{}", id, e);
                 return null;
@@ -106,10 +128,14 @@ public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
      * @param clusterId clusterId
      * @return Returns Naming Service objects for different clusters
      */
-    public NamingService getNameService(String clusterId){
-        return globalNameService.get(clusterId);
+    public NamingService getNamingService(String clusterId){
+        return globalNamingService.get(clusterId);
     }
-    
+
+    public NamingHttpClientProxy getNamingHttpProxy(String clusterId){
+        return globalNamingHttpProxy.get(clusterId);
+    }
+
     public ConfigService getConfigService(String clusterId) {
         return globalConfigService.get(clusterId);
     }
