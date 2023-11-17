@@ -80,8 +80,11 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
 
     private static final Map<String, String> GET_MAPPING_CFG_BASE_PARAMS = new HashMap<>(8);
     static {
-        GET_MAPPING_CFG_BASE_PARAMS.put("search", "blur");
+        //采用精确模式检索
+        GET_MAPPING_CFG_BASE_PARAMS.put("search", "accurate");
+        //nacos服务端要求查询必须包含dataId条件
         GET_MAPPING_CFG_BASE_PARAMS.put("dataId", "");
+        //查询group类型为映射关系的配置数据
         GET_MAPPING_CFG_BASE_PARAMS.put("group", "mapping");
     }
     
