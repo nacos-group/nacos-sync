@@ -76,9 +76,9 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     
     private static final long GET_CFG_TIMEOUT = 3000L;
     
-    private static final int METADATA_CACHE_LIVE_TIME = 60000;
+    private static final int METADATA_CACHE_LIVE_MS = 180_000;
     
-    private static final Map<String, MappingMetaDataCache> MAPPING_METADATA_CACHE = new ConcurrentHashMap<>(16);
+    private static final Map<String, Map<String, MappingMetaDataCache>> MAPPING_METADATA_CACHE = new ConcurrentHashMap<>(16);
     
     private static final String GET_MAPPING_CFG_URL = "/nacos/v1/cs/configs";
     
@@ -665,7 +665,12 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
 
     private void collectInterfaceNamesByQueryMetaData(String serviceName,
             String sourceClusterId, Set<String> interfaceNames) {
-        MappingMetaDataCache metaDataCache = MAPPING_METADATA_CACHE.get(serviceName);
+        Map<String, MappingMetaDataCache> metaDataCacheClusterMap = MAPPING_METADATA_CACHE.computeIfAbsent(
+                serviceName,
+                id -> {
+                    return new ConcurrentHashMap<>(16);
+                });
+        MappingMetaDataCache metaDataCache = metaDataCacheClusterMap.get(sourceClusterId);
         if (metaDataCache != null && System.currentTimeMillis() < metaDataCache.getExpiredTime()) {
             //当元数据缓存有效时，从元数据缓存收集接口名
             MappingMetaData metaData = metaDataCache.getMetaData();
@@ -688,8 +693,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         }
         metaDataCache = new MappingMetaDataCache();
         metaDataCache.setMetaData(metaData);
-        metaDataCache.setExpiredTime(System.currentTimeMillis() + METADATA_CACHE_LIVE_TIME);
-        MAPPING_METADATA_CACHE.put(serviceName, metaDataCache);
+        metaDataCache.setExpiredTime(System.currentTimeMillis() + METADATA_CACHE_LIVE_MS);
+        metaDataCacheClusterMap.put(sourceClusterId, metaDataCache);
         
         collectInterfaceNamesFromMappingMetaData(serviceName, metaData, interfaceNames);
     }
