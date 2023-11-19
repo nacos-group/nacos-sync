@@ -78,9 +78,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     
     private static final int METADATA_CACHE_LIVE_TIME = 60000;
     
-    private static volatile MappingMetaData metaDataCache = null;
-    
-    private static volatile long metaDataCacheExpiredTime;
+    private static final Map<String, MappingMetaDataCache> MAPPING_METADATA_CACHE = new ConcurrentHashMap<>(16);
     
     private static final String GET_MAPPING_CFG_URL = "/nacos/v1/cs/configs";
     
@@ -146,6 +144,9 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             }
             
             try {
+                //清除接口应用名映射关系元数据缓存
+                MAPPING_METADATA_CACHE.clear();
+                
                 Collection<TaskDO> taskCollections = allSyncTaskMap.values();
                 List<TaskDO> taskDOList = new ArrayList<>(taskCollections);
                 
@@ -664,9 +665,10 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
 
     private void collectInterfaceNamesByQueryMetaData(String serviceName,
             String sourceClusterId, Set<String> interfaceNames) {
-        if (System.currentTimeMillis() < metaDataCacheExpiredTime) {
+        MappingMetaDataCache metaDataCache = MAPPING_METADATA_CACHE.get(serviceName);
+        if (metaDataCache != null && System.currentTimeMillis() < metaDataCache.getExpiredTime()) {
             //当元数据缓存有效时，从元数据缓存收集接口名
-            MappingMetaData metaData = metaDataCache;
+            MappingMetaData metaData = metaDataCache.getMetaData();
             collectInterfaceNamesFromMappingMetaData(serviceName, metaData, interfaceNames);
             if (!interfaceNames.isEmpty()) {
                 return;
@@ -684,8 +686,10 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         if (metaData == null) {
             return;
         }
-        metaDataCache = metaData;
-        metaDataCacheExpiredTime = System.currentTimeMillis() + METADATA_CACHE_LIVE_TIME;
+        metaDataCache = new MappingMetaDataCache();
+        metaDataCache.setMetaData(metaData);
+        metaDataCache.setExpiredTime(System.currentTimeMillis() + METADATA_CACHE_LIVE_TIME);
+        MAPPING_METADATA_CACHE.put(serviceName, metaDataCache);
         
         collectInterfaceNamesFromMappingMetaData(serviceName, metaData, interfaceNames);
     }
@@ -816,5 +820,11 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     @Data
     private static class MappingMetaData {
         private List<MappingItem> pageItems;
+    }
+
+    @Data
+    private static class MappingMetaDataCache {
+        private MappingMetaData metaData;
+        private long expiredTime;
     }
 }
