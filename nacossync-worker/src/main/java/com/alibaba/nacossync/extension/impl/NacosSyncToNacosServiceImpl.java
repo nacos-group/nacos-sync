@@ -76,8 +76,14 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     
     private static final long GET_CFG_TIMEOUT = 3000L;
     
+    private static final int METADATA_CACHE_LIVE_TIME = 60000;
+    
+    private static volatile MappingMetaData metaDataCache = null;
+    
+    private static volatile long metaDataCacheExpiredTime;
+    
     private static final String GET_MAPPING_CFG_URL = "/nacos/v1/cs/configs";
-
+    
     private static final Map<String, String> GET_MAPPING_CFG_BASE_PARAMS = new HashMap<>(8);
     static {
         //采用精确模式检索
@@ -341,12 +347,11 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         String syncSourceKey = skyWalkerCacheServices.getClusterType(sourceClusterId).getCode();
         String version = taskDO.getVersion();
         Set<String> revisions = new HashSet<>(16);
-        Set<String> interfaceNames = new HashSet<>(16);
         for (Instance instance : sourceInstances) {
             if (needSync(instance.getMetadata(), level, destClusterId)) {
                 Instance syncInstance = buildSyncInstance(instance, serviceName,
                         destClusterId, sourceClusterId, syncSourceKey, version,
-                        revisions, interfaceNames);
+                        revisions);
                 log.debug("需要从源集群同步到目标集群的临时实例：{}", syncInstance);
                 needRegisterInstances.add(syncInstance);
             }
@@ -357,8 +362,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             log.debug("将源集群指定service的临时实例全量同步到目标集群: {}", taskDO);
             destNamingService.batchRegisterInstance(serviceName, groupName, needRegisterInstances);
             
-            //同步接口名到应用名的映射关系
-            syncInterfacesMapping(serviceName, sourceClusterId, destClusterId, interfaceNames);
+            //同步实例revision、接口名到应用名的映射关系
+            syncIntanceRevisionAndInterfacesMapping(serviceName, sourceClusterId, destClusterId, revisions);
         } else {
             //注销目标集群指定service来自当前源集群同步的所有实例
             processDeRegisterInstances(taskDO, destNamingService, serviceName, groupName);
@@ -397,17 +402,16 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         String syncSourceKey = skyWalkerCacheServices.getClusterType(sourceClusterId).getCode();
         String version = taskDO.getVersion();
         Set<String> revisions = new HashSet<>(16);
-        Set<String> interfaceNames = new HashSet<>(16);
         for (Instance newInstance : newInstances) {
             Instance syncInstance = buildSyncInstance(newInstance, serviceName,
                     destClusterId, sourceClusterId, syncSourceKey, version,
-                    revisions, interfaceNames);
+                    revisions);
             log.debug("从源集群同步到目标集群的持久实例：{}", syncInstance);
             destNamingService.registerInstance(serviceName, groupName, syncInstance);
         }
         
-        //同步接口名到应用名的映射关系
-        syncInterfacesMapping(serviceName, sourceClusterId, destClusterId, interfaceNames);
+        //同步实例revision、接口名到应用名的映射关系
+        syncIntanceRevisionAndInterfacesMapping(serviceName, sourceClusterId, destClusterId, revisions);
         
         // 获取目标集群来自当前源集群同步的指定service实例中需要注销的实例（实例在源集群中已注销）
         destHasSyncInstances.removeAll(bothExistedInstances);
@@ -560,10 +564,10 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     
     private Instance buildSyncInstance(Instance instance, String serviceName,
             String destClusterId, String sourceClusterId, String syncSourceKey, String version,
-            Set<String> revisions, Set<String> interfaces) {
+            Set<String> revisions) {
         
-        //同步实例revision元数据
-        syncInstanceRevision(instance, serviceName, destClusterId, sourceClusterId, revisions, interfaces);
+        //收集需要同步的实例revision
+        collectInstanceRevision(instance, serviceName, revisions);
         
         Instance temp = new Instance();
         temp.setIp(instance.getIp());
@@ -583,94 +587,52 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         temp.setMetadata(metaData);
         return temp;
     }
-    
-    @SuppressWarnings("unchecked")
-    private void syncInstanceRevision(Instance instance, String serviceName, String destClusterId, String sourceClusterId,
-            Set<String> revisions, Set<String> interfaceNames) {
+
+    private void collectInstanceRevision(Instance instance, String serviceName, Set<String> revisions) {
         if (serviceName.startsWith(DubboConstants.CATALOG_KEY + DubboConstants.SEPARATOR_KEY)) {
             //dubbo接口级别服务实例
             return;
         }
-
-        String revision = instance.getMetadata().get(DubboConstants.METADATA_REVISION_KEY);
-        if (revision == null || revisions.contains(revision)) {
-            return;
-        }
-        revisions.add(revision);
 
         String storeType = instance.getMetadata().get(DubboConstants.METADATA_STORAGE_TYPE_KEY);
         if (!DubboConstants.METADATA_STORAGE_TYPE_REMOTE.equals(storeType)) {
             return;
         }
         
-        //dubbo.metadata.storage-type=remote: 同步应用级别服务实例的revision元数据
+        //dubbo.metadata.storage-type=remote: 收集需要同步的应用级别服务实例revision
+        String revision = instance.getMetadata().get(DubboConstants.METADATA_REVISION_KEY);
+        if (revision == null || revisions.contains(revision)) {
+            return;
+        }
+        revisions.add(revision);
+    }
+
+    private void syncIntanceRevisionAndInterfacesMapping(String serviceName,
+            String sourceClusterId, String destClusterId, Set<String> revisions) {
+        if (serviceName.startsWith(DubboConstants.CATALOG_KEY + DubboConstants.SEPARATOR_KEY)) {
+            //dubbo接口级别服务实例
+            return;
+        }
+
         ConfigService sourceConfigService = nacosServerHolder.getConfigService(sourceClusterId);
         ConfigService destConfigService = nacosServerHolder.getConfigService(destClusterId);
         if (sourceConfigService == null || destConfigService == null) {
             return;
         }
 
-        String content;
-        try {
-            content = sourceConfigService.getConfig(serviceName, revision, GET_CFG_TIMEOUT);
-            if (content == null) {
-                return;
-            }
-        } catch (NacosException e) {
-            log.error("get instance revision fail,service:{},revision:{},sourceClusterId:{}",
-                    serviceName, revision, sourceClusterId, e);
-            return;
-        }
-
-        try {
-            destConfigService.publishConfig(serviceName, revision, content);
-        } catch (NacosException e) {
-            log.error("publish instance revision fail,service:{},revision:{},destClusterId:{}",
-                    serviceName, revision, sourceClusterId, e);
-            return;
-        }
-
-        Map<String, Object> metaDataJson = null;
-        try {
-            metaDataJson = GSON.fromJson(content, Map.class);
-            if (metaDataJson == null) {
-                return;
-            }
-        } catch (JsonSyntaxException ex) {
-            log.error("parse json content fail,content:{},service:{},revision:{},sourceClusterId:{}",
-                    content, serviceName, revision, sourceClusterId, ex);
-            return;
+        Set<String> interfaceNames = new HashSet<>(16);
+        if (revisions.isEmpty()) {
+            //通过查询源集群mapping元数据收集应用接口名
+            collectInterfaceNamesByQueryMetaData(serviceName, sourceClusterId, interfaceNames);
+        } else {
+            //同步revision元数据，收集应用接口名
+            syncInstanceRevisionAndCollectInterfaceNames(serviceName,
+                    destClusterId, sourceClusterId,
+                    destConfigService, sourceConfigService,
+                    revisions, interfaceNames);
         }
         
-        //收集当前应用服务的全部接口名称
-        Map<String, Object> serviceMetaDataMap = (Map<String, Object>) metaDataJson.get(DubboConstants.METADATA_SERVICES_KEY);
-        for (Map.Entry<String, Object> entry : serviceMetaDataMap.entrySet()) {
-            Map<String, Object> serviceMetaData = (Map<String, Object>) entry.getValue();
-            if (serviceMetaData == null) {
-                continue;
-            }
-            String interfaceName = (String) serviceMetaData.get(DubboConstants.METADATA_NAME_KEY);
-            if (interfaceName == null) {
-                continue;
-            }
-            interfaceNames.add(interfaceName);
-        }
-    }
-
-    private void syncInterfacesMapping(String serviceName, String sourceClusterId, String destClusterId, Set<String> interfaceNames) {
-        if (serviceName.startsWith(DubboConstants.CATALOG_KEY + DubboConstants.SEPARATOR_KEY)) {
-            //dubbo接口级别服务实例
-            return;
-        }
-
-        if (interfaceNames.isEmpty()) {
-            //通过查询源集群mapping元数据获取应用对应的接口名
-            setInterfaceNamesByQueryMetaDataCenter(serviceName, sourceClusterId, interfaceNames);
-            if (interfaceNames.isEmpty()) {
-                return;
-            }
-        }
-        ConfigService destConfigService = nacosServerHolder.getConfigService(destClusterId);
+        //同步接口名与应用名的映射关系
         for (String interfaceName : interfaceNames) {
             try {
                 String appNameStr = destConfigService.getConfig(interfaceName, DubboConstants.METADATA_MAPPING_KEY,
@@ -700,29 +662,91 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         }
     }
 
-    private void setInterfaceNamesByQueryMetaDataCenter(String serviceName,
+    private void collectInterfaceNamesByQueryMetaData(String serviceName,
             String sourceClusterId, Set<String> interfaceNames) {
+        if (System.currentTimeMillis() < metaDataCacheExpiredTime) {
+            //当元数据缓存有效时，从元数据缓存收集接口名
+            MappingMetaData metaData = metaDataCache;
+            collectInterfaceNamesFromMappingMetaData(serviceName, metaData, interfaceNames);
+            if (!interfaceNames.isEmpty()) {
+                return;
+            }
+        }
+        
         NamingHttpClientProxy namingHttpClientProxy = nacosServerHolder.getNamingHttpProxy(sourceClusterId);
         if (namingHttpClientProxy == null) {
             log.error("clusterid: {} null namingHttpClientProxy!", sourceClusterId);
             return;
         }
-        int pageNo = 1;
-        final MappingMetaData metaData = queryMappingMetaData(sourceClusterId,
-                namingHttpClientProxy, pageNo, PAGE_SIZE);
+        
+        //查询元数据中心
+        MappingMetaData metaData = queryMappingMetaData(sourceClusterId, namingHttpClientProxy);
         if (metaData == null) {
             return;
         }
-        MappingMetaData tmpMetaData = metaData;
-        while (tmpMetaData.pageItems.size() >= PAGE_SIZE) {
-            pageNo++;
-            tmpMetaData = queryMappingMetaData(sourceClusterId,
-                    namingHttpClientProxy, pageNo, PAGE_SIZE);
-            if (tmpMetaData == null) {
-                break;
+        metaDataCache = metaData;
+        metaDataCacheExpiredTime = System.currentTimeMillis() + METADATA_CACHE_LIVE_TIME;
+        
+        collectInterfaceNamesFromMappingMetaData(serviceName, metaData, interfaceNames);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void syncInstanceRevisionAndCollectInterfaceNames(String serviceName,
+            String destClusterId, String sourceClusterId,
+            ConfigService destConfigService, ConfigService sourceConfigService,
+            Set<String> revisions, Set<String> interfaceNames) {
+        for (String revision : revisions) {
+            String content;
+            try {
+                content = sourceConfigService.getConfig(serviceName, revision, GET_CFG_TIMEOUT);
+                if (content == null) {
+                    continue;
+                }
+            } catch (NacosException e) {
+                log.error("get instance revision fail,service:{},revision:{},sourceClusterId:{}", serviceName,
+                        revision, sourceClusterId, e);
+                continue;
             }
-            metaData.pageItems.addAll(tmpMetaData.pageItems);
+
+            try {
+                destConfigService.publishConfig(serviceName, revision, content);
+            } catch (NacosException e) {
+                log.error("publish instance revision fail,service:{},revision:{},destClusterId:{}", serviceName,
+                        revision, sourceClusterId, e);
+                continue;
+            }
+
+            Map<String, Object> metaDataJson = null;
+            try {
+                metaDataJson = GSON.fromJson(content, Map.class);
+                if (metaDataJson == null) {
+                    continue;
+                }
+            } catch (JsonSyntaxException ex) {
+                log.error("parse json content fail,content:{},service:{},revision:{},sourceClusterId:{}", content,
+                        serviceName, revision, sourceClusterId, ex);
+                continue;
+            }
+
+            // 收集当前应用服务的全部接口名称
+            Map<String, Object> serviceMetaDataMap = (Map<String, Object>) metaDataJson
+                    .get(DubboConstants.METADATA_SERVICES_KEY);
+            for (Map.Entry<String, Object> entry : serviceMetaDataMap.entrySet()) {
+                Map<String, Object> serviceMetaData = (Map<String, Object>) entry.getValue();
+                if (serviceMetaData == null) {
+                    continue;
+                }
+                String interfaceName = (String) serviceMetaData.get(DubboConstants.METADATA_NAME_KEY);
+                if (interfaceName == null) {
+                    continue;
+                }
+                interfaceNames.add(interfaceName);
+            }
         }
+    }
+
+    private void collectInterfaceNamesFromMappingMetaData(String serviceName,
+            MappingMetaData metaData, Set<String> interfaceNames) {
         for (MappingItem item : metaData.pageItems) {
             String appNamesContent = item.getContent();
             if (appNamesContent == null) {
@@ -739,6 +763,27 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     }
 
     private MappingMetaData queryMappingMetaData(String sourceClusterId,
+            NamingHttpClientProxy namingHttpClientProxy) {
+        int pageNo = 1;
+        final MappingMetaData metaData = queryMappingMetaDataByPaging(sourceClusterId,
+                namingHttpClientProxy, pageNo, PAGE_SIZE);
+        if (metaData == null) {
+            return null;
+        }
+        MappingMetaData tmpMetaData = metaData;
+        while (tmpMetaData.pageItems.size() >= PAGE_SIZE) {
+            pageNo++;
+            tmpMetaData = queryMappingMetaDataByPaging(sourceClusterId,
+                    namingHttpClientProxy, pageNo, PAGE_SIZE);
+            if (tmpMetaData == null) {
+                break;
+            }
+            metaData.pageItems.addAll(tmpMetaData.pageItems);
+        }
+        return metaData;
+    }
+
+    private MappingMetaData queryMappingMetaDataByPaging(String sourceClusterId,
             NamingHttpClientProxy namingHttpClientProxy, int pageNo, int pageSize) {
         Map<String, String> params = new HashMap<>(GET_MAPPING_CFG_BASE_PARAMS);
         params.put(PAGE_NO_KEY, String.valueOf(pageNo));
