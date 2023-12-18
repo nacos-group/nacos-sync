@@ -62,18 +62,12 @@ fi
 JAVA_OPT="${JAVA_OPT} -jar ${BASE_DIR}/nacos-sync-server.jar"
 JAVA_OPT="${JAVA_OPT} --logging.config=${BASE_DIR}/conf/logback-spring.xml"
 
-echo "JAVA_HOME:"$JAVA_HOME
-echo "BASE_DIR:"$BASE_DIR
-echo "JAVA:"$JAVA
-
-
 if [  ! -d "${BASE_DIR}/logs" ]; then
         mkdir "${BASE_DIR}/logs"
 fi
 
-
 usage(){
-    echo "command error"
+    echo "Usage: $0 {start|run}"
 }
 
 start(){
@@ -84,10 +78,21 @@ echo "nacos-sync is starting，you can check the ${BASE_DIR}/logs/nacos-sync-sta
 
 }
 
+run(){
+
+echo "$JAVA ${JAVA_OPT}"
+$JAVA ${JAVA_OPT}
+echo "nacos-sync is starting"
+
+}
+
 
 case "$ACTION" in
     start)
         start
+    ;;
+    run)
+        run
     ;;
     *)
         usage

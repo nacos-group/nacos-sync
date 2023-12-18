@@ -92,7 +92,8 @@ There are two ways to get NacosSync.
 
 cd nacos-sync/
 mvn clean package -U
-
+# 使用如下命令可构建 docker 镜像
+docker buildx build -t nacos-sync:latest .
 ```
 
 The path to the target file:
@@ -150,6 +151,15 @@ $ nacosSync/bin:
 sh startup.sh  start
 
 ```
+
+## Start Server With Docker
+
+``` bash
+export JAVA_OPT="-Dspring.datasource.url=jdbc:mysql://127.0.0.1:3306/nacos_sync?characterEncoding=utf8 -Dspring.datasource.username=root -Dspring.datasource.password=root"
+docker run -it --rm -e JAVA_OPT=$JAVA_OPT -p8083:8083 nacos-sync:latest
+```
+- 使用上述环境变量 `JAVA_OPT` 可直接配置数据库(可避免修改配置文件.)
+- 镜像 `nacos-sync:latest` 为 “Download & Build From Release” 步骤中构建的镜像.
 
 ## Admin Console
 
