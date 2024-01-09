@@ -16,6 +16,7 @@
  */
 package com.alibaba.nacossync.dao;
 
+import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.pojo.QueryCondition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -116,7 +117,7 @@ public class TaskAccessService implements PageQueryService<TaskDO> {
     }
     
     public List<TaskDO> findServiceNameIsNull() {
-        return taskRepository.findAllByServiceNameEquals("ALL");
+        return taskRepository.findAllByServiceNameEquals(SkyWalkerConstants.ALL);
     }
 
 }
