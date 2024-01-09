@@ -17,15 +17,7 @@
 
 package com.alibaba.nacossync.template.processor;
 
-import com.alibaba.nacos.api.exception.NacosException;
-import com.alibaba.nacos.api.naming.CommonParams;
 import com.alibaba.nacos.api.naming.NamingService;
-import com.alibaba.nacos.client.naming.NacosNamingService;
-import com.alibaba.nacos.client.naming.net.NamingProxy;
-import com.alibaba.nacos.client.naming.utils.UtilAndComs;
-import com.alibaba.nacos.common.utils.HttpMethod;
-import com.alibaba.nacos.common.utils.JacksonUtils;
-import com.alibaba.nacos.common.utils.StringUtils;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.ClusterAccessService;
 import com.alibaba.nacossync.dao.TaskAccessService;
@@ -34,27 +26,18 @@ import com.alibaba.nacossync.extension.SyncManagerService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.pojo.model.ClusterDO;
 import com.alibaba.nacossync.pojo.model.TaskDO;
+import com.alibaba.nacossync.pojo.request.CatalogServiceResult;
 import com.alibaba.nacossync.pojo.request.TaskAddAllRequest;
 import com.alibaba.nacossync.pojo.request.TaskAddRequest;
 import com.alibaba.nacossync.pojo.result.TaskAddResult;
+import com.alibaba.nacossync.pojo.view.ServiceView;
+import com.alibaba.nacossync.service.NacosEnhanceNamingService;
 import com.alibaba.nacossync.template.Processor;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.util.ReflectionUtils;
 
-import javax.annotation.Nullable;
-import java.lang.reflect.Field;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-
-import static com.alibaba.nacossync.constant.SkyWalkerConstants.GROUP_NAME_PARAM;
-import static com.alibaba.nacossync.constant.SkyWalkerConstants.PAGE_NO;
-import static com.alibaba.nacossync.constant.SkyWalkerConstants.PAGE_SIZE;
-import static com.alibaba.nacossync.constant.SkyWalkerConstants.SERVICE_NAME_PARAM;
 
 /**
  * @author NacosSync
@@ -103,7 +86,7 @@ public class TaskAddAllProcessor implements Processor<TaskAddAllRequest, TaskAdd
             throw new SkyWalkerException("only support sync type that the source of the Nacos.");
         }
         
-        final EnhanceNamingService enhanceNamingService = new EnhanceNamingService(sourceNamingService);
+        final NacosEnhanceNamingService enhanceNamingService = new NacosEnhanceNamingService(sourceNamingService);
         final CatalogServiceResult catalogServiceResult = enhanceNamingService.catalogServices(null, null);
         if (catalogServiceResult == null || catalogServiceResult.getCount() <= 0) {
             throw new SkyWalkerException("sourceCluster data empty");
@@ -146,105 +129,7 @@ public class TaskAddAllProcessor implements Processor<TaskAddAllRequest, TaskAdd
         }
         taskAccessService.addTask(taskDO);
     }
-    
-    static class EnhanceNamingService {
-        
-        protected NamingService delegate;
-        
-        protected NamingProxy serverProxy;
-        
-        protected EnhanceNamingService(NamingService namingService) {
-            if (!(namingService instanceof NacosNamingService)) {
-                throw new IllegalArgumentException(
-                        "namingService only support instance of com.alibaba.nacos.client.naming.NacosNamingService.");
-            }
-            this.delegate = namingService;
-            
-            // serverProxy
-            final Field serverProxyField = ReflectionUtils.findField(NacosNamingService.class, "serverProxy");
-            assert serverProxyField != null;
-            ReflectionUtils.makeAccessible(serverProxyField);
-            this.serverProxy = (NamingProxy) ReflectionUtils.getField(serverProxyField, delegate);
-        }
-        
-        public CatalogServiceResult catalogServices(@Nullable String serviceName, @Nullable String group)
-                throws NacosException {
-            int pageNo = 1; // start with 1
-            int pageSize = 100;
-            
-            final CatalogServiceResult result = catalogServices(serviceName, group, pageNo, pageSize);
-            
-            CatalogServiceResult tmpResult = result;
-            
-            while (Objects.nonNull(tmpResult) && tmpResult.serviceList.size() >= pageSize) {
-                pageNo++;
-                tmpResult = catalogServices(serviceName, group, pageNo, pageSize);
-                
-                if (tmpResult != null) {
-                    result.serviceList.addAll(tmpResult.serviceList);
-                }
-            }
-            
-            return result;
-        }
-        
-        /**
-         * @see com.alibaba.nacos.client.naming.core.HostReactor#getServiceInfoDirectlyFromServer(String, String)
-         */
-        public CatalogServiceResult catalogServices(@Nullable String serviceName, @Nullable String group, int pageNo,
-                int pageSize) throws NacosException {
-            
-            // pageNo
-            // pageSize
-            // serviceNameParam
-            // groupNameParam
-            final Map<String, String> params = new HashMap<>(8);
-            params.put(CommonParams.NAMESPACE_ID, serverProxy.getNamespaceId());
-            params.put(SERVICE_NAME_PARAM, serviceName);
-            params.put(GROUP_NAME_PARAM, group);
-            params.put(PAGE_NO, String.valueOf(pageNo));
-            params.put(PAGE_SIZE, String.valueOf(pageSize));
-            
-            final String result = this.serverProxy.reqApi(UtilAndComs.nacosUrlBase + "/catalog/services", params,
-                    HttpMethod.GET);
-            if (StringUtils.isNotEmpty(result)) {
-                return JacksonUtils.toObj(result, CatalogServiceResult.class);
-            }
-            return null;
-        }
-        
-    }
-    
-    /**
-     * Copy from Nacos Server.
-     */
-    @Data
-    static class ServiceView {
-        
-        private String name;
-        
-        private String groupName;
-        
-        private int clusterCount;
-        
-        private int ipCount;
-        
-        private int healthyInstanceCount;
-        
-        private String triggerFlag;
-        
-    }
-    
-    @Data
-    static class CatalogServiceResult {
-        
-        /**
-         * count，not equal serviceList.size .
-         */
-        private int count;
-        
-        private List<ServiceView> serviceList;
-        
-    }
+
+
     
 }
