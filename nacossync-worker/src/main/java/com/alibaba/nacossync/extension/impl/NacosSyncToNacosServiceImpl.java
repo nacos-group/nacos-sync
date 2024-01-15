@@ -35,6 +35,7 @@ import com.alibaba.nacossync.template.processor.TaskUpdateProcessor;
 import com.alibaba.nacossync.timer.FastSyncHelper;
 import com.alibaba.nacossync.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -141,16 +142,21 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                     String operationKey = taskDO.getTaskId() + serviceName;
                     skyWalkerCacheServices.removeFinishedTask(operationKey);
                     allSyncTaskMap.remove(operationKey);
-                    NamingService destNamingService = popNamingService(taskDO);
-                    sourceNamingService.unsubscribe(serviceName, getGroupNameOrDefault(taskDO.getGroupName()),
-                            listenerMap.remove(taskDO.getTaskId() + serviceName));
+                    TaskDO task = new TaskDO();
+                    BeanUtils.copyProperties(taskDO, task);
+                    task.setServiceName(serviceName);
+                    task.setOperationId(taskDO.getTaskId() + serviceName);
+
+                    NamingService destNamingService = popNamingService(task);
+                    sourceNamingService.unsubscribe(serviceName, getGroupNameOrDefault(task.getGroupName()),
+                            listenerMap.remove(task.getTaskId() + serviceName));
                     
                     List<Instance> sourceInstances = sourceNamingService.getAllInstances(serviceName,
-                            getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), false);
+                            getGroupNameOrDefault(task.getGroupName()), new ArrayList<>(), false);
                     for (Instance instance : sourceInstances) {
                         if (needSync(instance.getMetadata())) {
                             destNamingService.deregisterInstance(serviceName,
-                                    getGroupNameOrDefault(taskDO.getGroupName()), instance.getIp(), instance.getPort());
+                                    getGroupNameOrDefault(task.getGroupName()), instance.getIp(), instance.getPort());
                         }
                     }
                 }
