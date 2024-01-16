@@ -146,7 +146,6 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                     BeanUtils.copyProperties(taskDO, task);
                     task.setServiceName(serviceName);
                     task.setOperationId(taskDO.getTaskId() + serviceName);
-
                     NamingService destNamingService = popNamingService(task);
                     sourceNamingService.unsubscribe(serviceName, getGroupNameOrDefault(task.getGroupName()),
                             listenerMap.remove(task.getTaskId() + serviceName));
