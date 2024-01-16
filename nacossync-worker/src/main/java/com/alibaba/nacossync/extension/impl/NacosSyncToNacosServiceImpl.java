@@ -39,12 +39,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -127,7 +122,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         try {
             NamingService sourceNamingService = nacosServerHolder.getSourceNamingService(taskDO.getTaskId(),
                     taskDO.getSourceClusterId());
-            
+            int level = clusterAccessService.findClusterLevel(taskDO.getSourceClusterId());
             if ("ALL".equals(taskDO.getServiceName())) {
                 String operationId = taskUpdateProcessor.getTaskIdAndOperationIdMap(taskDO.getTaskId());
                 if (!StringUtils.isEmpty(operationId)) {
@@ -149,11 +144,18 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                     NamingService destNamingService = popNamingService(task);
                     sourceNamingService.unsubscribe(serviceName, getGroupNameOrDefault(task.getGroupName()),
                             listenerMap.remove(task.getTaskId() + serviceName));
-                    
+                    if (Objects.isNull(destNamingService)) {
+                        log.warn("task {} not found NamingService", task.getTaskId() + serviceName);
+                        continue;
+                    }
                     List<Instance> sourceInstances = sourceNamingService.getAllInstances(serviceName,
                             getGroupNameOrDefault(task.getGroupName()), new ArrayList<>(), false);
                     for (Instance instance : sourceInstances) {
-                        if (needSync(instance.getMetadata())) {
+//                        if (needSync(instance.getMetadata())) {
+//                            destNamingService.deregisterInstance(serviceName,
+//                                    getGroupNameOrDefault(task.getGroupName()), instance.getIp(), instance.getPort());
+//                        }
+                        if (needSync(instance.getMetadata(),level , taskDO.getDestClusterId())){
                             destNamingService.deregisterInstance(serviceName,
                                     getGroupNameOrDefault(task.getGroupName()), instance.getIp(), instance.getPort());
                         }
@@ -174,10 +176,14 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                 
                 NamingService destNamingService = popNamingService(taskDO);
                 for (Instance instance : sourceInstances) {
-                    if (needSync(instance.getMetadata())) {
+                    if (needSync(instance.getMetadata(),level , taskDO.getDestClusterId())){
                         destNamingService.deregisterInstance(taskDO.getServiceName(),
                                 getGroupNameOrDefault(taskDO.getGroupName()), instance);
                     }
+//                    if (needSync(instance.getMetadata())) {
+//                        destNamingService.deregisterInstance(taskDO.getServiceName(),
+//                                getGroupNameOrDefault(taskDO.getGroupName()), instance);
+//                    }
                 }
                 // 移除任务
                 skyWalkerCacheServices.removeFinishedTask(operationId);
