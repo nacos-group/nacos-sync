@@ -382,7 +382,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         if (CollectionUtils.isEmpty(destInstances)) {
             return;
         }
-        deRegisterFilter(destInstances, taskDO.getSourceClusterId());
+        destInstances = deRegisterFilter(destInstances, taskDO.getSourceClusterId());
         if (CollectionUtils.isNotEmpty(destInstances)) {
             //逐个执行反注册,拿出一个实例即可, 需要处理redo，否则会被重新注册上来
             for (Instance destInstance : destInstances) {
@@ -392,7 +392,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         }
     }
     
-    private void deRegisterFilter(List<Instance> destInstances, String sourceClusterId) {
+    private List<Instance> deRegisterFilter(List<Instance> destInstances, String sourceClusterId) {
         List<Instance> newDestInstance = new ArrayList<>();
         for (Instance destInstance : destInstances) {
             Map<String, String> metadata = destInstance.getMetadata();
@@ -402,7 +402,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                 newDestInstance.add(destInstance);
             }
         }
-        destInstances = newDestInstance;
+        return newDestInstance;
     }
     
     private boolean needDeregister(String destClusterId, String sourceClusterId) {
