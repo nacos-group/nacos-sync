@@ -631,6 +631,10 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                     destClusterId, sourceClusterId,
                     destConfigService, sourceConfigService,
                     revisions, interfaceNames);
+            if (interfaceNames.isEmpty()) {
+                //查询源集群mapping获取接口名: provider配置的dubbo.application.metadata-type为local时，默认不登记revision元数据
+                collectInterfaceNamesByQueryMetaData(serviceName, sourceClusterId, interfaceNames);
+            }
         }
         
         //同步接口名与应用名的映射关系
