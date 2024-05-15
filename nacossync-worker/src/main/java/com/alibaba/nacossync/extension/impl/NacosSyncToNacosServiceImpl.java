@@ -35,15 +35,11 @@ import com.alibaba.nacossync.template.processor.TaskUpdateProcessor;
 import com.alibaba.nacossync.timer.FastSyncHelper;
 import com.alibaba.nacossync.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -126,7 +122,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         try {
             NamingService sourceNamingService = nacosServerHolder.getSourceNamingService(taskDO.getTaskId(),
                     taskDO.getSourceClusterId());
-            
+            int level = clusterAccessService.findClusterLevel(taskDO.getSourceClusterId());
             if ("ALL".equals(taskDO.getServiceName())) {
                 String operationId = taskUpdateProcessor.getTaskIdAndOperationIdMap(taskDO.getTaskId());
                 if (!StringUtils.isEmpty(operationId)) {
@@ -141,16 +137,27 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                     String operationKey = taskDO.getTaskId() + serviceName;
                     skyWalkerCacheServices.removeFinishedTask(operationKey);
                     allSyncTaskMap.remove(operationKey);
-                    NamingService destNamingService = popNamingService(taskDO);
-                    sourceNamingService.unsubscribe(serviceName, getGroupNameOrDefault(taskDO.getGroupName()),
-                            listenerMap.remove(taskDO.getTaskId() + serviceName));
-                    
+                    TaskDO task = new TaskDO();
+                    BeanUtils.copyProperties(taskDO, task);
+                    task.setServiceName(serviceName);
+                    task.setOperationId(taskDO.getTaskId() + serviceName);
+                    NamingService destNamingService = popNamingService(task);
+                    sourceNamingService.unsubscribe(serviceName, getGroupNameOrDefault(task.getGroupName()),
+                            listenerMap.remove(task.getTaskId() + serviceName));
+                    if (Objects.isNull(destNamingService)) {
+                        log.warn("task {} not found NamingService", task.getTaskId() + serviceName);
+                        continue;
+                    }
                     List<Instance> sourceInstances = sourceNamingService.getAllInstances(serviceName,
-                            getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), false);
+                            getGroupNameOrDefault(task.getGroupName()), new ArrayList<>(), false);
                     for (Instance instance : sourceInstances) {
-                        if (needSync(instance.getMetadata())) {
+//                        if (needSync(instance.getMetadata())) {
+//                            destNamingService.deregisterInstance(serviceName,
+//                                    getGroupNameOrDefault(task.getGroupName()), instance.getIp(), instance.getPort());
+//                        }
+                        if (needSync(instance.getMetadata(),level , taskDO.getDestClusterId())){
                             destNamingService.deregisterInstance(serviceName,
-                                    getGroupNameOrDefault(taskDO.getGroupName()), instance.getIp(), instance.getPort());
+                                    getGroupNameOrDefault(task.getGroupName()), instance.getIp(), instance.getPort());
                         }
                     }
                 }
@@ -169,10 +176,14 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                 
                 NamingService destNamingService = popNamingService(taskDO);
                 for (Instance instance : sourceInstances) {
-                    if (needSync(instance.getMetadata())) {
+                    if (needSync(instance.getMetadata(),level , taskDO.getDestClusterId())){
                         destNamingService.deregisterInstance(taskDO.getServiceName(),
                                 getGroupNameOrDefault(taskDO.getGroupName()), instance);
                     }
+//                    if (needSync(instance.getMetadata())) {
+//                        destNamingService.deregisterInstance(taskDO.getServiceName(),
+//                                getGroupNameOrDefault(taskDO.getGroupName()), instance);
+//                    }
                 }
                 // 移除任务
                 skyWalkerCacheServices.removeFinishedTask(operationId);
@@ -371,7 +382,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         if (CollectionUtils.isEmpty(destInstances)) {
             return;
         }
-        deRegisterFilter(destInstances, taskDO.getSourceClusterId());
+        destInstances = deRegisterFilter(destInstances, taskDO.getSourceClusterId());
         if (CollectionUtils.isNotEmpty(destInstances)) {
             //逐个执行反注册,拿出一个实例即可, 需要处理redo，否则会被重新注册上来
             for (Instance destInstance : destInstances) {
@@ -381,7 +392,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         }
     }
     
-    private void deRegisterFilter(List<Instance> destInstances, String sourceClusterId) {
+    private List<Instance> deRegisterFilter(List<Instance> destInstances, String sourceClusterId) {
         List<Instance> newDestInstance = new ArrayList<>();
         for (Instance destInstance : destInstances) {
             Map<String, String> metadata = destInstance.getMetadata();
@@ -391,7 +402,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                 newDestInstance.add(destInstance);
             }
         }
-        destInstances = newDestInstance;
+        return newDestInstance;
     }
     
     private boolean needDeregister(String destClusterId, String sourceClusterId) {
