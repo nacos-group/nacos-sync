@@ -44,6 +44,7 @@ import com.alibaba.nacossync.util.DubboConstants;
 import com.alibaba.nacossync.util.StringUtils;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -54,6 +55,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -166,8 +168,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             String taskId = taskDO.getTaskId();
             NamingService sourceNamingService = nacosServerHolder.getSourceNamingService(taskId,
                     taskDO.getSourceClusterId());
-            String groupName = getGroupNameOrDefault(taskDO.getGroupName());
             
+            int level = clusterAccessService.findClusterLevel(taskDO.getSourceClusterId());
             if ("ALL".equals(taskDO.getServiceName())) {
                 String operationId = taskUpdateProcessor.getTaskIdAndOperationIdMap(taskId);
                 if (!StringUtils.isEmpty(operationId)) {
@@ -175,29 +177,37 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                 }
                 
                 //处理group级别的服务任务删除
-                ListView<String> servicesOfServer = sourceNamingService.getServicesOfServer(0, Integer.MAX_VALUE, groupName);
+                ListView<String> servicesOfServer = sourceNamingService.getServicesOfServer(0, Integer.MAX_VALUE,
+                        getGroupNameOrDefault(taskDO.getGroupName()));
                 List<String> serviceNames = servicesOfServer.getData();
                 for (String serviceName : serviceNames) {
                     String operationKey = taskId + serviceName;
                     skyWalkerCacheServices.removeFinishedTask(operationKey);
                     allSyncTaskMap.remove(operationKey);
-                    
-                    sourceNamingService.unsubscribe(serviceName, groupName,
-                            listenerMap.remove(taskId + serviceName));
-                    
+                    TaskDO task = new TaskDO();
+                    BeanUtils.copyProperties(taskDO, task);
+                    task.setServiceName(serviceName);
+                    task.setOperationId(taskDO.getTaskId() + serviceName);
+                    NamingService destNamingService = popNamingService(task);
+                    sourceNamingService.unsubscribe(serviceName, getGroupNameOrDefault(task.getGroupName()),
+                            listenerMap.remove(task.getTaskId() + serviceName));
+                    if (Objects.isNull(destNamingService)) {
+                        log.warn("task {} not found NamingService", task.getTaskId() + serviceName);
+                        continue;
+                    }
                     List<Instance> sourceInstances = sourceNamingService.getAllInstances(serviceName,
-                            groupName, new ArrayList<>(), false);
+                            getGroupNameOrDefault(task.getGroupName()), new ArrayList<>(), false);
                     List<Instance> needDeregisterInstances = new ArrayList<>();
                     for (Instance instance : sourceInstances) {
-                        if (needSync(instance.getMetadata())) {
+                        if (needSync(instance.getMetadata(), level, taskDO.getDestClusterId())) {
                             removeUnwantedAttrsForNacosRedo(instance);
                             log.debug("需要反注册的实例: {}", instance);
                             needDeregisterInstances.add(instance);
                         }
                     }
                     if (CollectionUtils.isNotEmpty(needDeregisterInstances)) {
-                        NamingService destNamingService = popNamingService(taskDO);
-                        doDeregisterInstance(taskDO, destNamingService, serviceName, groupName, needDeregisterInstances);
+                        doDeregisterInstance(taskDO, destNamingService, serviceName,
+                                getGroupNameOrDefault(task.getGroupName()), needDeregisterInstances);
                     }
                 }
             } else {
@@ -208,23 +218,29 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                     return false;
                 }
                 
+                NamingService destNamingService = popNamingService(taskDO);
                 String serviceName = taskDO.getServiceName();
-                sourceNamingService.unsubscribe(serviceName, groupName,
+                sourceNamingService.unsubscribe(serviceName, getGroupNameOrDefault(taskDO.getGroupName()),
                         listenerMap.remove(operationId));
+                if (Objects.isNull(destNamingService)) {
+                    log.warn("task {} not found NamingService", taskId + serviceName);
+                    return false;
+                }
+                
                 List<Instance> sourceInstances = sourceNamingService.getAllInstances(serviceName,
-                        groupName, new ArrayList<>(), false);
+                        getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), false);
                 
                 List<Instance> needDeregisterInstances = new ArrayList<>();
                 for (Instance instance : sourceInstances) {
-                    if (needSync(instance.getMetadata())) {
+                    if (needSync(instance.getMetadata(), level, taskDO.getDestClusterId())){
                         removeUnwantedAttrsForNacosRedo(instance);
                         log.debug("需要反注册的实例: {}", instance);
                         needDeregisterInstances.add(instance);
                     }
                 }
                 if (CollectionUtils.isNotEmpty(needDeregisterInstances)) {
-                    NamingService destNamingService = popNamingService(taskDO);
-                    doDeregisterInstance(taskDO, destNamingService, serviceName, groupName, needDeregisterInstances);
+                    doDeregisterInstance(taskDO, destNamingService, serviceName,
+                            getGroupNameOrDefault(taskDO.getGroupName()), needDeregisterInstances);
                 }
                 // 移除任务
                 skyWalkerCacheServices.removeFinishedTask(operationId);
@@ -494,7 +510,6 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                 needDeregisterInstances.add(destInstance);
             }
         }
-        // fix bug：在方法里对引用对象destInstances赋值并不能改变方法外使用的destInstances
         return needDeregisterInstances;
     }
     
