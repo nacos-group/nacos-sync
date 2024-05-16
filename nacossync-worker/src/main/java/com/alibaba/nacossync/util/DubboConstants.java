@@ -50,6 +50,13 @@ public final class DubboConstants {
     public static final String DUBBO_ROOT_PATH = "/dubbo";
     public static final String ALL_SERVICE_NAME_PATTERN = "*";
 
+    public static final String METADATA_REVISION_KEY = "dubbo.metadata.revision";
+    public static final String METADATA_SERVICES_KEY = "services";
+    public static final String METADATA_MAPPING_KEY = "mapping";
+    public static final String METADATA_NAME_KEY = "name";
+    public static final String METADATA_STORAGE_TYPE_KEY = "dubbo.metadata.storage-type";
+    public static final String METADATA_STORAGE_TYPE_REMOTE = "remote";
+
     /**
      *  if Dubbo version greater than 2.7.2, service name is providers:interface:version:
      *  if Dubbo version less than 2.7.2, service name is providers:interface:version

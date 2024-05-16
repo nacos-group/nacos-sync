@@ -21,9 +21,8 @@ import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.CommonParams;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.client.naming.NacosNamingService;
-import com.alibaba.nacos.client.naming.net.NamingProxy;
+import com.alibaba.nacos.client.naming.remote.http.NamingHttpClientProxy;
 import com.alibaba.nacos.client.naming.utils.UtilAndComs;
-import com.alibaba.nacos.common.utils.HttpMethod;
 import com.alibaba.nacos.common.utils.JacksonUtils;
 import com.alibaba.nacos.common.utils.StringUtils;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
@@ -45,6 +44,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.ReflectionUtils;
 
 import javax.annotation.Nullable;
+import javax.ws.rs.HttpMethod;
+
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.List;
@@ -98,12 +99,14 @@ public class TaskAddAllProcessor implements Processor<TaskAddAllRequest, TaskAdd
             throw new SkyWalkerException("current sync type not supported.");
         }
         // TODO 目前仅支持 Nacos 为源的同步类型，待完善更多类型支持。
-        final NamingService sourceNamingService = nacosServerHolder.get(sourceCluster.getClusterId());
-        if (sourceNamingService == null) {
+        String sourceClusterId = sourceCluster.getClusterId();
+        final NamingService sourceNamingService = nacosServerHolder.get(sourceClusterId);
+        final NamingHttpClientProxy sourceNamingHttpClientProxy = nacosServerHolder.getNamingHttpProxy(sourceClusterId);
+        if (sourceNamingService == null || sourceNamingHttpClientProxy == null) {
             throw new SkyWalkerException("only support sync type that the source of the Nacos.");
         }
         
-        final EnhanceNamingService enhanceNamingService = new EnhanceNamingService(sourceNamingService);
+        final EnhanceNamingService enhanceNamingService = new EnhanceNamingService(sourceNamingService, sourceNamingHttpClientProxy);
         final CatalogServiceResult catalogServiceResult = enhanceNamingService.catalogServices(null, null);
         if (catalogServiceResult == null || catalogServiceResult.getCount() <= 0) {
             throw new SkyWalkerException("sourceCluster data empty");
@@ -151,20 +154,22 @@ public class TaskAddAllProcessor implements Processor<TaskAddAllRequest, TaskAdd
         
         protected NamingService delegate;
         
-        protected NamingProxy serverProxy;
+        protected NamingHttpClientProxy httpClientProxy;
         
-        protected EnhanceNamingService(NamingService namingService) {
+        private final String namespaceId;
+        
+        protected EnhanceNamingService(NamingService namingService, NamingHttpClientProxy namingHttpClientProxy) {
             if (!(namingService instanceof NacosNamingService)) {
                 throw new IllegalArgumentException(
                         "namingService only support instance of com.alibaba.nacos.client.naming.NacosNamingService.");
             }
             this.delegate = namingService;
             
-            // serverProxy
-            final Field serverProxyField = ReflectionUtils.findField(NacosNamingService.class, "serverProxy");
-            assert serverProxyField != null;
-            ReflectionUtils.makeAccessible(serverProxyField);
-            this.serverProxy = (NamingProxy) ReflectionUtils.getField(serverProxyField, delegate);
+            this.httpClientProxy = namingHttpClientProxy;
+            final Field namespaceIdField = ReflectionUtils.findField(NamingHttpClientProxy.class, "namespaceId");
+            assert namespaceIdField != null;
+            ReflectionUtils.makeAccessible(namespaceIdField);
+            this.namespaceId = (String) ReflectionUtils.getField(namespaceIdField, this.httpClientProxy);
         }
         
         public CatalogServiceResult catalogServices(@Nullable String serviceName, @Nullable String group)
@@ -199,13 +204,13 @@ public class TaskAddAllProcessor implements Processor<TaskAddAllRequest, TaskAdd
             // serviceNameParam
             // groupNameParam
             final Map<String, String> params = new HashMap<>(8);
-            params.put(CommonParams.NAMESPACE_ID, serverProxy.getNamespaceId());
+            params.put(CommonParams.NAMESPACE_ID, this.namespaceId);
             params.put(SERVICE_NAME_PARAM, serviceName);
             params.put(GROUP_NAME_PARAM, group);
             params.put(PAGE_NO, String.valueOf(pageNo));
             params.put(PAGE_SIZE, String.valueOf(pageSize));
             
-            final String result = this.serverProxy.reqApi(UtilAndComs.nacosUrlBase + "/catalog/services", params,
+            final String result = this.httpClientProxy.reqApi(UtilAndComs.nacosUrlBase + "/catalog/services", params,
                     HttpMethod.GET);
             if (StringUtils.isNotEmpty(result)) {
                 return JacksonUtils.toObj(result, CatalogServiceResult.class);
