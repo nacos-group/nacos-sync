@@ -107,7 +107,11 @@ public class ClusterAccessService implements PageQueryService<ClusterDO> {
     public int findClusterLevel(String sourceClusterId){
         ClusterDO clusterDO = clusterRepository.findByClusterId(sourceClusterId);
         if (clusterDO != null) {
-            return clusterDO.getClusterLevel();
+            Integer level = clusterDO.getClusterLevel();
+            if (null == level) {
+                return 0;
+            }
+            return level;
         }
         return -1;
     }
