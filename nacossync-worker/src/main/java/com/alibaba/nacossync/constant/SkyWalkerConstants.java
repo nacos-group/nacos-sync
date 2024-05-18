@@ -36,6 +36,6 @@ public class SkyWalkerConstants {
     public static  final String PAGE_NO="pageNo";
     public static  final String PAGE_SIZE="pageSize";
     public static final String SYNC_INSTANCE_TAG="sync.instance.tag";
-    public static final Integer MAX_THREAD_NUM = 200;
+    public static final String NACOS_ALL_SERVICE_NAME = "ALL";
 
 }

@@ -7,5 +7,6 @@ public interface SyncQueryClient {
 
 
     List<TaskModel> getAllInstance(InstanceQueryModel instanceQueryModel);
-
+    
+   
 }

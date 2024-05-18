@@ -1,13 +1,5 @@
 package com.alibaba.nacossync.extension.impl;
 
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
@@ -15,8 +7,6 @@ import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import java.util.List;
-import java.util.Map;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -24,6 +14,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.runners.MockitoJUnitRunner;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * @author paderlol
@@ -55,21 +55,7 @@ public class NacosSyncToNacosServiceImplTest {
         Assert.assertTrue(nacosSyncToNacosService.sync(taskDO,null));
     }
     
-    @Test
-    public void testZookeeperSyncToNacosWithTimeSync() throws Exception {
-        TaskDO taskDO = mock(TaskDO.class);
-        try {
-            nacosSyncToNacosService.timeSync(taskDO);
-        }catch (Exception e) {
-            Assert.assertEquals(e, NacosException.class);
-        }
-    }
     
-    @Test(expected = Exception.class)
-    public void testZookeeperSyncToNacosWithTimeSync2() throws Exception {
-        nacosSyncToNacosService.timeSync(null);
-    }
-
     @Test
     public void testDeleteSyncToNacos() throws Exception {
         TaskDO taskDO = mock(TaskDO.class);

@@ -12,20 +12,22 @@
  */
 package com.alibaba.nacossync.extension;
 
-import static com.alibaba.nacossync.util.SkyWalkerUtil.generateSyncKey;
-
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.pojo.model.TaskDO;
-import java.util.concurrent.ConcurrentHashMap;
+import com.alibaba.nacossync.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Service;
+
+import java.util.concurrent.ConcurrentHashMap;
+
+import static com.alibaba.nacossync.util.SkyWalkerUtil.generateSyncKey;
 
 /**
  * @author NacosSync
@@ -60,11 +62,11 @@ public class SyncManagerService implements InitializingBean, ApplicationContextA
 
     @Override
     public void afterPropertiesSet() {
-        this.applicationContext.getBeansOfType(SyncService.class).forEach((key, value) -> {
+        this.applicationContext.getBeansWithAnnotation(NacosSyncService.class).forEach((key, value) -> {
             NacosSyncService nacosSyncService = value.getClass().getAnnotation(NacosSyncService.class);
             ClusterTypeEnum sourceCluster = nacosSyncService.sourceCluster();
             ClusterTypeEnum destinationCluster = nacosSyncService.destinationCluster();
-            syncServiceMap.put(generateSyncKey(sourceCluster, destinationCluster), value);
+            syncServiceMap.put(generateSyncKey(sourceCluster, destinationCluster), (SyncService) value);
         });
     }
 
@@ -74,7 +76,9 @@ public class SyncManagerService implements InitializingBean, ApplicationContextA
     }
 
     public SyncService getSyncService(String sourceClusterId, String destClusterId) {
-
+        if (StringUtils.isEmpty(sourceClusterId) || StringUtils.isEmpty(destClusterId)) {
+            throw new IllegalArgumentException("Source cluster id and destination cluster id must not be null or empty");
+        }
         ClusterTypeEnum sourceClusterType = this.skyWalkerCacheServices.getClusterType(sourceClusterId);
         ClusterTypeEnum destClusterType = this.skyWalkerCacheServices.getClusterType(destClusterId);
 
