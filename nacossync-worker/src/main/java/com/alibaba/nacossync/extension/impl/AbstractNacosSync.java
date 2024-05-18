@@ -11,11 +11,16 @@ import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
+import com.alibaba.nacossync.util.BatchTaskExecutor;
+import com.google.common.base.Stopwatch;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,63 +43,111 @@ public abstract class AbstractNacosSync implements SyncService {
     private final Map<String, Integer> syncTaskTap = new ConcurrentHashMap<>();
     
     private final ConcurrentHashMap<String, TaskDO> allSyncTaskMap = new ConcurrentHashMap<>();
-    
+    private ScheduledExecutorService executorService;
     @Autowired
     private MetricsManager metricsManager;
     
+    @Getter
     @Autowired
     private NacosServerHolder nacosServerHolder;
     
     
     /**
-     * 因为网络故障等原因，nacos sync的同步任务会失败，导致目标集群注册中心缺少同步实例， 为避免目标集群注册中心长时间缺少同步实例，每隔5分钟启动一个兜底工作线程执行一遍全部的同步任务。
+     * Due to network issues or other reasons, the Nacos Sync synchronization tasks may fail,
+     * resulting in the target cluster's registry missing synchronized instances.
+     * To prevent the target cluster's registry from missing synchronized instances for an extended period,
+     * a fallback worker thread is started every 5 minutes to execute all synchronization tasks.
      */
     @PostConstruct
-    public void startBasicSyncTaskThread() {
-        ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(r -> {
+    public void afterPropertiesSet() {
+        initializeExecutorService();
+        scheduleSyncTasks();
+    }
+    
+    @PreDestroy
+    public void destroy() {
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdown();
+            try {
+                if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+                    executorService.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                executorService.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+    
+    private void initializeExecutorService() {
+        executorService = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r);
             t.setDaemon(true);
             t.setName("com.alibaba.nacossync.basic.synctask");
             return t;
         });
+    }
+    
+    private void scheduleSyncTasks() {
+        executorService.scheduleWithFixedDelay(this::executeSyncTasks, 0, 300, TimeUnit.SECONDS);
+    }
+    
+    private void executeSyncTasks() {
+        if (allSyncTaskMap.isEmpty()) {
+            return;
+        }
         
-        executorService.scheduleWithFixedDelay(() -> {
-            if (allSyncTaskMap.size() == 0) {
-                return;
-            }
-            
-            try {
-                for (TaskDO taskDO : allSyncTaskMap.values()) {
-                    String taskId = taskDO.getTaskId();
-                    NamingService sourceNamingService = nacosServerHolder.get(taskDO.getSourceClusterId());
-                    try {
-                        doSync(taskId, taskDO, sourceNamingService);
-                    } catch (Exception e) {
-                        log.error("basic sync task process fail, taskId:{}", taskId, e);
-                        metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
-                    }
-                }
-            } catch (Throwable e) {
-                log.warn("basic synctask thread error", e);
-            }
-        }, 0, 300, TimeUnit.SECONDS);
+        Collection<TaskDO> taskCollections = allSyncTaskMap.values();
+        List<TaskDO> taskDOList = new ArrayList<>(taskCollections);
+        
+        if (CollectionUtils.isNotEmpty(taskDOList)) {
+            BatchTaskExecutor.batchOperation(taskDOList, this::executeTask);
+        }
+    }
+    
+    private void executeTask(TaskDO task) {
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        String taskId = task.getTaskId();
+        try {
+            NamingService sourceNamingService = nacosServerHolder.get(task.getSourceClusterId());
+            doSync(taskId, task, sourceNamingService);
+        } catch (NacosException e) {
+            log.error("sync task from nacos to nacos failed, taskId:{}", taskId, e);
+            metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
+        } catch (Exception e) {
+            log.error("Unexpected error during sync task, taskId:{}", taskId, e);
+            metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
+        } finally {
+            stopwatch.stop();
+            log.debug("Task execution time for taskId {}: {} ms", taskId, stopwatch.elapsed(TimeUnit.MILLISECONDS));
+        }
     }
     
     @Override
     public boolean delete(TaskDO taskDO) {
+        String taskId = taskDO.getTaskId();
         try {
+            
             NamingService sourceNamingService = nacosServerHolder.get(taskDO.getSourceClusterId());
             //移除订阅
+            EventListener listener = listenerMap.remove(taskId);
+            if (listener!= null) {
+                sourceNamingService.unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()), listener);
+            }
             sourceNamingService.unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
-                    listenerMap.remove(taskDO.getTaskId()));
-            sourceInstanceSnapshot.remove(taskDO.getTaskId());
-            allSyncTaskMap.remove(taskDO.getTaskId());
+                    listenerMap.remove(taskId));
+            sourceInstanceSnapshot.remove(taskId);
+            allSyncTaskMap.remove(taskId);
             
             // 删除目标集群中同步的实例列表
             deregisterInstance(taskDO);
+        }catch (NacosException e) {
+            log.error("Delete task from nacos to specify destination was failed, taskId:{}", taskId, e);
+            metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
+            return false;
         } catch (Exception e) {
-            log.error("delete task from nacos to specify destination was failed, taskId:{}", taskDO.getTaskId(), e);
-            metricsManager.recordError(MetricsStatisticsType.DELETE_ERROR);
+            log.error("Unexpected error during sync task, taskId:{}", taskId, e);
+            metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
             return false;
         }
         return true;
@@ -120,8 +173,12 @@ public abstract class AbstractNacosSync implements SyncService {
             });
             sourceNamingService.subscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
                     listenerMap.get(taskId));
+        }catch (NacosException e) {
+            log.error("Nacos sync task process fail, taskId:{}", taskId, e);
+            metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
+            return false;
         } catch (Exception e) {
-            log.error("sync task from nacos to specify destination was failed, taskId:{}", taskId, e);
+            log.error("Unexpected error during sync task, taskId:{}", taskId, e);
             metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
             return false;
         }
@@ -205,7 +262,4 @@ public abstract class AbstractNacosSync implements SyncService {
     
     public abstract void removeInvalidInstance(TaskDO taskDO, Set<String> invalidInstanceKeys) throws Exception;
     
-    public NacosServerHolder getNacosServerHolder() {
-        return nacosServerHolder;
-    }
 }

@@ -53,7 +53,7 @@ public class ClusterAddProcessor implements Processor<ClusterAddRequest, Cluster
         Object... others) throws Exception {
         ClusterDO clusterDO = new ClusterDO();
 
-        if (null == clusterAddRequest.getConnectKeyList() || 0 == clusterAddRequest.getConnectKeyList().size()) {
+        if (null == clusterAddRequest.getConnectKeyList() || clusterAddRequest.getConnectKeyList().isEmpty()) {
 
             throw new SkyWalkerException("集群列表不能为空！");
         }

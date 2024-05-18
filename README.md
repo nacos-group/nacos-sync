@@ -99,7 +99,7 @@ The path to the target file:
 
 ``` xml
 
-nacos-sync/nacossync-distribution/target/nacos-sync-0.4.8.tar.gz
+nacos-sync/nacossync-distribution/target/nacos-sync-0.5.0.tar.gz
 
 ```
 
@@ -158,3 +158,15 @@ sh startup.sh  start
 http://127.0.0.1:8083/#/serviceSync
 
 ```
+
+## Advanced Configuration
+
+### Full Synchronization from Zookeeper to Nacos (Dubbo)
+When “*” is entered in the “Service Name” field of this form, it will fully synchronize all services from Zookeeper to Nacos, but only when using Dubbo.
+![img_1.png](img_1.png)
+
+### Full Synchronization from Nacos to Nacos
+When “All” is entered in the “Service Name” field of this form, it will automatically synchronize all registered services within the **default group** of the current cluster.
+
+This description explains the functionality clearly for English-speaking users.
+![img_2.png](img_2.png)

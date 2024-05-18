@@ -25,15 +25,16 @@ import com.alibaba.nacossync.pojo.model.ClusterDO;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ThreadLocalRandom;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * @author NacosSync
@@ -48,7 +49,7 @@ public class SkyWalkerCacheServices {
     @Autowired
     private ObjectMapper objectMapper;
 
-    private static Map<String, FinishedTask> finishedTaskMap = new ConcurrentHashMap<>();
+    private static final Map<String, FinishedTask> finishedTaskMap = new ConcurrentHashMap<>();
 
     public String getClusterConnectKey(String clusterId) {
         List<String> allClusterConnectKey = getAllClusterConnectKey(clusterId);
@@ -90,7 +91,7 @@ public class SkyWalkerCacheServices {
 
         String operationId = SkyWalkerUtil.getOperationId(taskDO);
 
-        if (StringUtils.isEmpty(operationId)) {
+        if (StringUtils.hasLength(operationId)) {
             return null;
         }
 
@@ -98,14 +99,14 @@ public class SkyWalkerCacheServices {
     }
     
     public FinishedTask getFinishedTask(String operationId) {
-        if (StringUtils.isEmpty(operationId)) {
+        if (StringUtils.hasLength(operationId)) {
             return null;
         }
         return finishedTaskMap.get(operationId);
     }
     
     public FinishedTask removeFinishedTask(String operationId) {
-        if (StringUtils.isEmpty(operationId)) {
+        if (StringUtils.hasLength(operationId)) {
             return null;
         }
         return finishedTaskMap.remove(operationId);

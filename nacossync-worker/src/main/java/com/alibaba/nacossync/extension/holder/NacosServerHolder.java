@@ -13,24 +13,19 @@
 package com.alibaba.nacossync.extension.holder;
 
 import com.alibaba.nacos.api.PropertyKeyConst;
-import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingFactory;
 import com.alibaba.nacos.api.naming.NamingService;
-import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.dao.ClusterAccessService;
-import com.alibaba.nacossync.dao.TaskAccessService;
 import com.alibaba.nacossync.pojo.model.ClusterDO;
-import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.base.Joiner;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.util.Strings;
+import org.springframework.stereotype.Service;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.logging.log4j.util.Strings;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
 /**
  * @author paderlol
@@ -42,29 +37,16 @@ public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
 
     private final ClusterAccessService clusterAccessService;
     
-    private final TaskAccessService taskAccessService;
-    
-    private static ConcurrentHashMap<String,NamingService> globalNameService = new ConcurrentHashMap<>(16);
-
-    public NacosServerHolder(ClusterAccessService clusterAccessService, TaskAccessService taskAccessService) {
+    public NacosServerHolder(ClusterAccessService clusterAccessService) {
         this.clusterAccessService = clusterAccessService;
-        this.taskAccessService = taskAccessService;
     }
 
     @Override
     NamingService createServer(String clusterId, Supplier<String> serverAddressSupplier)
         throws Exception {
-        String newClusterId;
-        if (clusterId.contains(":")) {
-            String[] split = clusterId.split(":");
-            newClusterId = split[1];
-        } else {
-            newClusterId = clusterId;
-        }
-        //代表此时为组合key，确定target集群中的nameService是不同的
         List<String> allClusterConnectKey = skyWalkerCacheServices
-            .getAllClusterConnectKey(newClusterId);
-        ClusterDO clusterDO = clusterAccessService.findByClusterId(newClusterId);
+            .getAllClusterConnectKey(clusterId);
+        ClusterDO clusterDO = clusterAccessService.findByClusterId(clusterId);
         String serverList = Joiner.on(",").join(allClusterConnectKey);
         Properties properties = new Properties();
         properties.setProperty(PropertyKeyConst.SERVER_ADDR, serverList);
@@ -77,51 +59,7 @@ public class NacosServerHolder extends AbstractServerHolderImpl<NamingService> {
         Optional.ofNullable(clusterDO.getPassword()).ifPresent(value ->
             properties.setProperty(PropertyKeyConst.PASSWORD, value)
         );
-        NamingService namingService = NamingFactory.createNamingService(properties);
-        globalNameService.put(clusterId,namingService);
-        return namingService;
+        return NamingFactory.createNamingService(properties);
     }
     
-    /**
-     * Get NamingService for different clients
-     * @param clusterId clusterId
-     * @return Returns Naming Service objects for different clusters
-     */
-    public NamingService getNameService(String clusterId){
-        return globalNameService.get(clusterId);
-    }
-    
-    public NamingService getSourceNamingService(String taskId, String sourceClusterId) {
-        String key = taskId + sourceClusterId;
-        return serviceMap.computeIfAbsent(key, k->{
-            try {
-                log.info("Starting create source cluster server, key={}", key);
-                //代表此时为组合key，确定target集群中的nameService是不同的
-                List<String> allClusterConnectKey = skyWalkerCacheServices
-                        .getAllClusterConnectKey(sourceClusterId);
-                ClusterDO clusterDO = clusterAccessService.findByClusterId(sourceClusterId);
-                TaskDO task = taskAccessService.findByTaskId(taskId);
-                String serverList = Joiner.on(",").join(allClusterConnectKey);
-                Properties properties = new Properties();
-                properties.setProperty(PropertyKeyConst.SERVER_ADDR, serverList);
-                properties.setProperty(PropertyKeyConst.NAMESPACE, Optional.ofNullable(clusterDO.getNamespace()).orElse(
-                        Strings.EMPTY));
-                Optional.ofNullable(clusterDO.getUserName()).ifPresent(value ->
-                        properties.setProperty(PropertyKeyConst.USERNAME, value)
-                );
-        
-                Optional.ofNullable(clusterDO.getPassword()).ifPresent(value ->
-                        properties.setProperty(PropertyKeyConst.PASSWORD, value)
-                );
-                properties.setProperty(SkyWalkerConstants.SOURCE_CLUSTERID_KEY,task.getSourceClusterId());
-                properties.setProperty(SkyWalkerConstants.DEST_CLUSTERID_KEY,task.getDestClusterId());
-                return NamingFactory.createNamingService(properties);
-            }catch (NacosException e) {
-                log.error("start source server fail,taskId:{},sourceClusterId:{}"
-                        , taskId, sourceClusterId, e);
-                return null;
-            }
-        });
-        
-    }
 }
