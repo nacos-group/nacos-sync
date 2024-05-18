@@ -22,7 +22,6 @@ import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.TaskAccessService;
 import com.alibaba.nacossync.event.DeleteTaskEvent;
 import com.alibaba.nacossync.event.SyncTaskEvent;
-import com.alibaba.nacossync.extension.SyncManagerService;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
@@ -32,6 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -59,12 +59,6 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
     
     @Autowired
     private NacosServerHolder nacosServerHolder;
-    
-    @Autowired
-    private SyncManagerService syncManagerService;
-    
-    @Autowired
-    private FastSyncHelper fastSyncHelper;
 
     @Override
     public void run(String... args) {
@@ -72,8 +66,8 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
         scheduledExecutorService.scheduleWithFixedDelay(new CheckRunningStatusThread(), 0, 3000,
                 TimeUnit.MILLISECONDS);
         
-        scheduledExecutorService.scheduleWithFixedDelay(new CheckRunningStatusAllThread(metricsManager,skyWalkerCacheServices,
-                taskAccessService,eventBus, nacosServerHolder, fastSyncHelper), 0, 3000,
+        scheduledExecutorService.scheduleWithFixedDelay(new CheckRunningStatusAllNacosThread(metricsManager,
+                taskAccessService, nacosServerHolder, eventBus), 0, 3000,
                 TimeUnit.MILLISECONDS);
     }
 
@@ -85,7 +79,7 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
             Long start = System.currentTimeMillis();
             try {
 
-                Iterable<TaskDO> taskDOS = taskAccessService.findAll();
+                List<TaskDO> taskDOS = taskAccessService.findAllByServiceNameNotEqualAll();
 
                 taskDOS.forEach(taskDO -> {
 

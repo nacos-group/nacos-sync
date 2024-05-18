@@ -13,18 +13,19 @@
 package com.alibaba.nacossync.extension.holder;
 
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * @author paderlol
  * @date 2018-12-24 22:08
  */
 @Slf4j
-public abstract class AbstractServerHolderImpl<T> implements Holder {
+public abstract class AbstractServerHolderImpl<T> implements Holder<T> {
 
     protected final Map<String, T> serviceMap = new ConcurrentHashMap<>();
     

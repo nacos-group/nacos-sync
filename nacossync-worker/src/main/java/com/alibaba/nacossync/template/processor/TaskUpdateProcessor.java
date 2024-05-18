@@ -16,22 +16,17 @@
  */
 package com.alibaba.nacossync.template.processor;
 
-import com.alibaba.nacossync.util.SkyWalkerUtil;
-import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.TaskAccessService;
 import com.alibaba.nacossync.exception.SkyWalkerException;
-import com.alibaba.nacossync.pojo.result.BaseResult;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskUpdateRequest;
+import com.alibaba.nacossync.pojo.result.BaseResult;
 import com.alibaba.nacossync.template.Processor;
-
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import com.alibaba.nacossync.util.SkyWalkerUtil;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 /**
  * @author NacosSync
@@ -43,8 +38,6 @@ public class TaskUpdateProcessor implements Processor<TaskUpdateRequest, BaseRes
     @Autowired
     private TaskAccessService taskAccessService;
     
-    private Map<String,String> taskIdAndOperationIdMap = new ConcurrentHashMap<>();
-
     @Override
     public void process(TaskUpdateRequest taskUpdateRequest, BaseResult baseResult,
                         Object... others) throws Exception {
@@ -63,15 +56,12 @@ public class TaskUpdateProcessor implements Processor<TaskUpdateRequest, BaseRes
         }
         
         taskDO.setTaskStatus(taskUpdateRequest.getTaskStatus());
-        //在id生成之前保存好操作id，可以在删除操作里面进行
-        taskIdAndOperationIdMap.put(taskDO.getTaskId(),taskDO.getOperationId());
+       
         
         taskDO.setOperationId(SkyWalkerUtil.generateOperationId());
 
         taskAccessService.addTask(taskDO);
     }
     
-    public String getTaskIdAndOperationIdMap(String taskId) {
-        return taskIdAndOperationIdMap.remove(taskId);
-    }
+    
 }

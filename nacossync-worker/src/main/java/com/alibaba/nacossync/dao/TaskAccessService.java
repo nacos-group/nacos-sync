@@ -16,6 +16,7 @@
  */
 package com.alibaba.nacossync.dao;
 
+import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.pojo.QueryCondition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -60,7 +61,7 @@ public class TaskAccessService implements PageQueryService<TaskDO> {
      */
     public void deleteTaskInBatch(List<String> taskIds) {
     	List<TaskDO> tds=taskRepository.findAllByTaskIdIn(taskIds);
-        taskRepository.deleteInBatch(tds);
+        taskRepository.deleteAllInBatch(tds);
     }
 
     public Iterable<TaskDO> findAll() {
@@ -115,8 +116,12 @@ public class TaskAccessService implements PageQueryService<TaskDO> {
                 }, pageable);
     }
     
-    public List<TaskDO> findServiceNameIsNull() {
-        return taskRepository.findAllByServiceNameEquals("ALL");
+    public List<TaskDO> findAllByServiceNameEqualAll() {
+        return taskRepository.findAllByServiceNameEqualsIgnoreCase(SkyWalkerConstants.NACOS_ALL_SERVICE_NAME);
+    }
+    
+    public List<TaskDO> findAllByServiceNameNotEqualAll() {
+        return taskRepository.findAllByServiceNameNotIgnoreCase(SkyWalkerConstants.NACOS_ALL_SERVICE_NAME);
     }
 
 }
