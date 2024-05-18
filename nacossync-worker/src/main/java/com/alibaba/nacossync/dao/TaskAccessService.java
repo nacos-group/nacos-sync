@@ -122,7 +122,6 @@ public class TaskAccessService implements PageQueryService<TaskDO> {
     
     public List<TaskDO> findAllByServiceNameNotEqualAll() {
         return taskRepository.findAllByServiceNameNotIgnoreCase(SkyWalkerConstants.NACOS_ALL_SERVICE_NAME);
-
     }
 
 }

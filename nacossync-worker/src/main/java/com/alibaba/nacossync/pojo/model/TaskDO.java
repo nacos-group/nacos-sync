@@ -71,5 +71,4 @@ public class TaskDO implements Serializable {
      */
     private String operationId;
     
-
 }

@@ -70,10 +70,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-        </dependency>
         <!--nacos-->
         <dependency>
             <groupId>com.alibaba.nacos</groupId>
@@ -170,7 +166,6 @@
                 <configuration>
                     <source>11</source>
                     <target>11</target>
-
                 </configuration>
             </plugin>
         </plugins>

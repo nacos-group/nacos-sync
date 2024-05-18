@@ -28,9 +28,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 /**
  * @author NacosSync
  * @version $Id: TaskUpdateProcessor.java, v 0.1 2018-10-17 PM11:11 NacosSync Exp $$
@@ -41,7 +38,6 @@ public class TaskUpdateProcessor implements Processor<TaskUpdateRequest, BaseRes
     @Autowired
     private TaskAccessService taskAccessService;
     
-
     @Override
     public void process(TaskUpdateRequest taskUpdateRequest, BaseResult baseResult,
                         Object... others) throws Exception {
@@ -60,11 +56,12 @@ public class TaskUpdateProcessor implements Processor<TaskUpdateRequest, BaseRes
         }
         
         taskDO.setTaskStatus(taskUpdateRequest.getTaskStatus());
-
+       
+        
         taskDO.setOperationId(SkyWalkerUtil.generateOperationId());
 
         taskAccessService.addTask(taskDO);
     }
     
-
+    
 }
