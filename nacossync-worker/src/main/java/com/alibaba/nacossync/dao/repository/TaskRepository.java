@@ -48,4 +48,5 @@ public interface TaskRepository extends CrudRepository<TaskDO, Integer>, JpaRepo
     List<TaskDO> findAllByServiceNameEqualsIgnoreCase(String serviceName);
     List<TaskDO> findAllByServiceNameNotIgnoreCase(String serviceName);
 
+
 }

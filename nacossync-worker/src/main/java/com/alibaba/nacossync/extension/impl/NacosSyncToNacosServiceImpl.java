@@ -35,7 +35,6 @@ import com.google.common.base.Stopwatch;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -60,9 +59,11 @@ import static com.alibaba.nacossync.util.NacosUtils.getGroupNameOrDefault;
 public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBean, DisposableBean {
     
     private final Map<String, EventListener> listenerMap = new ConcurrentHashMap<>();
+
     
     private final Map<String, Integer> syncTaskTap = new ConcurrentHashMap<>();
     
+
     private final ConcurrentHashMap<String, TaskDO> allSyncTaskMap = new ConcurrentHashMap<>();
     
     private ScheduledExecutorService executorService;
@@ -91,6 +92,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
      */
     @Override
     public void afterPropertiesSet() {
+
         initializeExecutorService();
         scheduleSyncTasks();
     }
@@ -153,6 +155,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             stopwatch.stop();
             log.debug("Task execution time for taskId {}: {} ms", taskId, stopwatch.elapsed(TimeUnit.MILLISECONDS));
         }
+        return true;
     }
     
     @Override
@@ -188,10 +191,12 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             log.error("delete task from nacos to nacos was failed, operationalId:{}", taskDO.getOperationId(), e);
             metricsManager.recordError(MetricsStatisticsType.DELETE_ERROR);
             return false;
+
         }
         return true;
     }
     
+
     @Override
     public boolean sync(TaskDO taskDO, Integer index) {
         log.info("Thread {} started synchronization at {}", Thread.currentThread().getId(), System.currentTimeMillis());
@@ -340,6 +345,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         return new ArrayList<>(needRegisterClone.values());
     }
    
+
     
     private boolean hasSync(Instance instance, String sourceClusterId) {
         if (instance.getMetadata() != null) {
@@ -351,6 +357,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     
     
     /**
+
      * When the number of instances that the source cluster needs to synchronize is 0,
      * if the target cluster still has instances synchronized with the source cluster,
      * perform unregistration.
@@ -359,6 +366,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
      * @throws NacosException
      */
     private void processDeRegisterInstances(TaskDO taskDO, NamingService destNamingService) throws NacosException {
+      
         // If the instances in sourceInstances are empty, it means the instances are offline or do not exist.
         List<Instance> destInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
                 getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), false);
@@ -401,6 +409,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         return !destClusterId.equals(sourceMetaData.get(SOURCE_CLUSTERID_KEY));
     }
     
+
     
     private Instance buildSyncInstance(Instance instance, TaskDO taskDO) {
         Instance temp = getInstance(instance);
@@ -426,6 +435,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         temp.setWeight(instance.getWeight());
         temp.setEphemeral(instance.isEphemeral());
         Map<String, String> metaData = new HashMap<>(instance.getMetadata());
+
         temp.setMetadata(metaData);
         return temp;
     }

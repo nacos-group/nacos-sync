@@ -69,8 +69,9 @@ import static com.alibaba.nacossync.util.StringUtils.parseQueryString;
 @NacosSyncService(sourceCluster = ClusterTypeEnum.ZK, destinationCluster = ClusterTypeEnum.NACOS)
 public class ZookeeperSyncToNacosServiceImpl implements SyncService {
     
+
     private static final String DEFAULT_WEIGHT = "1.0";
-    
+
     @Autowired
     private MetricsManager metricsManager;
     
@@ -107,7 +108,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
             if (!initializeTreeCache(taskDO)) {
                 return false;
             }
-            
+
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
             if (destNamingService == null) {
                 logAndRecordSyncError("Failed to obtain NamingService for destination clusterId: {}", taskDO.getDestClusterId(), null);
@@ -115,7 +116,9 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
             }
             // 初次执行任务统一注册所有实例
             registerAllInstances(taskDO, destNamingService);
+
             setupListener(taskDO, destNamingService);
+
         } catch (Exception e) {
             log.error("sync task from Zookeeper to Nacos was failed, taskId:{}", taskDO.getTaskId(), e);
             metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
@@ -123,23 +126,28 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         }
         return true;
     }
+
     private boolean initializeTreeCache(TaskDO taskDO) {
         TreeCache treeCache = getTreeCache(taskDO);
         if (treeCache == null) {
             logAndRecordSyncError("Failed to obtain TreeCache for taskId: {}", taskDO.getTaskId(), null);
             return false;
+
         }
         return true;
     }
+
     private void logAndRecordSyncError(String message, String taskId, Exception e) {
         if (e != null) {
             log.error(message, taskId, e);
+
         } else {
             log.error(message, taskId);
         }
         metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
     }
     
+
     private void setupListener(TaskDO taskDO, NamingService destNamingService) {
         TreeCache treeCache = Objects.requireNonNull(getTreeCache(taskDO));
         treeCache.getListenable().addListener((client, event) -> {
@@ -160,8 +168,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         });
     }
     
-    
-    
+
     public boolean delete(TaskDO taskDO) {
         if (taskDO.getServiceName() == null) {
             return true;
@@ -170,6 +177,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         CloseableUtils.closeQuietly(treeCacheMap.get(taskDO.getTaskId()));
         
         try {
+
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
             if (destNamingService == null) {
                 log.error("Failed to obtain NamingService for destination clusterId: {}", taskDO.getDestClusterId());
@@ -188,6 +196,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         return true;
     }
     
+
     private Set<String> getServiceNamesToDelete(TaskDO taskDO) {
         if (!ALL_SERVICE_NAME_PATTERN.equals(taskDO.getServiceName())) {
             return new HashSet<>(Collections.singleton(taskDO.getServiceName()));
@@ -213,7 +222,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
             }
         }
     }
-    
+
     /**
      * fetch the Path cache when the task sync
      */
@@ -237,6 +246,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
      * and service name.
      */
     protected boolean isMatch(TaskDO taskDO, Map<String, String> queryParam) {
+
         return isVersionMatch(taskDO, queryParam) &&
                 isGroupMatch(taskDO, queryParam) &&
                 isServiceMatch(taskDO, queryParam) ||
@@ -260,6 +270,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
     }
     
     
+
     /**
      * Builds a synchronized Nacos instance from Zookeeper data.
      *
@@ -294,10 +305,12 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         metaData.put(PROTOCOL_KEY, ipAndPortMap.get(PROTOCOL_KEY));
         metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY, skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
+
         metaData.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
         return metaData;
     }
     
+
     private void processEvent(TaskDO taskDO, NamingService destNamingService, TreeCacheEvent event, String path,
             Map<String, String> queryParam) throws NacosException {
         if (!com.alibaba.nacossync.util.StringUtils.isDubboProviderPath(path)) {
@@ -364,8 +377,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
             }
         }
     }
-    
-    
+
     /**
      * cteate Dubbo service name
      *

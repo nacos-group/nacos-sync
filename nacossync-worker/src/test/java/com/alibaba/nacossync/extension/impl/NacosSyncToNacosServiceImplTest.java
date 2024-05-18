@@ -1,5 +1,6 @@
 package com.alibaba.nacossync.extension.impl;
 
+
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
@@ -53,6 +54,7 @@ public class NacosSyncToNacosServiceImplTest {
         mockSync(taskDO);
         // TODO Test the core logic in the future
         Assert.assertTrue(nacosSyncToNacosService.sync(taskDO,null));
+
     }
     
     
