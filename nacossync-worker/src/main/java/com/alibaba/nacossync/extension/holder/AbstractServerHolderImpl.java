@@ -28,6 +28,7 @@ import java.util.function.Supplier;
 public abstract class AbstractServerHolderImpl<T> implements Holder<T> {
     
     private final Map<String, T> serviceMap = new ConcurrentHashMap<>();
+
     
     @Autowired
     protected SkyWalkerCacheServices skyWalkerCacheServices;

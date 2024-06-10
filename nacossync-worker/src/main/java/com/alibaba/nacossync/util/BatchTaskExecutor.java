@@ -46,7 +46,7 @@ public class BatchTaskExecutor {
 
         log.debug("Total sync tasks: {}, Execution time: {} ms", items.size(), stopwatch.elapsed(TimeUnit.MILLISECONDS));
     }
-    
+
     
     /**
      * // Divide a list into n sublists, mainly implemented by offset
