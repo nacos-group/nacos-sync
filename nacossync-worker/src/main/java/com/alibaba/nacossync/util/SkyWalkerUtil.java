@@ -23,10 +23,10 @@ import com.alibaba.nacossync.pojo.request.ClusterAddRequest;
 import com.alibaba.nacossync.pojo.request.TaskAddRequest;
 import com.google.common.base.Joiner;
 
-import java.io.UnsupportedEncodingException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Enumeration;
@@ -37,33 +37,27 @@ import java.util.UUID;
 * @version $Id: SkyWalkerUtil.java, v 0.1 2018-09-26 AM12:10 NacosSync Exp $$
 */
 public class SkyWalkerUtil {
-
+    
+    private static final String SEPARATOR = ":";
+    
     /**
      *
      * Gets the string md5
-     * @param value
-     * @return
+     * @param value The string to be encrypted
+     * @return The encrypted string
      */
     public static String StringToMd5(String value) {
-        {
-            try {
-                MessageDigest md5 = MessageDigest.getInstance("MD5");
-                md5.update(value.getBytes("UTF-8"));
-                byte[] encryption = md5.digest();
-                StringBuffer strBuf = new StringBuffer();
-                for (int i = 0; i < encryption.length; i++) {
-                    if (Integer.toHexString(0xff & encryption[i]).length() == 1) {
-                        strBuf.append("0").append(Integer.toHexString(0xff & encryption[i]));
-                    } else {
-                        strBuf.append(Integer.toHexString(0xff & encryption[i]));
-                    }
-                }
-                return strBuf.toString();
-            } catch (NoSuchAlgorithmException e) {
-                return "";
-            } catch (UnsupportedEncodingException e) {
-                return "";
+        try {
+            MessageDigest md5 = MessageDigest.getInstance("MD5");
+            md5.update(value.getBytes(StandardCharsets.UTF_8));
+            byte[] encryption = md5.digest();
+            StringBuilder strBuf = new StringBuilder();
+            for (byte b : encryption) {
+                strBuf.append(String.format("%02x", b));
             }
+            return strBuf.toString();
+        } catch (NoSuchAlgorithmException e) {
+            return "";
         }
     }
 
@@ -141,7 +135,7 @@ public class SkyWalkerUtil {
 
     public static String generateSyncKey(ClusterTypeEnum sourceClusterType, ClusterTypeEnum destClusterType) {
 
-        return Joiner.on(":").join(sourceClusterType.getCode(), destClusterType.getCode());
+        return Joiner.on(SEPARATOR).join(sourceClusterType.getCode(), destClusterType.getCode());
     }
 
     public static String getOperationId(TaskDO taskDO) {
@@ -153,4 +147,8 @@ public class SkyWalkerUtil {
 
         return UUID.randomUUID().toString();
     }
+    
+    
+    
+    
 }

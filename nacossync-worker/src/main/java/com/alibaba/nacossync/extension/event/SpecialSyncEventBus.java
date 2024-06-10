@@ -25,7 +25,7 @@ import java.util.function.Consumer;
  */
 @Service
 public class SpecialSyncEventBus {
-    private ConcurrentHashMap<String, SpecialSyncEvent> specialSyncEventRegistry = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, SpecialSyncEvent> specialSyncEventRegistry = new ConcurrentHashMap<>();
 
     public void subscribe(TaskDO taskDO, Consumer<TaskDO> syncAction) {
         SpecialSyncEvent specialSyncEvent = new SpecialSyncEvent();
