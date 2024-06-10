@@ -26,8 +26,8 @@ import java.util.function.Supplier;
  */
 @Slf4j
 public abstract class AbstractServerHolderImpl<T> implements Holder<T> {
-
-    protected final Map<String, T> serviceMap = new ConcurrentHashMap<>();
+    
+    private final Map<String, T> serviceMap = new ConcurrentHashMap<>();
     
     @Autowired
     protected SkyWalkerCacheServices skyWalkerCacheServices;
