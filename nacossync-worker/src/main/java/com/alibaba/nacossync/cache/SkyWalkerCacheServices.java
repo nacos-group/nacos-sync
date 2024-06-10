@@ -42,18 +42,17 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 @Service
 public class SkyWalkerCacheServices {
-
+    
+    private static final Map<String, FinishedTask> finishedTaskMap = new ConcurrentHashMap<>();
+    
     @Autowired
     private ClusterAccessService clusterAccessService;
 
     @Autowired
     private ObjectMapper objectMapper;
 
-    private static final Map<String, FinishedTask> finishedTaskMap = new ConcurrentHashMap<>();
-
     public String getClusterConnectKey(String clusterId) {
         List<String> allClusterConnectKey = getAllClusterConnectKey(clusterId);
-
         return allClusterConnectKey.get(ThreadLocalRandom.current().nextInt(allClusterConnectKey.size()));
     }
 

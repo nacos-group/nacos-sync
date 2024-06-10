@@ -141,11 +141,11 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
                             getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
                         Set<String> newInstanceUrlSet = getWaitingToAddInstance(taskDO, client, sourceInstances);
 
-                        // 获取之前的备份 删除无效实例
+                        // fetch the instance backup
                         deleteInvalidInstances(taskDO, client, newInstanceUrlSet);
-                        // 替换当前备份为最新备份
+                        // replace the instance backup
                         instanceBackupMap.put(taskDO.getTaskId(), newInstanceUrlSet);
-                        // 尝试恢复因为zk客户端意外断开导致的实例数据
+                        // try to compensate for the removed instance
                         tryToCompensate(taskDO, sourceNamingService, sourceInstances);
                     } catch (Exception e) {
                         log.error("event process fail, taskId:{}", taskDO.getTaskId(), e);
@@ -249,10 +249,10 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
 
 
     /**
-     * 获取zk path child 监听缓存类
+     * fetch zk path cache
      *
-     * @param taskDO 任务对象
-     * @return zk节点操作缓存对象
+     * @param taskDO task instance
+     * @return zk path cache
      */
     private PathChildrenCache getPathCache(TaskDO taskDO) {
         return pathChildrenCacheMap.computeIfAbsent(taskDO.getTaskId(), (key) -> {

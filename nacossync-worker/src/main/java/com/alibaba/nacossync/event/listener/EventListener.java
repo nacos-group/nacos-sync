@@ -22,6 +22,7 @@ import com.alibaba.nacossync.event.DeleteTaskEvent;
 import com.alibaba.nacossync.event.SyncTaskEvent;
 import com.alibaba.nacossync.extension.SyncManagerService;
 import com.alibaba.nacossync.monitor.MetricsManager;
+import com.google.common.base.Stopwatch;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import lombok.extern.slf4j.Slf4j;
@@ -76,10 +77,10 @@ public class EventListener {
     public void listenerDeleteTaskEvent(DeleteTaskEvent deleteTaskEvent) {
 
         try {
-            long start = System.currentTimeMillis();
+            Stopwatch stopwatch = Stopwatch.createStarted();
             if (syncManagerService.delete(deleteTaskEvent.getTaskDO())) {
                 skyWalkerCacheServices.removeFinishedTask(deleteTaskEvent.getTaskDO().getOperationId());
-                metricsManager.record(MetricsStatisticsType.DELETE_TASK_RT, System.currentTimeMillis() - start);
+                metricsManager.record(MetricsStatisticsType.DELETE_TASK_RT, stopwatch.elapsed().toMillis());
             } else {
                 log.warn("listenerDeleteTaskEvent delete failure");
             }                

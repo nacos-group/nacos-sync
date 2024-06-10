@@ -44,6 +44,8 @@ import java.util.stream.Collectors;
 public class NacosSyncToConsulServiceImpl extends AbstractNacosSync {
     
     
+    private static final String DELIMITER = "=";
+    
     private final SkyWalkerCacheServices skyWalkerCacheServices;
     
     private final ConsulServerHolder consulServerHolder;
@@ -57,7 +59,7 @@ public class NacosSyncToConsulServiceImpl extends AbstractNacosSync {
     
     @Override
     public String composeInstanceKey(String ip, int port) {
-        return ip + ":" + port;
+        return String.join(":", ip, String.valueOf(port));
     }
     
     @Override
@@ -76,7 +78,7 @@ public class NacosSyncToConsulServiceImpl extends AbstractNacosSync {
             
             if (needDelete(ConsulUtils.transferMetadata(healthService.getService().getTags()), taskDO)) {
                 consulClient.agentServiceDeregister(
-                        URLEncoder.encode(healthService.getService().getId(), StandardCharsets.UTF_8.name()));
+                        URLEncoder.encode(healthService.getService().getId(), StandardCharsets.UTF_8));
             }
         }
     }
@@ -94,7 +96,7 @@ public class NacosSyncToConsulServiceImpl extends AbstractNacosSync {
                     && !invalidInstanceKeys.contains(composeInstanceKey(healthService.getService().getAddress(),
                     healthService.getService().getPort()))) {
                 consulClient.agentServiceDeregister(
-                        URLEncoder.encode(healthService.getService().getId(), StandardCharsets.UTF_8.toString()));
+                        URLEncoder.encode(healthService.getService().getId(), StandardCharsets.UTF_8));
             }
         }
     }
@@ -107,11 +109,11 @@ public class NacosSyncToConsulServiceImpl extends AbstractNacosSync {
         newService.setId(instance.getInstanceId());
         List<String> tags = Lists.newArrayList();
         tags.addAll(instance.getMetadata().entrySet().stream()
-                .map(entry -> String.join("=", entry.getKey(), entry.getValue())).collect(Collectors.toList()));
-        tags.add(String.join("=", SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId()));
-        tags.add(String.join("=", SkyWalkerConstants.SYNC_SOURCE_KEY,
+                .map(entry -> String.join(DELIMITER, entry.getKey(), entry.getValue())).collect(Collectors.toList()));
+        tags.add(String.join(DELIMITER, SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId()));
+        tags.add(String.join(DELIMITER, SkyWalkerConstants.SYNC_SOURCE_KEY,
                 skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode()));
-        tags.add(String.join("=", SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId()));
+        tags.add(String.join(DELIMITER, SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId()));
         newService.setTags(tags);
         return newService;
     }

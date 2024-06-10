@@ -355,7 +355,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
      * if the target cluster still has instances synchronized with the source cluster,
      * perform unregistration.
      *
-     * @param destNamingService
+     * @param destNamingService Destination cluster naming service
      * @throws NacosException
      */
     private void processDeRegisterInstances(TaskDO taskDO, NamingService destNamingService) throws NacosException {
