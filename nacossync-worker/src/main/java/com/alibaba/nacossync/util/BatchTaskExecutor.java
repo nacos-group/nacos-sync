@@ -47,12 +47,13 @@ public class BatchTaskExecutor {
         log.debug("Total sync tasks: {}, Execution time: {} ms", items.size(), stopwatch.elapsed(TimeUnit.MILLISECONDS));
     }
 
+    
     /**
-     * 将一个List均分成n个list, 主要通过偏移量来实现的
-     *
-     * @param source 源集合
-     * @param limit  最大值
-     * @return 均分后的列表
+     * // Divide a list into n sublists, mainly implemented by offset
+     * @param source collection to be divided
+     * @param limit  maximum value
+     * @return list after division
+     * @param <T> object type
      */
     private static <T> List<Tuple<Integer, List<T>>> averageAssign(List<T> source, int limit) {
         if (CollectionUtils.isEmpty(source)) {

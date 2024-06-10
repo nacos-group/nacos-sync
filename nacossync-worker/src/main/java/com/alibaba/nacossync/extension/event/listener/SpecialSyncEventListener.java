@@ -21,7 +21,6 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -34,9 +33,12 @@ import java.util.function.Consumer;
 @Service
 @Slf4j
 public class SpecialSyncEventListener {
-    @Autowired
-    private EventBus eventBus;
-
+    private final EventBus eventBus;
+    
+    public SpecialSyncEventListener(EventBus eventBus) {
+        this.eventBus = eventBus;
+    }
+    
     @PostConstruct
     public void init() {
         eventBus.register(this);
