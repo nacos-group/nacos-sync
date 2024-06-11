@@ -117,13 +117,14 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
 
     private void cleanAllOldInstance(TaskDO taskDO, NamingService destNamingService, Set<String> instanceKeys)
         throws NacosException {
-        List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName());
+        String groupName = NacosUtils.getGroupNameOrDefault(taskDO.getGroupName());
+        List<Instance> allInstances = destNamingService.getAllInstances(taskDO.getServiceName(), groupName);
         for (Instance instance : allInstances) {
             if (needDelete(instance.getMetadata(), taskDO)
                 && !instanceKeys.contains(composeInstanceKey(instance.getIp(), instance.getPort()))) {
 
                 destNamingService.deregisterInstance(taskDO.getServiceName(),
-                    NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()), instance.getIp(), instance.getPort());
+                        groupName, instance.getIp(), instance.getPort());
             }
         }
     }
