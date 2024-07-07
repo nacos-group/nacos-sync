@@ -84,10 +84,18 @@ echo "nacos-sync is starting，you can check the ${BASE_DIR}/logs/nacos-sync-sta
 
 }
 
+start_hung(){
+echo "$JAVA ${JAVA_OPT}" > ${BASE_DIR}/logs/nacos-sync-start.out 2>&1 &
+$JAVA ${JAVA_OPT}
+}
+
 
 case "$ACTION" in
     start)
         start
+    ;;
+    start_hup)
+        start_hung
     ;;
     *)
         usage
