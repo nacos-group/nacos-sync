@@ -76,7 +76,7 @@ docker run -it --rm -eSERVER_PORT=${YOUR_CUSTOM_PORT} \
      -e "DATASOURCE_URL=jdbc:mysql://127.0.0.1:3306/nacos_sync?characterEncoding=utf8" \
      -e DATASOURCE_USERNAME=${YOUR_USER_NAME} \
      -e DATASOURCE_PASSWORD=${YOUR_PASSWORD}  \
-     nacos-sync
+     nacos/nacos-sync
 ```
 
 ### Supported Envs
