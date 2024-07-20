@@ -16,46 +16,23 @@
  */
 package com.alibaba.nacossync.constant;
 
+import lombok.Getter;
+
 /**
  * @author NacosSync
  * @version $Id: ResultCodeEnum.java, v 0.1 2018-09-25 PM4:38 NacosSync Exp $$
  */
+@Getter
 public enum ResultCodeEnum {
     
     SUCCESS("SUCCESS", "请求成功", "请求成功"),
     SYSTEM_ERROR("SYSTEM_ERROR", "系统异常", "系统异常");
 
-    private String code;
-    private String errorMessage;
-    private String detail;
-
+    private final String code;
+    
     ResultCodeEnum(String code, String errorMessage, String detail) {
         this.code = code;
-        this.errorMessage = errorMessage;
-        this.detail = detail;
     }
-
-    public String getCode() {
-        return code;
-    }
-
-    public void setCode(String code) {
-        this.code = code;
-    }
-
-    public String getErrorMessage() {
-        return errorMessage;
-    }
-
-    public void setErrorMessage(String errorMessage) {
-        this.errorMessage = errorMessage;
-    }
-
-    public String getDetail() {
-        return detail;
-    }
-
-    public void setDetail(String detail) {
-        this.detail = detail;
-    }
+    
+    
 }

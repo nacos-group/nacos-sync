@@ -7,14 +7,16 @@ import com.alibaba.nacossync.extension.client.InstanceQueryModel;
 import com.alibaba.nacossync.extension.client.SyncQueryClient;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.pojo.view.TaskModel;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @Slf4j
+@Deprecated
 public class NacosSyncQueryClientImpl implements SyncQueryClient {
 
     private final NacosServerHolder nacosServerHolder;

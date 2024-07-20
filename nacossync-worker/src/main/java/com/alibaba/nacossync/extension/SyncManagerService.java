@@ -39,7 +39,7 @@ public class SyncManagerService implements InitializingBean, ApplicationContextA
 
     protected final SkyWalkerCacheServices skyWalkerCacheServices;
 
-    private ConcurrentHashMap<String, SyncService> syncServiceMap = new ConcurrentHashMap<String, SyncService>();
+    private final ConcurrentHashMap<String, SyncService> syncServiceMap = new ConcurrentHashMap<String, SyncService>();
 
     private ApplicationContext applicationContext;
 

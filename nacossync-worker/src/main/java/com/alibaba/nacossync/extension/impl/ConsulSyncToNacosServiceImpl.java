@@ -32,13 +32,13 @@ import com.ecwid.consul.v1.ConsulClient;
 import com.ecwid.consul.v1.QueryParams;
 import com.ecwid.consul.v1.Response;
 import com.ecwid.consul.v1.health.model.HealthService;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Consul 同步 Nacos
@@ -50,8 +50,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 @NacosSyncService(sourceCluster = ClusterTypeEnum.CONSUL, destinationCluster = ClusterTypeEnum.NACOS)
 public class ConsulSyncToNacosServiceImpl implements SyncService {
 
-    @Autowired
-    private MetricsManager metricsManager;
+    private final MetricsManager metricsManager;
 
     private final ConsulServerHolder consulServerHolder;
     private final SkyWalkerCacheServices skyWalkerCacheServices;
@@ -60,14 +59,15 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
 
     private final SpecialSyncEventBus specialSyncEventBus;
 
-    @Autowired
+    
     public ConsulSyncToNacosServiceImpl(ConsulServerHolder consulServerHolder,
         SkyWalkerCacheServices skyWalkerCacheServices, NacosServerHolder nacosServerHolder,
-        SpecialSyncEventBus specialSyncEventBus) {
+        SpecialSyncEventBus specialSyncEventBus, MetricsManager metricsManager) {
         this.consulServerHolder = consulServerHolder;
         this.skyWalkerCacheServices = skyWalkerCacheServices;
         this.nacosServerHolder = nacosServerHolder;
         this.specialSyncEventBus = specialSyncEventBus;
+        this.metricsManager = metricsManager;
     }
 
     @Override
@@ -146,10 +146,10 @@ public class ConsulSyncToNacosServiceImpl implements SyncService {
         temp.setIp(instance.getService().getAddress());
         temp.setPort(instance.getService().getPort());
         Map<String, String> metaData = new HashMap<>(ConsulUtils.transferMetadata(instance.getService().getTags()));
-        metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
+        metaData.put(SkyWalkerConstants.DEST_CLUSTER_ID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
             skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
-        metaData.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
+        metaData.put(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY, taskDO.getSourceClusterId());
         temp.setMetadata(metaData);
         return temp;
     }
