@@ -17,17 +17,15 @@
 package com.alibaba.nacossync.dao;
 
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
+import com.alibaba.nacossync.dao.repository.TaskRepository;
 import com.alibaba.nacossync.pojo.QueryCondition;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.alibaba.nacossync.pojo.model.TaskDO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-
-import com.alibaba.nacossync.dao.repository.TaskRepository;
-import com.alibaba.nacossync.pojo.model.TaskDO;
 
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.Predicate;
@@ -42,9 +40,12 @@ import java.util.List;
 @Service
 public class TaskAccessService implements PageQueryService<TaskDO> {
 
-    @Autowired
-    private TaskRepository taskRepository;
-
+    private final TaskRepository taskRepository;
+    
+    public TaskAccessService(TaskRepository taskRepository) {
+        this.taskRepository = taskRepository;
+    }
+    
     public TaskDO findByTaskId(String taskId) {
 
         return taskRepository.findByTaskId(taskId);

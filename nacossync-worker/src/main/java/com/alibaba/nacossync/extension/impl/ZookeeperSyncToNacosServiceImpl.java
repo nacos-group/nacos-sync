@@ -32,7 +32,6 @@ import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.cache.TreeCache;
 import org.apache.curator.framework.recipes.cache.TreeCacheEvent;
 import org.apache.curator.utils.CloseableUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -71,18 +70,17 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
     
     private static final String DEFAULT_WEIGHT = "1.0";
     
-    @Autowired
-    private MetricsManager metricsManager;
+    private final MetricsManager metricsManager;
     
     /**
      * Listener cache of Zookeeper format taskId -> PathChildrenCache instance
      */
-    private Map<String, TreeCache> treeCacheMap = new ConcurrentHashMap<>();
+    private final Map<String, TreeCache> treeCacheMap = new ConcurrentHashMap<>();
     
     /**
      * service name cache
      */
-    private Map<String, String> nacosServiceNameMap = new ConcurrentHashMap<>();
+    private final Map<String, String> nacosServiceNameMap = new ConcurrentHashMap<>();
     
     private final ZookeeperServerHolder zookeeperServerHolder;
     
@@ -90,12 +88,14 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
     
     private final SkyWalkerCacheServices skyWalkerCacheServices;
     
-    @Autowired
+   
     public ZookeeperSyncToNacosServiceImpl(ZookeeperServerHolder zookeeperServerHolder,
-            NacosServerHolder nacosServerHolder, SkyWalkerCacheServices skyWalkerCacheServices) {
+            NacosServerHolder nacosServerHolder, SkyWalkerCacheServices skyWalkerCacheServices,
+            MetricsManager metricsManager) {
         this.zookeeperServerHolder = zookeeperServerHolder;
         this.nacosServerHolder = nacosServerHolder;
         this.skyWalkerCacheServices = skyWalkerCacheServices;
+        this.metricsManager = metricsManager;
     }
     
     @Override
@@ -292,9 +292,9 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
     private Map<String, String> buildMetadata(Map<String, String> queryParam, Map<String, String> ipAndPortMap, TaskDO taskDO) {
         Map<String, String> metaData = new HashMap<>(queryParam);
         metaData.put(PROTOCOL_KEY, ipAndPortMap.get(PROTOCOL_KEY));
-        metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
+        metaData.put(SkyWalkerConstants.DEST_CLUSTER_ID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY, skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
-        metaData.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
+        metaData.put(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY, taskDO.getSourceClusterId());
         return metaData;
     }
     

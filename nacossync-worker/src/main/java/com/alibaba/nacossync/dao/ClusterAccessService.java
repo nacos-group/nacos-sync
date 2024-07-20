@@ -16,19 +16,16 @@
  */
 package com.alibaba.nacossync.dao;
 
+import com.alibaba.nacossync.dao.repository.ClusterRepository;
 import com.alibaba.nacossync.pojo.QueryCondition;
+import com.alibaba.nacossync.pojo.model.ClusterDO;
 import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-
-import com.alibaba.nacossync.dao.repository.ClusterRepository;
-import com.alibaba.nacossync.pojo.model.ClusterDO;
 
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.Predicate;
@@ -44,9 +41,12 @@ import java.util.List;
 @Slf4j
 public class ClusterAccessService implements PageQueryService<ClusterDO> {
 
-    @Autowired
-    private ClusterRepository clusterRepository;
-
+    private final ClusterRepository clusterRepository;
+    
+    public ClusterAccessService(ClusterRepository clusterRepository) {
+        this.clusterRepository = clusterRepository;
+    }
+    
     public ClusterDO insert(ClusterDO clusterDO) {
 
         return clusterRepository.save(clusterDO);

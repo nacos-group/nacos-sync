@@ -90,7 +90,7 @@ public class NacosSyncToNacosServiceImplTest {
         doReturn(sourceNamingService).when(nacosServerHolder).get(anyString());
         doNothing().when(sourceNamingService).unsubscribe(any(), any());
         Map<String, String> metadata = Maps.newHashMap();
-        metadata.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, TEST_SOURCE_CLUSTER_ID);
+        metadata.put(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY, TEST_SOURCE_CLUSTER_ID);
         List<Instance> allInstances = Lists.newArrayList(instance);
         doReturn(allInstances).when(sourceNamingService).getAllInstances(anyString());
         doReturn(metadata).when(instance).getMetadata();

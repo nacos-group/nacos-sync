@@ -3,6 +3,7 @@ package com.alibaba.nacossync.extension.client;
 import lombok.Data;
 
 @Data
+@Deprecated
 public class InstanceQueryModel {
 
     private String sourceClusterId;

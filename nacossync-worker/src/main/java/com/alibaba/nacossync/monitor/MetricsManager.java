@@ -23,15 +23,19 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class MetricsManager implements CommandLineRunner {
 
-    @Autowired
-    private SkyWalkerCacheServices skyWalkerCacheServices;
+    private final SkyWalkerCacheServices skyWalkerCacheServices;
 
-    @Autowired
-    private ClusterAccessService clusterAccessService;
+    private final ClusterAccessService clusterAccessService;
 
-    @Autowired
-    private TaskAccessService taskAccessService;
-
+    private final TaskAccessService taskAccessService;
+    
+    public MetricsManager(SkyWalkerCacheServices skyWalkerCacheServices, ClusterAccessService clusterAccessService,
+            TaskAccessService taskAccessService) {
+        this.skyWalkerCacheServices = skyWalkerCacheServices;
+        this.clusterAccessService = clusterAccessService;
+        this.taskAccessService = taskAccessService;
+    }
+    
     /**
      * Callback used to run the bean.
      *

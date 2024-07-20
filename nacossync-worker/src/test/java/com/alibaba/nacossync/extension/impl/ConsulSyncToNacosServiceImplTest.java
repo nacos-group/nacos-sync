@@ -91,7 +91,7 @@ public class ConsulSyncToNacosServiceImplTest {
     public void mockSync(TaskDO taskDO) throws Exception {
         Instance instance = mock(Instance.class);
         Map<String, String> metadata = Maps.newHashMap();
-        metadata.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, TEST_SOURCE_CLUSTER_ID);
+        metadata.put(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY, TEST_SOURCE_CLUSTER_ID);
         HealthService healthServiceUp = buildHealthService(TEST_INSTANCE_ADDRESS, 8080, Maps.newHashMap());
         HealthService healthServiceDown = buildHealthService(TEST_INSTANCE_ADDRESS, 8081, metadata);
         List<HealthService> healthServiceList = Lists.newArrayList(healthServiceUp, healthServiceDown);
@@ -129,7 +129,7 @@ public class ConsulSyncToNacosServiceImplTest {
         when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
         doReturn(destNamingService).when(nacosServerHolder).get(anyString());
         Map<String, String> metadata = Maps.newHashMap();
-        metadata.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, TEST_SOURCE_CLUSTER_ID);
+        metadata.put(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY, TEST_SOURCE_CLUSTER_ID);
         List<Instance> allInstances = Lists.newArrayList(instance);
         doReturn(allInstances).when(destNamingService).getAllInstances(anyString());
         doReturn(metadata).when(instance).getMetadata();

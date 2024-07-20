@@ -44,14 +44,18 @@ import com.alibaba.nacossync.template.processor.ConfigQueryProcessor;
 @RestController
 public class SystemConfigApi {
     
-    @Autowired
-    private ConfigQueryProcessor configQueryProcessor;
+    private final ConfigQueryProcessor configQueryProcessor;
     
-    @Autowired
-    private ConfigDeleteProcessor configDeleteProcessor;
+    private final ConfigDeleteProcessor configDeleteProcessor;
     
-    @Autowired
-    private ConfigAddProcessor configAddProcessor;
+    private final ConfigAddProcessor configAddProcessor;
+    
+    public SystemConfigApi(ConfigQueryProcessor configQueryProcessor, ConfigDeleteProcessor configDeleteProcessor,
+            ConfigAddProcessor configAddProcessor) {
+        this.configQueryProcessor = configQueryProcessor;
+        this.configDeleteProcessor = configDeleteProcessor;
+        this.configAddProcessor = configAddProcessor;
+    }
     
     @RequestMapping(path = "/v1/systemconfig/list", method = RequestMethod.GET)
     public ConfigQueryResult tasks(ConfigQueryRequest configQueryRequest) {
