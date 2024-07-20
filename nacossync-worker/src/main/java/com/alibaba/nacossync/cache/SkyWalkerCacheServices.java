@@ -90,7 +90,7 @@ public class SkyWalkerCacheServices {
 
         String operationId = SkyWalkerUtil.getOperationId(taskDO);
 
-        if (StringUtils.hasLength(operationId)) {
+        if (!StringUtils.hasLength(operationId)) {
             return null;
         }
 
@@ -98,14 +98,14 @@ public class SkyWalkerCacheServices {
     }
     
     public FinishedTask getFinishedTask(String operationId) {
-        if (StringUtils.hasLength(operationId)) {
+        if (!StringUtils.hasLength(operationId)) {
             return null;
         }
         return finishedTaskMap.get(operationId);
     }
     
     public FinishedTask removeFinishedTask(String operationId) {
-        if (StringUtils.hasLength(operationId)) {
+        if (!StringUtils.hasLength(operationId)) {
             return null;
         }
         return finishedTaskMap.remove(operationId);
