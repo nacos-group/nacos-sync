@@ -17,9 +17,9 @@
 package com.alibaba.nacossync.pojo.request;
 
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
-import java.util.List;
-
 import lombok.Data;
+
+import java.util.List;
 
 /**
  * @author NacosSync

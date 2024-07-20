@@ -16,15 +16,27 @@
  */
 package com.alibaba.nacossync.pojo.model;
 
-import javax.persistence.*;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
 
-import lombok.Data;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+import java.util.Objects;
 
 /**
  * @author NacosSync
  * @version $Id: SystemConfig.java, v 0.1 2018-09-26 上午1:48 NacosSync Exp $$
  */
-@Data
+@Getter
+@Setter
+@ToString
+@RequiredArgsConstructor
 @Entity
 @Table(name = "system_config")
 public class SystemConfigDO {
@@ -34,5 +46,31 @@ public class SystemConfigDO {
     private String  configKey;
     private String  configValue;
     private String  configDesc;
-
+    
+    @Override
+    public final boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass =
+                o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                        : o.getClass();
+        Class<?> thisEffectiveClass =
+                this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer()
+                        .getPersistentClass() : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
+        SystemConfigDO that = (SystemConfigDO) o;
+        return getId() != null && Objects.equals(getId(), that.getId());
+    }
+    
+    @Override
+    public final int hashCode() {
+        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer()
+                .getPersistentClass().hashCode() : getClass().hashCode();
+    }
 }

@@ -42,8 +42,6 @@ public interface TaskRepository extends CrudRepository<TaskDO, Integer>, JpaRepo
     
     /**
      * query service is all，use ns leven sync data
-     * @param serviceName
-     * @return
      */
     List<TaskDO> findAllByServiceNameEqualsIgnoreCase(String serviceName);
     List<TaskDO> findAllByServiceNameNotIgnoreCase(String serviceName);

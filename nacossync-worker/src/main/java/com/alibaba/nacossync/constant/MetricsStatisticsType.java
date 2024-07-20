@@ -3,10 +3,13 @@
  */
 package com.alibaba.nacossync.constant;
 
+import lombok.Getter;
+
 /**
  * @author NacosSync
  * @version $Id: MetricsStatisticsType.java, v 0.1 2019年02月28日 下午2:17 NacosSync Exp $
  */
+@Getter
 public enum MetricsStatisticsType {
 
     CACHE_SIZE("nacosSync.finished.taskMap.cacheSize", "任务执行完成缓存列表数"),
@@ -28,15 +31,10 @@ public enum MetricsStatisticsType {
     /**
      * metricsName
      */
-    private String metricsName;
-    private String desc;
+    private final String metricsName;
 
     MetricsStatisticsType(String code, String desc) {
         this.metricsName = code;
-        this.desc = desc;
     }
-
-    public String getMetricsName() {
-        return metricsName;
-    }
+    
 }

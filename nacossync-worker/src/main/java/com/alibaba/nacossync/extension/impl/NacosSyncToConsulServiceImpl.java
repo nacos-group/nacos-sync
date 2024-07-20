@@ -110,10 +110,10 @@ public class NacosSyncToConsulServiceImpl extends AbstractNacosSync {
         List<String> tags = Lists.newArrayList();
         tags.addAll(instance.getMetadata().entrySet().stream()
                 .map(entry -> String.join(DELIMITER, entry.getKey(), entry.getValue())).collect(Collectors.toList()));
-        tags.add(String.join(DELIMITER, SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId()));
+        tags.add(String.join(DELIMITER, SkyWalkerConstants.DEST_CLUSTER_ID_KEY, taskDO.getDestClusterId()));
         tags.add(String.join(DELIMITER, SkyWalkerConstants.SYNC_SOURCE_KEY,
                 skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode()));
-        tags.add(String.join(DELIMITER, SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId()));
+        tags.add(String.join(DELIMITER, SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY, taskDO.getSourceClusterId()));
         newService.setTags(tags);
         return newService;
     }

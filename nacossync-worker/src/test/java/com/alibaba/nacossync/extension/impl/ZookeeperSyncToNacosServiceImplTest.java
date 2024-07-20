@@ -107,7 +107,7 @@ public class ZookeeperSyncToNacosServiceImplTest {
         doNothing().when(treeCache).close();
         Instance instance = mock(Instance.class);
         Map<String, String> metadata = Maps.newHashMap();
-        metadata.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, TEST_SOURCE_CLUSTER_ID);
+        metadata.put(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY, TEST_SOURCE_CLUSTER_ID);
         List<Instance> allInstances = Lists.newArrayList(instance);
 
         doReturn(allInstances).when(destNamingService).getAllInstances(anyString());

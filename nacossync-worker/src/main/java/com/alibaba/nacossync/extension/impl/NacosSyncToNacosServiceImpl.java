@@ -47,7 +47,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.alibaba.nacossync.constant.SkyWalkerConstants.SOURCE_CLUSTERID_KEY;
+import static com.alibaba.nacossync.constant.SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY;
 import static com.alibaba.nacossync.util.NacosUtils.getGroupNameOrDefault;
 
 /**
@@ -343,7 +343,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     
     private boolean hasSync(Instance instance, String sourceClusterId) {
         if (instance.getMetadata() != null) {
-            String sourceClusterKey = instance.getMetadata().get(SkyWalkerConstants.SOURCE_CLUSTERID_KEY);
+            String sourceClusterKey = instance.getMetadata().get(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY);
             return sourceClusterKey != null && sourceClusterKey.equals(sourceClusterId);
         }
         return false;
@@ -379,7 +379,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     
     private List<Instance> filterInstancesForRemoval(List<Instance> destInstances, String sourceClusterId) {
         return destInstances.stream().filter(instance -> !instance.getMetadata().isEmpty())
-                .filter(instance -> needDeregister(instance.getMetadata().get(SOURCE_CLUSTERID_KEY), sourceClusterId))
+                .filter(instance -> needDeregister(instance.getMetadata().get(SOURCE_CLUSTER_ID_KEY), sourceClusterId))
                 .collect(Collectors.toList());
         
     }
@@ -398,16 +398,16 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         }
         // Central cluster, as long as the instance is not from the target cluster,
         // it needs to be synchronized (extended functionality)
-        return !destClusterId.equals(sourceMetaData.get(SOURCE_CLUSTERID_KEY));
+        return !destClusterId.equals(sourceMetaData.get(SOURCE_CLUSTER_ID_KEY));
     }
     
     
     private Instance buildSyncInstance(Instance instance, TaskDO taskDO) {
         Instance temp = getInstance(instance);
-        temp.addMetadata(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
+        temp.addMetadata(SkyWalkerConstants.DEST_CLUSTER_ID_KEY, taskDO.getDestClusterId());
         temp.addMetadata(SkyWalkerConstants.SYNC_SOURCE_KEY,
                 skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
-        temp.addMetadata(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
+        temp.addMetadata(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY, taskDO.getSourceClusterId());
         //The flag is a synchronous instance
         temp.addMetadata(SkyWalkerConstants.SYNC_INSTANCE_TAG,
                 taskDO.getSourceClusterId() + "@@" + taskDO.getVersion());

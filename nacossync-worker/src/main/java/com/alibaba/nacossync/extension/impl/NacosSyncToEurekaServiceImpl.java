@@ -95,10 +95,10 @@ public class NacosSyncToEurekaServiceImpl extends AbstractNacosSync {
         DataCenterInfo dataCenterInfo = new MyDataCenterInfo(DataCenterInfo.Name.MyOwn);
         final Map<String, String> instanceMetadata = instance.getMetadata();
         HashMap<String, String> metadata = new HashMap<>(16);
-        metadata.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
+        metadata.put(SkyWalkerConstants.DEST_CLUSTER_ID_KEY, taskDO.getDestClusterId());
         metadata.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
                 skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
-        metadata.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
+        metadata.put(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY, taskDO.getSourceClusterId());
         metadata.putAll(instanceMetadata);
         String homePageUrl = obtainHomePageUrl(instance, instanceMetadata);
         String serviceName = taskDO.getServiceName();

@@ -26,8 +26,8 @@ import java.util.Objects;
  * @date 2019-06-26
  */
 public class EurekaNamingService {
-    private EurekaHttpClient eurekaHttpClient;
-    private EurekaBeatReactor beatReactor;
+    private final EurekaHttpClient eurekaHttpClient;
+    private final EurekaBeatReactor beatReactor;
 
 
     public EurekaNamingService(EurekaHttpClient eurekaHttpClient) {

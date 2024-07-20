@@ -111,7 +111,7 @@ public class EurekaSyncToNacosServiceImplTest {
         List<InstanceInfo> eurekaInstances = Lists.newArrayList();
         doReturn(eurekaInstances).when(eurekaNamingService).getApplications(anyString());
         Map<String, String> metadata = Maps.newHashMap();
-        metadata.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, TEST_SOURCE_CLUSTER_ID);
+        metadata.put(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY, TEST_SOURCE_CLUSTER_ID);
         List<Instance> allInstances = Lists.newArrayList(instance);
         doReturn(allInstances).when(destNamingService).getAllInstances(anyString());
         doReturn(metadata).when(instance).getMetadata();

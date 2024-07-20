@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacossync.event.listener;
 
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
@@ -26,7 +27,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -38,54 +38,59 @@ import javax.annotation.PostConstruct;
 @Slf4j
 @Service
 public class EventListener {
-
-    @Autowired
-    private MetricsManager metricsManager;
-
-    @Autowired
-    private SyncManagerService syncManagerService;
-
-    @Autowired
-    private EventBus eventBus;
-
-    @Autowired
-    private SkyWalkerCacheServices skyWalkerCacheServices;
-
+    
+    private final MetricsManager metricsManager;
+    
+    private final SyncManagerService syncManagerService;
+    
+    private final EventBus eventBus;
+    
+    private final SkyWalkerCacheServices skyWalkerCacheServices;
+    
+    public EventListener(MetricsManager metricsManager, SyncManagerService syncManagerService, EventBus eventBus,
+            SkyWalkerCacheServices skyWalkerCacheServices) {
+        this.metricsManager = metricsManager;
+        this.syncManagerService = syncManagerService;
+        this.eventBus = eventBus;
+        this.skyWalkerCacheServices = skyWalkerCacheServices;
+    }
+    
     @PostConstruct
     public void register() {
         eventBus.register(this);
     }
-
+    
     @Subscribe
-    public void listenerSyncTaskEvent(SyncTaskEvent syncTaskEvent) {
-
+    public void sync(SyncTaskEvent syncTaskEvent) {
+        
         try {
-            long start = System.currentTimeMillis();
+            
+            Stopwatch stopwatch = Stopwatch.createStarted();
             if (syncManagerService.sync(syncTaskEvent.getTaskDO(), null)) {
                 skyWalkerCacheServices.addFinishedTask(syncTaskEvent.getTaskDO());
-                metricsManager.record(MetricsStatisticsType.SYNC_TASK_RT, System.currentTimeMillis() - start);
+                metricsManager.record(MetricsStatisticsType.SYNC_TASK_RT, stopwatch.elapsed().toMillis());
             } else {
-                log.warn("listenerSyncTaskEvent sync failure");
-            }                
+                log.warn("syncTaskEvent process error");
+            }
         } catch (Exception e) {
-            log.warn("listenerSyncTaskEvent process error", e);
+            log.warn("syncTaskEvent process error", e);
         }
-
+        
     }
-
+    
     @Subscribe
-    public void listenerDeleteTaskEvent(DeleteTaskEvent deleteTaskEvent) {
-
+    public void delete(DeleteTaskEvent deleteTaskEvent) {
+        
         try {
             Stopwatch stopwatch = Stopwatch.createStarted();
             if (syncManagerService.delete(deleteTaskEvent.getTaskDO())) {
                 skyWalkerCacheServices.removeFinishedTask(deleteTaskEvent.getTaskDO().getOperationId());
                 metricsManager.record(MetricsStatisticsType.DELETE_TASK_RT, stopwatch.elapsed().toMillis());
             } else {
-                log.warn("listenerDeleteTaskEvent delete failure");
-            }                
+                log.warn("deleteTaskEvent delete failure");
+            }
         } catch (Exception e) {
-            log.warn("listenerDeleteTaskEvent process error", e);
+            log.warn("deleteTaskEvent delete failure.", e);
         }
     }
 }

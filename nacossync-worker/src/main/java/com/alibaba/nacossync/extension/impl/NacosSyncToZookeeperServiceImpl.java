@@ -35,7 +35,6 @@ import org.apache.curator.framework.recipes.cache.PathChildrenCache;
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
 import org.apache.curator.utils.CloseableUtils;
 import org.apache.zookeeper.CreateMode;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
@@ -60,8 +59,7 @@ import static com.alibaba.nacossync.util.StringUtils.convertDubboProvidersPath;
 @NacosSyncService(sourceCluster = ClusterTypeEnum.NACOS, destinationCluster = ClusterTypeEnum.ZK)
 public class NacosSyncToZookeeperServiceImpl implements SyncService {
 
-    @Autowired
-    private MetricsManager metricsManager;
+    private final MetricsManager metricsManager;
 
     /**
      * @description The Nacos listener map.
@@ -93,12 +91,13 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
 
     private final ZookeeperServerHolder zookeeperServerHolder;
 
-    @Autowired
+  
     public NacosSyncToZookeeperServiceImpl(SkyWalkerCacheServices skyWalkerCacheServices,
-        NacosServerHolder nacosServerHolder, ZookeeperServerHolder zookeeperServerHolder) {
+        NacosServerHolder nacosServerHolder, ZookeeperServerHolder zookeeperServerHolder, MetricsManager metricsManager) {
         this.skyWalkerCacheServices = skyWalkerCacheServices;
         this.nacosServerHolder = nacosServerHolder;
         this.zookeeperServerHolder = zookeeperServerHolder;
+        this.metricsManager = metricsManager;
     }
 
     @Override
@@ -236,10 +235,10 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
 
     protected String buildSyncInstance(Instance instance, TaskDO taskDO) throws UnsupportedEncodingException {
         Map<String, String> metaData = new HashMap<>(instance.getMetadata());
-        metaData.put(SkyWalkerConstants.DEST_CLUSTERID_KEY, taskDO.getDestClusterId());
+        metaData.put(SkyWalkerConstants.DEST_CLUSTER_ID_KEY, taskDO.getDestClusterId());
         metaData.put(SkyWalkerConstants.SYNC_SOURCE_KEY,
             skyWalkerCacheServices.getClusterType(taskDO.getSourceClusterId()).getCode());
-        metaData.put(SkyWalkerConstants.SOURCE_CLUSTERID_KEY, taskDO.getSourceClusterId());
+        metaData.put(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY, taskDO.getSourceClusterId());
 
         String servicePath = monitorPath.computeIfAbsent(taskDO.getTaskId(),
             key -> convertDubboProvidersPath(metaData.get(DubboConstants.INTERFACE_KEY)));
