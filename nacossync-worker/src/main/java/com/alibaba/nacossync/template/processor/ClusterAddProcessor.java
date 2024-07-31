@@ -19,7 +19,6 @@ package com.alibaba.nacossync.template.processor;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.dao.ClusterAccessService;
 import com.alibaba.nacossync.exception.SkyWalkerException;
-import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.ClusterDO;
 import com.alibaba.nacossync.pojo.request.ClusterAddRequest;
 import com.alibaba.nacossync.pojo.result.ClusterAddResult;
@@ -28,7 +27,6 @@ import com.alibaba.nacossync.util.SkyWalkerUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -38,16 +36,17 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 public class ClusterAddProcessor implements Processor<ClusterAddRequest, ClusterAddResult> {
+    
 
-    @Autowired
-    private MetricsManager metricsManager;
+    private final ClusterAccessService clusterAccessService;
 
-    @Autowired
-    private ClusterAccessService clusterAccessService;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-
+    private final ObjectMapper objectMapper;
+    
+    public ClusterAddProcessor(ClusterAccessService clusterAccessService, ObjectMapper objectMapper) {
+        this.clusterAccessService = clusterAccessService;
+        this.objectMapper = objectMapper;
+    }
+    
     @Override
     public void process(ClusterAddRequest clusterAddRequest, ClusterAddResult clusterAddResult,
         Object... others) throws Exception {
