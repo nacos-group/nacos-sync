@@ -34,16 +34,15 @@ public interface TaskRepository extends CrudRepository<TaskDO, Integer>, JpaRepo
     TaskDO findByTaskId(String taskId);
 
     @Transactional
-    int deleteByTaskId(String taskId);
+    void deleteByTaskId(String taskId);
     
     List<TaskDO> findAllByTaskIdIn(List<String> taskIds);
-    
-    List<TaskDO> getAllByWorkerIp(String workerIp);
-    
     /**
      * query service is all，use ns leven sync data
      */
     List<TaskDO> findAllByServiceNameEqualsIgnoreCase(String serviceName);
     List<TaskDO> findAllByServiceNameNotIgnoreCase(String serviceName);
+    
+    int countByDestClusterIdOrSourceClusterId(String destClusterId,String sourceClusterId);
 
 }
