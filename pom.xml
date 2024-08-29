@@ -38,8 +38,8 @@
         <commoms-lang3.verison>3.12.0</commoms-lang3.verison>
         <guava.verison>33.2.0-jre</guava.verison>
         <versions-maven-plugin.version>2.2</versions-maven-plugin.version>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
         <maven-jar-plugin.version>3.2.0</maven-jar-plugin.version>
         <maven-enforcer-plugin.version>1.4.1</maven-enforcer-plugin.version>
         <maven-source-plugin.version>3.0.1</maven-source-plugin.version>
@@ -181,6 +181,7 @@
         </dependencies>
     </dependencyManagement>
 
+    
     <build>
         <plugins>
             <plugin>

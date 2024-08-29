@@ -12,6 +12,7 @@
  */
 package com.alibaba.nacossync.pojo.model;
 
+
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
