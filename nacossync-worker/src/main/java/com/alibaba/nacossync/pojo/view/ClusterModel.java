@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacossync.pojo.view;
 
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
-import java.io.Serializable;
-
+import com.alibaba.nacossync.pojo.model.ClusterDO;
 import lombok.Data;
+
+import java.io.Serializable;
 
 /**
  * @author NacosSync
@@ -27,23 +29,38 @@ import lombok.Data;
  */
 @Data
 public class ClusterModel implements Serializable {
-
+    
     private String clusterId;
+    
     /**
      * json format，["192.168.1:8080","192.168.2?key=1"]
      */
     private String connectKeyList;
+    
     /**
      * cluster name, eg：cluster of ShangHai（edas-sh）
      */
     private String clusterName;
+    
     /**
      * cluster type, eg cluster of CS,cluster of Nacos,
      *
      * @see ClusterTypeEnum
      */
     private String clusterType;
-
+    
     private String namespace;
+    
     private String userName;
+    
+    public static ClusterModel from(ClusterDO clusterDO) {
+        ClusterModel clusterModel = new ClusterModel();
+        clusterModel.setClusterId(clusterDO.getClusterId());
+        clusterModel.setConnectKeyList(clusterDO.getConnectKeyList());
+        clusterModel.setClusterType(clusterDO.getClusterType());
+        clusterModel.setClusterName(clusterDO.getClusterName());
+        clusterModel.setNamespace(clusterDO.getNamespace());
+        clusterModel.setUserName(clusterDO.getUserName());
+        return clusterModel;
+    }
 }

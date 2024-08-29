@@ -44,15 +44,8 @@ public class ClusterDetailQueryProcessor
 
         ClusterDO clusterDO = clusterAccessService.findByClusterId(clusterDetailQueryRequest
             .getClusterId());
-
-        ClusterModel clusterModel = new ClusterModel();
-        clusterModel.setClusterId(clusterDO.getClusterId());
-        clusterModel.setConnectKeyList(clusterDO.getConnectKeyList());
-        clusterModel.setClusterType(clusterDO.getClusterType());
-        clusterModel.setClusterName(clusterDO.getClusterName());
-        clusterModel.setNamespace(clusterDO.getNamespace());
-        clusterModel.setUserName(clusterDO.getUserName());
-        clusterDetailQueryResult.setClusterModel(clusterModel);
+        
+        clusterDetailQueryResult.setClusterModel(ClusterModel.from(clusterDO));
 
     }
 }

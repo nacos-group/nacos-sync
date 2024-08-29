@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacossync.pojo.view;
 
+import com.alibaba.nacossync.pojo.model.TaskDO;
 import lombok.Data;
 
 /**
@@ -24,12 +26,27 @@ import lombok.Data;
  */
 @Data
 public class TaskModel {
-
+    
     private String taskId;
+    
     private String sourceClusterId;
+    
     private String destClusterId;
+    
     private String serviceName;
+    
     private String groupName;
+    
     private String taskStatus;
-
+    
+    public static TaskModel from(TaskDO taskDO) {
+        TaskModel taskModel = new TaskModel();
+        taskModel.setDestClusterId(taskDO.getDestClusterId());
+        taskModel.setGroupName(taskDO.getGroupName());
+        taskModel.setServiceName(taskDO.getServiceName());
+        taskModel.setSourceClusterId(taskDO.getSourceClusterId());
+        taskModel.setTaskStatus(taskDO.getTaskStatus());
+        taskModel.setTaskId(taskDO.getTaskId());
+        return taskModel;
+    }
 }
