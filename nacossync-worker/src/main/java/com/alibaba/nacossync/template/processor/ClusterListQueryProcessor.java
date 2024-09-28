@@ -38,8 +38,11 @@ import java.util.List;
 @Service
 public class ClusterListQueryProcessor implements Processor<ClusterListQueryRequest, ClusterListQueryResult> {
     
-    @Autowired
-    private ClusterAccessService clusterAccessService;
+    private final ClusterAccessService clusterAccessService;
+    
+    public ClusterListQueryProcessor(ClusterAccessService clusterAccessService) {
+        this.clusterAccessService = clusterAccessService;
+    }
     
     @Override
     public void process(ClusterListQueryRequest clusterListQueryRequest, ClusterListQueryResult clusterListQueryResult,
