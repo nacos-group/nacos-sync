@@ -26,7 +26,6 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -43,14 +42,17 @@ import java.util.concurrent.ThreadLocalRandom;
 @Service
 public class SkyWalkerCacheServices {
     
-    private static final Map<String, FinishedTask> finishedTaskMap = new ConcurrentHashMap<>();
+    private static final Map<String, FinishedTask> FINISHED_TASK_MAP = new ConcurrentHashMap<>();
     
-    @Autowired
-    private ClusterAccessService clusterAccessService;
+    private final ClusterAccessService clusterAccessService;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
+    private final ObjectMapper objectMapper;
+    
+    public SkyWalkerCacheServices(ClusterAccessService clusterAccessService, ObjectMapper objectMapper) {
+        this.clusterAccessService = clusterAccessService;
+        this.objectMapper = objectMapper;
+    }
+    
     public String getClusterConnectKey(String clusterId) {
         List<String> allClusterConnectKey = getAllClusterConnectKey(clusterId);
         return allClusterConnectKey.get(ThreadLocalRandom.current().nextInt(allClusterConnectKey.size()));
@@ -83,7 +85,7 @@ public class SkyWalkerCacheServices {
         FinishedTask finishedTask = new FinishedTask();
         finishedTask.setOperationId(operationId);
 
-        finishedTaskMap.put(operationId, finishedTask);
+        FINISHED_TASK_MAP.put(operationId, finishedTask);
     }
 
     public FinishedTask getFinishedTask(TaskDO taskDO) {
@@ -94,7 +96,7 @@ public class SkyWalkerCacheServices {
             return null;
         }
 
-        return finishedTaskMap.get(operationId);
+        return FINISHED_TASK_MAP.get(operationId);
     }
     
     
@@ -102,12 +104,12 @@ public class SkyWalkerCacheServices {
         if (!StringUtils.hasLength(operationId)) {
             return;
         }
-        finishedTaskMap.remove(operationId);
+        FINISHED_TASK_MAP.remove(operationId);
     }
 
     public Map<String, FinishedTask> getFinishedTaskMap() {
 
-        return finishedTaskMap;
+        return FINISHED_TASK_MAP;
     }
     
 

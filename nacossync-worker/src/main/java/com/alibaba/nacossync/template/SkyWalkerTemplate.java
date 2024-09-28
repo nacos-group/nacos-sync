@@ -45,8 +45,7 @@ public class SkyWalkerTemplate {
     }
 
     private static <T extends BaseResult> void initExceptionResult(T result, Throwable e) {
-        if (e instanceof SkyWalkerException) {
-            SkyWalkerException skyWalkerException = (SkyWalkerException) e;
+        if (e instanceof SkyWalkerException skyWalkerException) {
             if (null != skyWalkerException.getResultCode()) {
                 result.setResultCode(skyWalkerException.getResultCode().getCode());
             }

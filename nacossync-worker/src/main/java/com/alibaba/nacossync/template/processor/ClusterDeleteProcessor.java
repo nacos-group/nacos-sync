@@ -14,15 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacossync.template.processor;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import com.alibaba.nacossync.dao.ClusterAccessService;
-import com.alibaba.nacossync.pojo.result.ClusterDeleteResult;
+import com.alibaba.nacossync.dao.TaskAccessService;
+import com.alibaba.nacossync.exception.SkyWalkerException;
 import com.alibaba.nacossync.pojo.request.ClusterDeleteRequest;
+import com.alibaba.nacossync.pojo.result.ClusterDeleteResult;
 import com.alibaba.nacossync.template.Processor;
+import org.springframework.stereotype.Service;
 
 /**
  * @author NacosSync
@@ -30,15 +31,26 @@ import com.alibaba.nacossync.template.Processor;
  */
 @Service
 public class ClusterDeleteProcessor implements Processor<ClusterDeleteRequest, ClusterDeleteResult> {
-
-    @Autowired
-    private ClusterAccessService clusterAccessService;
-
+    
+    private final ClusterAccessService clusterAccessService;
+    
+    private final TaskAccessService taskAccessService;
+    
+    public ClusterDeleteProcessor(ClusterAccessService clusterAccessService, TaskAccessService taskAccessService) {
+        this.clusterAccessService = clusterAccessService;
+        this.taskAccessService = taskAccessService;
+    }
+    
     @Override
-    public void process(ClusterDeleteRequest clusterDeleteRequest,
-                        ClusterDeleteResult clusterDeleteResult, Object... others) throws Exception {
-
+    public void process(ClusterDeleteRequest clusterDeleteRequest, ClusterDeleteResult clusterDeleteResult,
+            Object... others) throws Exception {
+        int count = taskAccessService.countByDestClusterIdOrSourceClusterId(clusterDeleteRequest.getClusterId(),
+                clusterDeleteRequest.getClusterId());
+        if (count > 0) {
+            throw new SkyWalkerException(String.format("集群下有%d个任务，请先删除任务", count));
+        }
+        
         clusterAccessService.deleteByClusterId(clusterDeleteRequest.getClusterId());
-
+        
     }
 }

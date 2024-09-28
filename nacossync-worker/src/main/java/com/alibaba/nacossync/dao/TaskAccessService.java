@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacossync.dao;
 
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
@@ -39,7 +40,7 @@ import java.util.List;
  */
 @Service
 public class TaskAccessService implements PageQueryService<TaskDO> {
-
+    
     private final TaskRepository taskRepository;
     
     public TaskAccessService(TaskRepository taskRepository) {
@@ -47,74 +48,78 @@ public class TaskAccessService implements PageQueryService<TaskDO> {
     }
     
     public TaskDO findByTaskId(String taskId) {
-
+        
         return taskRepository.findByTaskId(taskId);
     }
-
+    
     public void deleteTaskById(String taskId) {
         taskRepository.deleteByTaskId(taskId);
     }
     
     /**
      * batch delete tasks by taskIds
-     * @author yongchao9
+     *
      * @param taskIds
+     * @author yongchao9
      */
     public void deleteTaskInBatch(List<String> taskIds) {
-    	List<TaskDO> tds=taskRepository.findAllByTaskIdIn(taskIds);
+        List<TaskDO> tds = taskRepository.findAllByTaskIdIn(taskIds);
         taskRepository.deleteAllInBatch(tds);
     }
-
+    
     public Iterable<TaskDO> findAll() {
-
+        
         return taskRepository.findAll();
     }
-
+    
     public void addTask(TaskDO taskDO) {
-
+        
         taskRepository.save(taskDO);
-
+        
     }
-
+    
+    public int countByDestClusterIdOrSourceClusterId(String destClusterId, String sourceClusterId) {
+        return taskRepository.countByDestClusterIdOrSourceClusterId(destClusterId, sourceClusterId);
+    }
+    
     private Predicate getPredicate(CriteriaBuilder criteriaBuilder, List<Predicate> predicates) {
         Predicate[] p = new Predicate[predicates.size()];
         return criteriaBuilder.and(predicates.toArray(p));
     }
-
-    private List<Predicate> getPredicates(Root<TaskDO> root, CriteriaBuilder criteriaBuilder, QueryCondition queryCondition) {
-
+    
+    private List<Predicate> getPredicates(Root<TaskDO> root, CriteriaBuilder criteriaBuilder,
+            QueryCondition queryCondition) {
+        
         List<Predicate> predicates = new ArrayList<>();
         predicates.add(criteriaBuilder.like(root.get("serviceName"), "%" + queryCondition.getServiceName() + "%"));
-
+        
         return predicates;
     }
-
+    
     @Override
     public Page<TaskDO> findPageNoCriteria(Integer pageNum, Integer size) {
-
+        
         Pageable pageable = PageRequest.of(pageNum, size, Sort.Direction.DESC, "id");
-
+        
         return taskRepository.findAll(pageable);
     }
-
+    
     @Override
     public Page<TaskDO> findPageCriteria(Integer pageNum, Integer size, QueryCondition queryCondition) {
-
+        
         Pageable pageable = PageRequest.of(pageNum, size, Sort.Direction.DESC, "id");
-
+        
         return getTaskDOS(queryCondition, pageable);
     }
-
+    
     private Page<TaskDO> getTaskDOS(QueryCondition queryCondition, Pageable pageable) {
-        return taskRepository.findAll(
-                (Specification<TaskDO>) (root, criteriaQuery, criteriaBuilder) -> {
-
-                    List<Predicate> predicates = getPredicates(root,
-                            criteriaBuilder, queryCondition);
-
-                    return getPredicate(criteriaBuilder, predicates);
-
-                }, pageable);
+        return taskRepository.findAll((Specification<TaskDO>) (root, criteriaQuery, criteriaBuilder) -> {
+            
+            List<Predicate> predicates = getPredicates(root, criteriaBuilder, queryCondition);
+            
+            return getPredicate(criteriaBuilder, predicates);
+            
+        }, pageable);
     }
     
     public List<TaskDO> findAllByServiceNameEqualAll() {
@@ -124,5 +129,5 @@ public class TaskAccessService implements PageQueryService<TaskDO> {
     public List<TaskDO> findAllByServiceNameNotEqualAll() {
         return taskRepository.findAllByServiceNameNotIgnoreCase(SkyWalkerConstants.NACOS_ALL_SERVICE_NAME);
     }
-
+    
 }
