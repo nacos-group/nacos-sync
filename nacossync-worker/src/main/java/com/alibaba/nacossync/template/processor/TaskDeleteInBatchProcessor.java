@@ -16,19 +16,12 @@
  */
 package com.alibaba.nacossync.template.processor;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import com.alibaba.nacossync.dao.TaskAccessService;
-import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskDeleteInBatchRequest;
 import com.alibaba.nacossync.pojo.result.BaseResult;
 import com.alibaba.nacossync.template.Processor;
-
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 
 /**
@@ -40,20 +33,15 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class TaskDeleteInBatchProcessor implements Processor<TaskDeleteInBatchRequest, BaseResult> {
 
-    @Autowired
-    private TaskAccessService taskAccessService;
-
+    private final TaskAccessService taskAccessService;
+    
+    public TaskDeleteInBatchProcessor(TaskAccessService taskAccessService) {
+        this.taskAccessService = taskAccessService;
+    }
+    
     @Override
     public void process(TaskDeleteInBatchRequest taskBatchDeleteRequest, BaseResult baseResult,
                         Object... others) {
-//    	
-//    	String[] taskIds= taskBatchDeleteRequest.getTaskIds();
-//    	List<TaskDO> taskDOs = new ArrayList<TaskDO>();
-//    	for (String taskId : taskIds) {
-//    		TaskDO taskDO = new TaskDO();
-//    		taskDO.setTaskId(taskId);
-//    		taskDOs.add(taskDO);
-//		}
         taskAccessService.deleteTaskInBatch(taskBatchDeleteRequest.getTaskIds());
     }
 }

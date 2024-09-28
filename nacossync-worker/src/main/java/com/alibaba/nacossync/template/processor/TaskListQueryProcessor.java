@@ -40,8 +40,11 @@ import java.util.List;
 @Slf4j
 public class TaskListQueryProcessor implements Processor<TaskListQueryRequest, TaskListQueryResult> {
     
-    @Autowired
-    private TaskAccessService taskAccessService;
+    private final TaskAccessService taskAccessService;
+    
+    public TaskListQueryProcessor(TaskAccessService taskAccessService) {
+        this.taskAccessService = taskAccessService;
+    }
     
     @Override
     public void process(TaskListQueryRequest taskListQueryRequest, TaskListQueryResult taskListQueryResult,
