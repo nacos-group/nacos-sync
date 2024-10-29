@@ -1,19 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package com.alibaba.nacossync.util;
 
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
@@ -22,6 +6,7 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.ClusterAddRequest;
 import com.alibaba.nacossync.pojo.request.TaskAddRequest;
 import com.google.common.base.Joiner;
+import org.apache.commons.lang3.StringUtils;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -33,24 +18,26 @@ import java.util.Enumeration;
 import java.util.UUID;
 
 /**
-* @author NacosSync
-* @version $Id: SkyWalkerUtil.java, v 0.1 2018-09-26 AM12:10 NacosSync Exp $$
-*/
+ * Utility class for various operations in SkyWalker.
+ */
 public class SkyWalkerUtil {
     
     private static final String SEPARATOR = ":";
+    private static final String MD5_ALGORITHM = "MD5";
     
     /**
+     * Generates an MD5 hash for the given string.
      *
-     * Gets the string md5
-     * @param value The string to be encrypted
-     * @return The encrypted string
+     * @param value The string to be encrypted.
+     * @return The encrypted string, or an empty string if encryption fails.
      */
-    public static String StringToMd5(String value) {
+    public static String stringToMd5(String value) {
+        if (StringUtils.isBlank(value)) {
+            return "";
+        }
         try {
-            MessageDigest md5 = MessageDigest.getInstance("MD5");
-            md5.update(value.getBytes(StandardCharsets.UTF_8));
-            byte[] encryption = md5.digest();
+            MessageDigest md5 = MessageDigest.getInstance(MD5_ALGORITHM);
+            byte[] encryption = md5.digest(value.getBytes(StandardCharsets.UTF_8));
             StringBuilder strBuf = new StringBuilder();
             for (byte b : encryption) {
                 strBuf.append(String.format("%02x", b));
@@ -60,95 +47,98 @@ public class SkyWalkerUtil {
             return "";
         }
     }
-
+    
     /**
-     * The rules of generating taskId
-     * @param addTaskRequest
-     * @return
+     * Generates a task ID based on the given TaskAddRequest.
+     *
+     * @param addTaskRequest The TaskAddRequest containing task details.
+     * @return The generated task ID.
      */
     public static String generateTaskId(TaskAddRequest addTaskRequest) {
-
         return generateTaskId(addTaskRequest.getServiceName(), addTaskRequest.getGroupName(),
                 addTaskRequest.getSourceClusterId(), addTaskRequest.getDestClusterId());
     }
-
+    
     /**
-     * The rules of generating taskId
+     * Generates a task ID based on the given parameters.
      *
-     * @return
+     * @param serviceName     The service name.
+     * @param groupName       The group name.
+     * @param sourceClusterId The source cluster ID.
+     * @param destClusterId   The destination cluster ID.
+     * @return The generated task ID.
      */
     public static String generateTaskId(String serviceName, String groupName,
-                                        String sourceClusterId, String destClusterId) {
-
-        StringBuilder sb = new StringBuilder();
-
-        sb.append(serviceName);
-        sb.append(SkyWalkerConstants.UNDERLINE);
-        sb.append(groupName);
-        sb.append(SkyWalkerConstants.UNDERLINE);
-        sb.append(sourceClusterId);
-        sb.append(SkyWalkerConstants.UNDERLINE);
-        sb.append(destClusterId);
-        return SkyWalkerUtil.StringToMd5(sb.toString());
+            String sourceClusterId, String destClusterId) {
+        String rawId = String.join(SkyWalkerConstants.UNDERLINE, serviceName, groupName, sourceClusterId, destClusterId);
+        return stringToMd5(rawId);
     }
-
+    
     /**
-     * 生成集群clusterId的规则
+     * Generates a cluster ID based on the given ClusterAddRequest.
      *
-     * @param addClusterRequest
-     * @return
+     * @param addClusterRequest The ClusterAddRequest containing cluster details.
+     * @return The generated cluster ID.
      */
     public static String generateClusterId(ClusterAddRequest addClusterRequest) {
-
-        StringBuilder sb = new StringBuilder();
-        sb.append(addClusterRequest.getClusterName());
-        sb.append(SkyWalkerConstants.UNDERLINE);
-        sb.append(addClusterRequest.getClusterType());
-
-        return SkyWalkerUtil.StringToMd5(sb.toString());
+        String rawId = String.join(SkyWalkerConstants.UNDERLINE, addClusterRequest.getClusterName(), addClusterRequest.getClusterType());
+        return stringToMd5(rawId);
     }
-
+    
     /**
-     * Avoid getting a return address
-     * @return
-     * @throws Exception
+     * Gets the local IP address, avoiding loopback addresses.
+     *
+     * @return The local IP address.
+     * @throws Exception If an error occurs while fetching the IP address.
      */
     public static String getLocalIp() throws Exception {
-
         InetAddress addr = InetAddress.getLocalHost();
-        String localIp = addr.getHostAddress();
-        if (addr.isLoopbackAddress()) {
-            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-            while (interfaces.hasMoreElements()) {
-                NetworkInterface in = interfaces.nextElement();
-                Enumeration<InetAddress> addrs = in.getInetAddresses();
-                while (addrs.hasMoreElements()) {
-                    InetAddress address = addrs.nextElement();
-                    if (!address.isLoopbackAddress() && address instanceof Inet4Address) {
-                        localIp = address.getHostAddress();
-                    }
+        if (!addr.isLoopbackAddress()) {
+            return addr.getHostAddress();
+        }
+        Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+        while (interfaces.hasMoreElements()) {
+            NetworkInterface networkInterface = interfaces.nextElement();
+            Enumeration<InetAddress> addrs = networkInterface.getInetAddresses();
+            while (addrs.hasMoreElements()) {
+                InetAddress address = addrs.nextElement();
+                if (!address.isLoopbackAddress() && address instanceof Inet4Address) {
+                    return address.getHostAddress();
                 }
             }
         }
-        return localIp;
+        return addr.getHostAddress();
     }
-
+    
+    /**
+     * Generates a synchronization key based on source and destination cluster types.
+     *
+     * @param sourceClusterType The source cluster type.
+     * @param destClusterType   The destination cluster type.
+     * @return The generated synchronization key.
+     */
     public static String generateSyncKey(ClusterTypeEnum sourceClusterType, ClusterTypeEnum destClusterType) {
-
         return Joiner.on(SEPARATOR).join(sourceClusterType.getCode(), destClusterType.getCode());
     }
-
+    
+    /**
+     * Gets the operation ID from the given TaskDO.
+     *
+     * @param taskDO The TaskDO containing the operation ID.
+     * @return The operation ID.
+     */
     public static String getOperationId(TaskDO taskDO) {
-
         return taskDO.getOperationId();
     }
-
+    
+    /**
+     * Generates a unique operation ID.
+     *
+     * @return The generated operation ID.
+     */
     public static String generateOperationId() {
-
         return UUID.randomUUID().toString();
     }
-    
-    
-    
-    
 }
+
+
