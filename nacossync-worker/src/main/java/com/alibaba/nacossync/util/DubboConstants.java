@@ -20,7 +20,6 @@ import org.apache.commons.lang3.StringUtils;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Predicate;
 
 /**
  * @author paderlol
@@ -49,45 +48,51 @@ public final class DubboConstants {
 
     public static final String DUBBO_ROOT_PATH = "/dubbo";
     public static final String ALL_SERVICE_NAME_PATTERN = "*";
-
+    
     /**
-     *  if Dubbo version greater than 2.7.2, service name is providers:interface:version:
-     *  if Dubbo version less than 2.7.2, service name is providers:interface:version
-     * @param queryParam
-     * @return
+     * Creates a service name based on Dubbo version compatibility.
+     * if Dubbo version greater than 2.7.2, service name is providers:interface:version:
+     * if Dubbo version less than 2.7.2, service name is providers:interface:version
+     *
+     * @param queryParam the query parameters that include keys such as interface, version, group, etc.
+     * @return the constructed service name string
      */
     public static String createServiceName(Map<String, String> queryParam) {
-
         String group = queryParam.get(GROUP_KEY);
         String release = queryParam.get(RELEASE_KEY);
-        Predicate<String> isBlankGroup = StringUtils::isBlank;
-        Predicate<String> isNotBlankRelease = StringUtils::isNotBlank;
-        String serviceName = Joiner.on(SEPARATOR_KEY).skipNulls().join(CATALOG_KEY, queryParam.get(INTERFACE_KEY),
-            queryParam.get(VERSION_KEY), group);
-
-        //TODO The code here is to deal with service metadata format problems caused by dubbo version incompatibility
-        if (isBlankGroup.test(group) && isNotBlankRelease.test(release)) {
+        
+        String baseServiceName = Joiner.on(SEPARATOR_KEY).skipNulls().join(CATALOG_KEY, queryParam.get(INTERFACE_KEY),
+                queryParam.get(VERSION_KEY), group);
+        
+        if (StringUtils.isBlank(group) && StringUtils.isNotBlank(release)) {
             List<String> versions = Splitter.on(RELEASE_SEPARATOR_KEY).splitToList(release);
             if (!CollectionUtils.isEmpty(versions) && versions.size() >= DUBBO_VERSION_INDEX) {
                 String firstVersion = versions.get(0);
                 String secondVersion = versions.get(1);
-                if (DUBBO_VERSION_INDEX == Integer.parseInt(firstVersion)) {
-                    if (MIDDLE_DUBBO_VERSION_INDEX <= versions.size()) {
-                        String thirdVersion = versions.get(2);
-                        BigDecimal bigDecimal =
-                            new BigDecimal(Joiner.on(RELEASE_SEPARATOR_KEY).join(secondVersion, thirdVersion));
-                        if (bigDecimal.compareTo(COMPARE_NUMBER) > 0) {
-                            serviceName = serviceName.concat(SEPARATOR_KEY);
-                        }
-                    } else if (versions.size() == DUBBO_VERSION_INDEX && Integer.parseInt(secondVersion) > 7) {
-                        serviceName = serviceName.concat(SEPARATOR_KEY);
-                    }
-                } else if (MIN_DUBBO_VERSION < Integer.parseInt(firstVersion)) {
-                    serviceName = serviceName.concat(SEPARATOR_KEY);
+                BigDecimal bigDecimal = new BigDecimal(Joiner.on(RELEASE_SEPARATOR_KEY).join(secondVersion,
+                        versions.size() > 2 ? versions.get(2) : "0"));
+                if (isVersionRequiresSeparator(firstVersion, secondVersion, bigDecimal)) {
+                    baseServiceName = baseServiceName.concat(SEPARATOR_KEY);
                 }
             }
         }
-        return serviceName;
+        return baseServiceName;
+    }
+    
+    /**
+     * Checks if the version requires a separator to be appended to the service name.
+     *
+     * @param firstVersion  the major version
+     * @param secondVersion the minor version
+     * @param bigDecimal    the version number as BigDecimal
+     * @return true if separator should be added, otherwise false
+     */
+    private static boolean isVersionRequiresSeparator(String firstVersion, String secondVersion, BigDecimal bigDecimal) {
+        int majorVersion = Integer.parseInt(firstVersion);
+        int minorVersion = Integer.parseInt(secondVersion);
+        
+        return (DUBBO_VERSION_INDEX == majorVersion && (MIDDLE_DUBBO_VERSION_INDEX <= minorVersion ||
+                bigDecimal.compareTo(COMPARE_NUMBER) > 0)) || (MIN_DUBBO_VERSION < majorVersion);
     }
 
 }

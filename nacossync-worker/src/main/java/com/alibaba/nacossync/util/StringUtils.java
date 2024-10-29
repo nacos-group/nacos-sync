@@ -12,6 +12,17 @@
  */
 package com.alibaba.nacossync.util;
 
+import com.google.common.base.Joiner;
+import lombok.extern.slf4j.Slf4j;
+
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import static com.alibaba.nacossync.util.DubboConstants.DUBBO_PATH_FORMAT;
 import static com.alibaba.nacossync.util.DubboConstants.DUBBO_URL_FORMAT;
 import static com.alibaba.nacossync.util.DubboConstants.INSTANCE_IP_KEY;
@@ -19,17 +30,6 @@ import static com.alibaba.nacossync.util.DubboConstants.INSTANCE_PORT_KEY;
 import static com.alibaba.nacossync.util.DubboConstants.INTERFACE_KEY;
 import static com.alibaba.nacossync.util.DubboConstants.PROTOCOL_KEY;
 import static com.alibaba.nacossync.util.DubboConstants.ZOOKEEPER_SEPARATOR;
-
-import com.google.common.base.Joiner;
-import com.google.common.collect.Maps;
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
-import java.net.URLEncoder;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * @author paderlol
@@ -56,9 +56,9 @@ public final class StringUtils {
      */
     private static Map<String, String> parseKeyValuePair(String str, String itemSeparator) {
         String[] tmp = str.split(itemSeparator);
-        Map<String, String> map = new HashMap<String, String>(tmp.length);
-        for (int i = 0; i < tmp.length; i++) {
-            Matcher matcher = KVP_PATTERN.matcher(tmp[i]);
+        Map<String, String> map = new HashMap<>(tmp.length);
+        for (String s : tmp) {
+            Matcher matcher = KVP_PATTERN.matcher(s);
             if (!matcher.matches()) {
                 continue;
             }
@@ -74,19 +74,14 @@ public final class StringUtils {
      * @return Parameters instance.
      */
     public static Map<String, String> parseQueryString(String qs) {
-        try {
-
-            String decodePath = URLDecoder.decode(qs, "UTF-8");
-            if (isEmpty(decodePath)) {
-                return new HashMap<>();
-            }
-            decodePath = substringAfter(decodePath, "?");
-            return parseKeyValuePair(decodePath, "&");
-
-        } catch (UnsupportedEncodingException e) {
-            log.warn("parse query string failed", e);
-            return Maps.newHashMap();
+        
+        String decodePath = URLDecoder.decode(qs, StandardCharsets.UTF_8);
+        if (isEmpty(decodePath)) {
+            return new HashMap<>();
         }
+        decodePath = substringAfter(decodePath, "?");
+        return parseKeyValuePair(decodePath, "&");
+        
     }
 
     /**
@@ -100,27 +95,22 @@ public final class StringUtils {
     }
 
     public static Map<String, String> parseIpAndPortString(String path) {
-
-        try {
-            String decodePath = URLDecoder.decode(path, "UTF-8");
-            Matcher matcher = IP_PORT_PATTERN.matcher(decodePath);
-            // extract the ones that match the rules
-            Map<String, String> instanceMap = new HashMap<>(3);
-            while (matcher.find()) {
-                // protocol
-                instanceMap.put(PROTOCOL_KEY, matcher.group(1));
-                // ip address
-                instanceMap.put(INSTANCE_IP_KEY, matcher.group(2));
-                // port
-                instanceMap.put(INSTANCE_PORT_KEY, matcher.group(3));
-                break;
-            }
-            return instanceMap;
-        } catch (UnsupportedEncodingException e) {
-            log.warn("parse query string failed", e);
-            return Maps.newHashMap();
+        
+        String decodePath = URLDecoder.decode(path, StandardCharsets.UTF_8);
+        Matcher matcher = IP_PORT_PATTERN.matcher(decodePath);
+        // extract the ones that match the rules
+        Map<String, String> instanceMap = new HashMap<>(3);
+        while (matcher.find()) {
+            // protocol
+            instanceMap.put(PROTOCOL_KEY, matcher.group(1));
+            // ip address
+            instanceMap.put(INSTANCE_IP_KEY, matcher.group(2));
+            // port
+            instanceMap.put(INSTANCE_PORT_KEY, matcher.group(3));
+            break;
         }
-
+        return instanceMap;
+        
     }
 
     /**
@@ -169,17 +159,12 @@ public final class StringUtils {
 
     public static String convertDubboFullPathForZk(Map<String, String> metaData, String providersPath, String ip,
         int port) {
-        try {
-            String urlParam = Joiner.on("&").withKeyValueSeparator("=").join(metaData);
-            String instanceUrl = String.format(DUBBO_URL_FORMAT, metaData.get(PROTOCOL_KEY), ip, port,
-                metaData.get(INTERFACE_KEY), urlParam);
-
-            return Joiner.on(ZOOKEEPER_SEPARATOR).join(providersPath, URLEncoder.encode(instanceUrl, "UTF-8"));
-        } catch (UnsupportedEncodingException e) {
-            log.warn("convert Dubbo full path", e);
-            return "";
-        }
-
+        String urlParam = Joiner.on("&").withKeyValueSeparator("=").join(metaData);
+        String instanceUrl = String.format(DUBBO_URL_FORMAT, metaData.get(PROTOCOL_KEY), ip, port,
+            metaData.get(INTERFACE_KEY), urlParam);
+        
+        return Joiner.on(ZOOKEEPER_SEPARATOR).join(providersPath, URLEncoder.encode(instanceUrl, StandardCharsets.UTF_8));
+        
     }
 
     public static boolean isDubboProviderPath(String path) {
