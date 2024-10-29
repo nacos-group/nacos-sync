@@ -17,9 +17,11 @@
 
 package com.alibaba.nacossync;
 
+import com.alibaba.nacossync.util.BatchTaskExecutor;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration;
+import org.springframework.context.ConfigurableApplicationContext;
 
 /**
  * @author NacosSync
@@ -30,6 +32,14 @@ public class NacosSyncMain {
     
     public static void main(String[] args) {
         
-        SpringApplication.run(NacosSyncMain.class, args);
+        ConfigurableApplicationContext context = SpringApplication.run(NacosSyncMain.class, args);
+        
+        // Register shutdown callback using Spring Boot's context lifecycle
+        context.registerShutdownHook();
+        context.addApplicationListener(event -> {
+            if (event instanceof org.springframework.context.event.ContextClosedEvent) {
+                BatchTaskExecutor.shutdown();
+            }
+        });
     }
 }
