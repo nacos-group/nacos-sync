@@ -11,6 +11,12 @@
     <packaging>pom</packaging>
     <artifactId>nacossync-distribution</artifactId>
 
+    <properties>
+        <env.docker.host>${env.DOCKER_HOST}</env.docker.host>
+        <env.docker.username>${env.DOCKER_USER_NAME}</env.docker.username>
+        <env.docker.password>${env.DOCKER_PASSWORD}</env.docker.password>
+    </properties>
+
     <build>
         <finalName>nacos-sync-${project.version}</finalName>
         <plugins>
@@ -33,6 +39,61 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>io.fabric8</groupId>
+                <artifactId>docker-maven-plugin</artifactId>
+                <version>0.40.2</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <dockerHost>${env.docker.host}</dockerHost>
+                    <authConfig>
+                        <username>${env.docker.username}</username>
+                        <password>${env.docker.password}</password>
+                    </authConfig>
+                    <images>
+                        <image>
+                            <name>nacos-sync</name>
+                            <build>
+                                <tags>
+                                    <tag>${revision}</tag>
+                                </tags>
+                                <from>openjdk:11</from>
+                                <cmd>[ "/bin/bash", "/nacos-sync/bin/startup.sh", "start_hup"]</cmd>
+                                <assembly>
+                                    <mode>dir</mode>
+                                    <targetDir>/</targetDir>
+                                    <mode>dir</mode>
+                                    <inline>
+                                        <id>nacossync-</id>
+                                        <fileSets>
+                                            <fileSet>
+                                                <directory>${project.build.directory}/nacos-sync-${project.version}</directory>
+                                                <outputDirectory>./</outputDirectory>
+                                                <includes>
+                                                    <include>**</include>
+                                                </includes>
+                                            </fileSet>
+                                        </fileSets>
+                                    </inline>
+                                </assembly>
+                            </build>
+                            
+                        </image>
+                    </images>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>build-docker-image</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>build</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
+
+    <distributionManagement>
+    </distributionManagement>
 </project>

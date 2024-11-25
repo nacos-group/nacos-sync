@@ -64,24 +64,46 @@ Info |      +------------+                   ^
 | Eureka    | Nacos     | Yes     | Only support  registery center of **Spring Cloud**           |
 
 
-
-
-
 ## Manual Goal
 
 - Start the NacosSync service
 - Use a simple example to demonstrate how to migrate a Dubbo client registered in the Zookeeper Registry to the Nacos Registry
 
-## Prerequisites
+## Quick start with docker [Recommend]
+if you already have a mysql server, just run following command with your db configs
+```bash
+docker run -it --rm -eSERVER_PORT=${YOUR_CUSTOM_PORT} \
+     -e "DATASOURCE_URL=jdbc:mysql://127.0.0.1:3306/nacos_sync?characterEncoding=utf8" \
+     -e DATASOURCE_USERNAME=${YOUR_USER_NAME} \
+     -e DATASOURCE_PASSWORD=${YOUR_PASSWORD}  \
+     nacos/nacos-sync
+```
+
+### Supported Envs
+1. SERVER_PORT
+admin server port, default is 8083
+
+2. DATASOURCE_URL
+datasource url, e.g. jdbc:mysql://127.0.0.1:3306/nacos_sync?characterEncoding=utf8
+
+3. DATASOURCE_USERNAME 
+datasource user name
+
+4. DATASOURCE_PASSWORD
+datasource password
+
+## Manually build and deploy
+
+### Prerequisites
 
 Before you begin, install the following:
 
 - 64bit OS: Linux/Unix/Mac/Windows supported, Linux/Unix/Mac recommended.
-- 64bit JDK 1.8+: downloads, JAVA_HOME settings.
+- 64bit JDK 11+: downloads, JAVA_HOME settings.
 - Maven 3.5.2+: [downloads](https://maven.apache.org/download.cgi), [settings](https://maven.apache.org/settings.html).
 - MySql 5.6.+
 
-## Download & Build From Release
+### Download & Build From Release
 
 There are two ways to get NacosSync.
 
@@ -122,7 +144,7 @@ nacos-sync
 
 ```
 
-## Initialize The DB
+### Initialize The DB
 
 The default is Mysql database, which can support other relational databases
 
@@ -130,7 +152,7 @@ The default is Mysql database, which can support other relational databases
 - Tables do not need to be created separately, which is conducive to hibernate's automatic table creation function.
 - If the automatic table creation fails, you can build the table nacosSync.sql, the table statement is in the bin folder.
 
-## DB Configuration
+### DB Configuration
 
 In the bin folder, application.properties:
 
@@ -142,7 +164,7 @@ spring.datasource.password=root
 
 ```
 
-## Start Server
+### Start Server
 
 ``` xml
 
@@ -151,7 +173,7 @@ sh startup.sh  start
 
 ```
 
-## Admin Console
+### Admin Console
 
 ``` xml
 
