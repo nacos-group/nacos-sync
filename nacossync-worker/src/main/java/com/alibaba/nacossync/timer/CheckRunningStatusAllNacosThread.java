@@ -120,7 +120,7 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
         // Build the list of sub-tasks pending removal
         List<TaskDO> servicesPendingRemoval = serviceNameSet.stream()
                 .map(serviceName -> buildSubTaskDO(task, serviceName))
-                .collect(Collectors.toUnmodifiableList());
+                .toList();
         
         // Handle the removal of the pending sub-tasks
         handleRemoval(servicesPendingRemoval, serviceNameSet);
@@ -154,13 +154,13 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
         List<TaskDO> servicesPendingInsertion = serviceNameList.stream()
                 .filter(serviceName -> !serviceSet.contains(serviceName))
                 .map(serviceName -> buildSubTaskDO(task, serviceName))
-                .collect(Collectors.toUnmodifiableList());
+                .toList();
         
         // Determine the services that need to be removed (those in the current service set but not in the service name list)
         List<TaskDO> servicesPendingRemoval = serviceSet.stream()
                 .filter(serviceName -> !serviceNameList.contains(serviceName))
                 .map(serviceName -> buildSubTaskDO(task, serviceName))
-                .collect(Collectors.toUnmodifiableList());
+                .toList();
         
         
         // If all lists are empty, there is nothing to process

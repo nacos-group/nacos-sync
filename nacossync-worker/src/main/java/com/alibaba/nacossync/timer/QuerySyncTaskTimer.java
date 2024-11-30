@@ -27,7 +27,6 @@ import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.eventbus.EventBus;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Service;
 
@@ -42,33 +41,44 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 public class QuerySyncTaskTimer implements CommandLineRunner {
-    @Autowired
-    private MetricsManager metricsManager;
-
-    @Autowired
-    private SkyWalkerCacheServices skyWalkerCacheServices;
-
-    @Autowired
-    private TaskAccessService taskAccessService;
-
-    @Autowired
-    private EventBus eventBus;
-
-    @Autowired
-    private ScheduledExecutorService scheduledExecutorService;
     
-    @Autowired
-    private NacosServerHolder nacosServerHolder;
+    private static final int INITIAL_DELAY = 0;
+    
+    private static final int DELAY = 3000;
+    
+    private final MetricsManager metricsManager;
 
+    private final SkyWalkerCacheServices skyWalkerCacheServices;
+
+    private final TaskAccessService taskAccessService;
+
+    private final EventBus eventBus;
+
+    private final ScheduledExecutorService scheduledExecutorService;
+    
+    private final NacosServerHolder nacosServerHolder;
+    
+    public QuerySyncTaskTimer(MetricsManager metricsManager, SkyWalkerCacheServices skyWalkerCacheServices,
+            TaskAccessService taskAccessService, EventBus eventBus, ScheduledExecutorService scheduledExecutorService,
+            NacosServerHolder nacosServerHolder) {
+        this.metricsManager = metricsManager;
+        this.skyWalkerCacheServices = skyWalkerCacheServices;
+        this.taskAccessService = taskAccessService;
+        this.eventBus = eventBus;
+        this.scheduledExecutorService = scheduledExecutorService;
+        this.nacosServerHolder = nacosServerHolder;
+    }
+    
     @Override
     public void run(String... args) {
         /** Fetch the task list from the database every 3 seconds */
-        scheduledExecutorService.scheduleWithFixedDelay(new CheckRunningStatusThread(), 0, 3000,
+        scheduledExecutorService.scheduleWithFixedDelay(new CheckRunningStatusThread(), INITIAL_DELAY, DELAY,
                 TimeUnit.MILLISECONDS);
         
         scheduledExecutorService.scheduleWithFixedDelay(new CheckRunningStatusAllNacosThread(metricsManager,
-                taskAccessService, nacosServerHolder, eventBus), 0, 3000,
+                taskAccessService, nacosServerHolder, eventBus), INITIAL_DELAY, DELAY,
                 TimeUnit.MILLISECONDS);
+        log.info("QuerySyncTaskTimer has started successfully");
     }
 
     private class CheckRunningStatusThread implements Runnable {
@@ -76,7 +86,7 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
         @Override
         public void run() {
 
-            Long start = System.currentTimeMillis();
+            long start = System.currentTimeMillis();
             try {
 
                 List<TaskDO> taskDOS = taskAccessService.findAllByServiceNameNotEqualAll();
@@ -91,13 +101,13 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
                     if (TaskStatusEnum.SYNC.getCode().equals(taskDO.getTaskStatus())) {
 
                         eventBus.post(new SyncTaskEvent(taskDO));
-                        log.info("从数据库中查询到一个同步任务，发出一个同步事件:" + taskDO);
+                        log.info("从数据库中查询到一个同步任务，发出一个同步事件:{}", taskDO);
                     }
 
                     if (TaskStatusEnum.DELETE.getCode().equals(taskDO.getTaskStatus())) {
 
                         eventBus.post(new DeleteTaskEvent(taskDO));
-                        log.info("从数据库中查询到一个删除任务，发出一个同步事件:" + taskDO);
+                        log.info("从数据库中查询到一个删除任务，发出一个同步事件:{}", taskDO);
                     }
                 });
 
