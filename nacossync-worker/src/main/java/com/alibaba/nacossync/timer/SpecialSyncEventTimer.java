@@ -17,7 +17,6 @@ import com.alibaba.nacossync.extension.event.SpecialSyncEvent;
 import com.alibaba.nacossync.extension.event.SpecialSyncEventBus;
 import com.google.common.eventbus.EventBus;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Service;
 
@@ -33,20 +32,25 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class SpecialSyncEventTimer implements CommandLineRunner {
 
-    @Autowired
-    private SpecialSyncEventBus specialSyncEventBus;
+    private final SpecialSyncEventBus specialSyncEventBus;
 
-    @Autowired
-    private EventBus eventBus;
+    private final EventBus eventBus;
 
-    @Autowired
-    private ScheduledExecutorService scheduledExecutorService;
-
+    private final ScheduledExecutorService scheduledExecutorService;
+    
+    public SpecialSyncEventTimer(SpecialSyncEventBus specialSyncEventBus, EventBus eventBus,
+            ScheduledExecutorService scheduledExecutorService) {
+        this.specialSyncEventBus = specialSyncEventBus;
+        this.eventBus = eventBus;
+        this.scheduledExecutorService = scheduledExecutorService;
+    }
+    
     @Override
     public void run(String... args) throws Exception {
 
         scheduledExecutorService.scheduleWithFixedDelay(new SpecialSyncEventTimer.SpecialSyncEventThread(), 0, 3000,
                 TimeUnit.MILLISECONDS);
+        log.info("SpecialSyncEventTimer has started successfully");
     }
 
     private class SpecialSyncEventThread implements Runnable {
@@ -58,9 +62,9 @@ public class SpecialSyncEventTimer implements CommandLineRunner {
                 allSpecialSyncEvent.stream()
                         .filter(specialSyncEvent -> TaskStatusEnum.SYNC.getCode()
                                 .equals(specialSyncEvent.getTaskDO().getTaskStatus()))
-                        .forEach(specialSyncEvent -> eventBus.post(specialSyncEvent));
+                        .forEach(eventBus::post);
             } catch (Exception e) {
-                log.warn("SpecialSyncEventThread Exception", e);
+               log.error("Exception occurred while processing special sync events", e);
 
             }
         }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacossync.timer;
 
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
@@ -21,15 +22,15 @@ import com.alibaba.nacossync.dao.TaskAccessService;
 import com.alibaba.nacossync.pojo.FinishedTask;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Service;
 
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * @author NacosSync
@@ -38,55 +39,53 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 public class CleanExceedOperationIdTimer implements CommandLineRunner {
-
-    @Autowired
-    private SkyWalkerCacheServices   skyWalkerCacheServices;
-
-    @Autowired
-    private TaskAccessService        taskAccessService;
-
-    @Autowired
-    private ScheduledExecutorService scheduledExecutorService;
-
+    
+    private static final long INITIAL_DELAY = 0;
+    
+    private static final long PERIOD = 12;
+    
+    private final SkyWalkerCacheServices skyWalkerCacheServices;
+    
+    private final TaskAccessService taskAccessService;
+    
+    private final ScheduledExecutorService scheduledExecutorService;
+    
+    public CleanExceedOperationIdTimer(SkyWalkerCacheServices skyWalkerCacheServices,
+            TaskAccessService taskAccessService, ScheduledExecutorService scheduledExecutorService) {
+        this.skyWalkerCacheServices = skyWalkerCacheServices;
+        this.taskAccessService = taskAccessService;
+        this.scheduledExecutorService = scheduledExecutorService;
+    }
+    
     @Override
     public void run(String... args) {
         /** Clean up the OperationId cache once every 12 hours */
-        scheduledExecutorService.scheduleWithFixedDelay(new CleanExceedOperationIdThread(), 0, 12,
-            TimeUnit.HOURS);
-
+        scheduledExecutorService.scheduleWithFixedDelay(new CleanExceedOperationIdThread(), INITIAL_DELAY, PERIOD,
+                TimeUnit.HOURS);
+        log.info("CleanExceedOperationIdTimer has started successfully");
+        
     }
-
+    
     private class CleanExceedOperationIdThread implements Runnable {
-
+        
         @Override
         public void run() {
-
+            
             try {
-
-                Map<String, FinishedTask> finishedTaskMap = skyWalkerCacheServices
-                    .getFinishedTaskMap();
-
-                Iterable<TaskDO> taskDOS = taskAccessService.findAll();
-
-                Set<String> operationIds = getDbOperations(taskDOS);
-                for (String operationId : finishedTaskMap.keySet()) {
-
-                    if (!operationIds.contains(operationId)) {
-
-                        finishedTaskMap.remove(operationId);
-                    }
-                }
-
+                
+                Map<String, FinishedTask> finishedTaskMap = skyWalkerCacheServices.getFinishedTaskMap();
+                Set<String> operationIds = getDbOperations(taskAccessService.findAll());
+                finishedTaskMap.keySet().removeIf(operationId -> !operationIds.contains(operationId));
+                
             } catch (Exception e) {
                 log.warn("CleanExceedOperationIdThread Exception", e);
             }
-
+            
         }
-
+        
         private Set<String> getDbOperations(Iterable<TaskDO> taskDOS) {
-            Set<String> operationIds = new HashSet<>();
-            taskDOS.forEach(taskDO -> operationIds.add(taskDO.getOperationId()));
-            return operationIds;
+            return StreamSupport.stream(taskDOS.spliterator(), false).map(TaskDO::getOperationId)
+                    .collect(Collectors.toSet());
         }
     }
 }
