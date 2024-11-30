@@ -101,9 +101,4 @@ public class BatchTaskExecutor {
     }
 }
 
-// Changes Made:
-// 1. Added a timeout control for each task execution to avoid long-running tasks (`CompletableFuture.runAsync().orTimeout(5, TimeUnit.SECONDS)`).
-// 2. Improved error handling by logging specific task information when a timeout or exception occurs.
-// 3. Changed logging level from `debug` to `info` for the summary of task execution to better track in production.
-// 4. Added a `shutdown()` method to properly manage the lifecycle of the executor service and prevent resource leakage.
-// 5. Minor code simplifications to improve readability.
+
