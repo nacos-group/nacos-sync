@@ -19,11 +19,13 @@ package com.alibaba.nacossync.pojo.result;
 import lombok.Data;
 
 import com.alibaba.nacossync.pojo.view.ClusterModel;
+import lombok.EqualsAndHashCode;
 
 /**
  * @author NacosSync
  * @version $Id: ClusterDetailQueryResult.java, v 0.1 2018-09-30 PM2:40 NacosSync Exp $$
  */
+@EqualsAndHashCode(callSuper = true)
 @Data
 public class ClusterDetailQueryResult extends BaseResult {
 

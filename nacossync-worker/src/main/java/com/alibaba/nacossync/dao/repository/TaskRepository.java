@@ -17,11 +17,11 @@
 package com.alibaba.nacossync.dao.repository;
 
 import com.alibaba.nacossync.pojo.model.TaskDO;
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.repository.CrudRepository;
 
-import javax.transaction.Transactional;
 import java.util.List;
 
 /**

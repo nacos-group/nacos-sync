@@ -1,16 +1,19 @@
 # Nacos Sync
 
+Nacos Sync is a tool for synchronizing service registration information between different registries. It is designed to
+help users migrate from one registry to another. It is also a tool for synchronizing service registration information
+between different registries. It is designed to help users migrate from one registry to another.
+
 ## [Example](https://github.com/paderlol/nacos-sync-example)
 
 ## Function
 
- - Console: provide API and console for management
- - Worker: provide the service registration synchronization. 
+- Console: provide API and console for management
+- Worker: provide the service registration synchronization.
 
 ## Architecture
 
 ### Architecture Topology
-
 
 ```
             +-------------+
@@ -37,40 +40,49 @@ Info |      +------------+                   ^
 
 ### Architecture HighLights
 
- - All registration information will be stored in NacosSync DB.
- - Multiple NacosSync instances will perform the same job.
-     - Multiple NacosSync instances ensure high availability.
-     - Multiple NacosSync instances performing the same job ensure the simplicity.
-     - NacosCluster target will dedup the synchronization information from Nacos.
-     
+- All registration information will be stored in NacosSync DB.
+- Multiple NacosSync instances will perform the same job.
+    - Multiple NacosSync instances ensure high availability.
+    - Multiple NacosSync instances performing the same job ensure the simplicity.
+    - NacosCluster target will dedup the synchronization information from Nacos.
 
 ## Quick Start:
- - Swagger API: http://127.0.0.1:8083/swagger-ui.html#/
- - Web Console: http://127.0.0.1:8083/
- - Others: TBD
+
+- Swagger API: http://127.0.0.1:8083/swagger-ui.html#/
+- Web Console: http://127.0.0.1:8083/
+- Others: TBD
 
 # NacosSync Migration User Guide
 
 ## Support migration type
 
-| Source    | Target    | Support | Note                                                         |
-| --------- | --------- | ------- | ------------------------------------------------------------ |
+| Source    | Target    | Support | Note                                                                                                              |
+|-----------|-----------|---------|-------------------------------------------------------------------------------------------------------------------|
 | Nacos     | Nacos     | Yes     | Only supports the same version of Nacos migration,**especially** the version of **0.8** migrates to 1.0 or above. |
-| Nacos     | Zookeeper | Yes     | Only support registery center of **Dubbo**                   |
-| Nacos     | Consul    | Yes     | Only support  registery center of **Spring Cloud**           |
-| Nacos     | Eureka    | Yes     | Only support  registery center of **Spring Cloud**           |
-| Zookeeper | Nacos     | Yes     | Only support registery center of **Dubbo**                   |
-| Consul    | Nacos     | Yes     | Only support  registery center of **Spring Cloud**           |
-| Eureka    | Nacos     | Yes     | Only support  registery center of **Spring Cloud**           |
+| Nacos     | Zookeeper | Yes     | Only support registery center of **Dubbo**                                                                        |
+| Nacos     | Consul    | Yes     | Only support  registery center of **Spring Cloud**                                                                |
+| Nacos     | Eureka    | Yes     | Only support  registery center of **Spring Cloud**                                                                |
+| Zookeeper | Nacos     | Yes     | Only support registery center of **Dubbo**                                                                        |
+| Consul    | Nacos     | Yes     | Only support  registery center of **Spring Cloud**                                                                |
+| Eureka    | Nacos     | Yes     | Only support  registery center of **Spring Cloud**                                                                |
 
+## Framework Version
 
-
-
+| Framework        | Version  |
+|------------------|----------|
+| Java Jdk         | 17       |
+| Spring Boot      | 3.4.0    |
+| Spring Cloud     | 2024.0.0 |
+| Nacos Client     | 2.3.4    |
+| Zookeeper Client | 3.7.2    |
+| Consul Client    | 1.4.5    |
+| Eureka Client    | 2.0.4    |
 
 ## Manual Goal
 
 - Start the NacosSync service
-- Use a simple example to demonstrate how to migrate a Dubbo client registered in the Zookeeper Registry to the Nacos Registry
+- Use a simple example to demonstrate how to migrate a Dubbo client registered in the Zookeeper Registry to the Nacos
+  Registry
 
 ## Prerequisites
 
@@ -128,7 +140,8 @@ The default is Mysql database, which can support other relational databases
 
 - Build db schema, the default schema name nacos_sync.
 - Tables do not need to be created separately, which is conducive to hibernate's automatic table creation function.
-- If the automatic table creation fails, you can build the table nacosSync.sql, the table statement is in the bin folder.
+- If the automatic table creation fails, you can build the table nacosSync.sql, the table statement is in the bin
+  folder.
 
 ## DB Configuration
 
@@ -162,11 +175,15 @@ http://127.0.0.1:8083/#/serviceSync
 ## Advanced Configuration
 
 ### Full Synchronization from Zookeeper to Nacos (Dubbo)
-When “*” is entered in the “Service Name” field of this form, it will fully synchronize all services from Zookeeper to Nacos, but only when using Dubbo.
+
+When “*” is entered in the “Service Name” field of this form, it will fully synchronize all services from Zookeeper to
+Nacos, but only when using Dubbo.
+
 ![img_1.png](img_1.png)
 
 ### Full Synchronization from Nacos to Nacos
-When “All” is entered in the “Service Name” field of this form, it will automatically synchronize all registered services within the **default group** of the current cluster.
 
-This description explains the functionality clearly for English-speaking users.
+When “All” is entered in the “Service Name” field of this form, it will automatically synchronize all registered
+services within the **default group** of the current cluster.
+
 ![img_2.png](img_2.png)

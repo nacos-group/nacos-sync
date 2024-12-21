@@ -25,38 +25,38 @@
     </modules>
     <packaging>pom</packaging>
     <properties>
-        <revision>0.5.0</revision>
-        <spring-boot.version>2.7.17</spring-boot.version>
-        <spring-cloud.version>2021.0.3</spring-cloud.version>
+        <revision>2.0.0</revision>
+        <spring-boot.version>3.4.0</spring-boot.version>
+        <spring-cloud.version>2024.0.0</spring-cloud.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <zookeeper.version>3.4.14</zookeeper.version>
-        <curator.version>4.3.0</curator.version>
+        <zookeeper.version>3.7.2</zookeeper.version>
+        <curator.version>5.7.1</curator.version>
         <mockito.version>1.10.19</mockito.version>
-        <nacos-client.verison>1.4.7</nacos-client.verison>
-        <lombok.verison>1.18.34</lombok.verison>
+        <nacos-client.verison>2.4.3</nacos-client.verison>
+        <lombok.verison>1.18.36</lombok.verison>
         <consul-api.verison>1.3.1</consul-api.verison>
         <commoms-lang3.verison>3.12.0</commoms-lang3.verison>
-        <guava.verison>33.2.0-jre</guava.verison>
-        <versions-maven-plugin.version>2.2</versions-maven-plugin.version>
+        <guava.verison>33.3.1-jre</guava.verison>
+        <versions-maven-plugin.version>2.18.0</versions-maven-plugin.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
-        <maven-jar-plugin.version>3.2.0</maven-jar-plugin.version>
-        <maven-enforcer-plugin.version>1.4.1</maven-enforcer-plugin.version>
-        <maven-source-plugin.version>3.0.1</maven-source-plugin.version>
-        <maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>
-        <maven-resources-plugin.version>3.0.2</maven-resources-plugin.version>
-        <maven-surefire-plugin.version>2.20</maven-surefire-plugin.version>
-        <maven-assembly-plugin.version>3.1.1</maven-assembly-plugin.version>
-        <clirr-maven-plugin.version>2.7</clirr-maven-plugin.version>
-        <jacoco-maven-plugin.version>0.7.8</jacoco-maven-plugin.version>
-        <findbugs-maven-plugin.version>3.0.4</findbugs-maven-plugin.version>
-        <sonar-maven-plugin.version>3.0.2</sonar-maven-plugin.version>
+        <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
+        <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
+        <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
+        <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
+        <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
+        <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
+        <maven-assembly-plugin.version>3.7.1</maven-assembly-plugin.version>
+        <clirr-maven-plugin.version>2.8</clirr-maven-plugin.version>
+        <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
+        <findbugs-maven-plugin.version>3.0.5</findbugs-maven-plugin.version>
+        <sonar-maven-plugin.version>5.0.0.4389</sonar-maven-plugin.version>
         <coveralls-maven-plugin.version>4.3.0</coveralls-maven-plugin.version>
-        <flatten-maven-plugin.version>1.1.0</flatten-maven-plugin.version>
+        <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
         <dependency-mediator-maven-plugin.version>1.0.2</dependency-mediator-maven-plugin.version>
-        <extra-enforcer-rules.version>1.0-beta-4</extra-enforcer-rules.version>
-        <async-http-client.version>1.7.17</async-http-client.version>
-        <swagger.version>1.8.0</swagger.version>
+        <extra-enforcer-rules.version>1.9.0</extra-enforcer-rules.version>
+        <async-http-client.version>1.9.40</async-http-client.version>
+        <swagger.version>2.7.0</swagger.version>
     </properties>
 
     <scm>
@@ -111,7 +111,7 @@
             </dependency>
             <dependency>
                 <groupId>org.springdoc</groupId>
-                <artifactId>springdoc-openapi-ui</artifactId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
                 <version>${swagger.version}</version>
             </dependency>
             <dependency>

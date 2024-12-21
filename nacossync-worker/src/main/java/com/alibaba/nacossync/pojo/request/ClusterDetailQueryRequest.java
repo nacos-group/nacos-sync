@@ -17,11 +17,13 @@
 package com.alibaba.nacossync.pojo.request;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * @author NacosSync
  * @version $Id: ClusterDetailQueryRequest.java, v 0.1 2018-09-30 PM2:39 NacosSync Exp $$
  */
+@EqualsAndHashCode(callSuper = true)
 @Data
 public class ClusterDetailQueryRequest extends BaseRequest {
     private String clusterId;

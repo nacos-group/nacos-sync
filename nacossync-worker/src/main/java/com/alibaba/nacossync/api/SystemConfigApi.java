@@ -17,24 +17,21 @@
 
 package com.alibaba.nacossync.api;
 
-import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.alibaba.nacossync.pojo.result.ConfigAddResult;
-import com.alibaba.nacossync.pojo.result.ConfigDeleteResult;
-import com.alibaba.nacossync.pojo.result.ConfigQueryResult;
 import com.alibaba.nacossync.pojo.request.ConfigAddRequest;
 import com.alibaba.nacossync.pojo.request.ConfigDeleteRequest;
 import com.alibaba.nacossync.pojo.request.ConfigQueryRequest;
+import com.alibaba.nacossync.pojo.result.ConfigAddResult;
+import com.alibaba.nacossync.pojo.result.ConfigDeleteResult;
+import com.alibaba.nacossync.pojo.result.ConfigQueryResult;
 import com.alibaba.nacossync.template.SkyWalkerTemplate;
 import com.alibaba.nacossync.template.processor.ConfigAddProcessor;
 import com.alibaba.nacossync.template.processor.ConfigDeleteProcessor;
 import com.alibaba.nacossync.template.processor.ConfigQueryProcessor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * @author NacosSync

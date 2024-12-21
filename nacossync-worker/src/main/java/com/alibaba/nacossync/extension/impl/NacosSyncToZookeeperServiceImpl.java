@@ -31,8 +31,10 @@ import com.alibaba.nacossync.util.DubboConstants;
 import com.google.common.collect.Sets;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.framework.recipes.cache.PathChildrenCache;
-import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
+import org.apache.curator.framework.listen.ListenerManager;
+import org.apache.curator.framework.recipes.cache.ChildData;
+import org.apache.curator.framework.recipes.cache.CuratorCache;
+import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
 import org.apache.curator.utils.CloseableUtils;
 import org.apache.zookeeper.CreateMode;
 
@@ -73,7 +75,7 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
     /**
      * listener cache of zookeeper format: taskId -> PathChildrenCache instance
      */
-    private final Map<String, PathChildrenCache> pathChildrenCacheMap = new ConcurrentHashMap<>();
+    private final Map<String, CuratorCache> pathChildrenCacheMap = new ConcurrentHashMap<>();
 
     /**
      * zookeeper path for dubbo providers
@@ -107,13 +109,13 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
             NamingService sourceNamingService =
                 nacosServerHolder.get(taskDO.getSourceClusterId());
             EventListener eventListener = nacosListenerMap.remove(taskDO.getTaskId());
-            PathChildrenCache pathChildrenCache = pathChildrenCacheMap.get(taskDO.getTaskId());
+            CuratorCache pathChildrenCache = pathChildrenCacheMap.get(taskDO.getTaskId());
             sourceNamingService.unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
                 eventListener);
             CloseableUtils.closeQuietly(pathChildrenCache);
             Set<String> instanceUrlSet = instanceBackupMap.get(taskDO.getTaskId());
             CuratorFramework client = zookeeperServerHolder.get(taskDO.getDestClusterId());
-            if(!instanceUrlSet.isEmpty()){
+            if(!CollectionUtils.isEmpty(instanceUrlSet)){
                 for (String instanceUrl : instanceUrlSet) {
                     client.delete().quietly().forPath(instanceUrl);
                 }
@@ -166,31 +168,32 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
     
     private void tryToCompensate(TaskDO taskDO, NamingService sourceNamingService, List<Instance> sourceInstances) {
         if (!CollectionUtils.isEmpty(sourceInstances)) {
-            final PathChildrenCache pathCache = getPathCache(taskDO);
+            final CuratorCache pathCache = getPathCache(taskDO);
             // Avoiding re-registration if there is already a listener registered.
-            if (pathCache.getListenable().size() == 0) {
+            
+            if (pathCache.listenable() instanceof ListenerManager && pathCache.size()==0) {
                 registerCompensationListener(pathCache, taskDO, sourceNamingService);
             }
         }
     }
     
-    private void registerCompensationListener(PathChildrenCache pathCache, TaskDO taskDO, NamingService sourceNamingService) {
-        pathCache.getListenable().addListener((zkClient, zkEvent) -> {
+    private void registerCompensationListener(CuratorCache pathCache, TaskDO taskDO, NamingService sourceNamingService) {
+        pathCache.listenable().addListener((eventType, oldData, newData) -> {
             try {
-                if (zkEvent.getType() == PathChildrenCacheEvent.Type.CHILD_REMOVED) {
-                    compensateOnChildRemoval(zkClient, zkEvent, sourceNamingService, taskDO);
+                if (eventType == CuratorCacheListener.Type.NODE_DELETED) {
+                    compensateOnChildRemoval(zookeeperServerHolder.get(taskDO.getDestClusterId()), oldData, sourceNamingService, taskDO);
                 }
             } catch (Exception e) {
-                log.error("Error processing ZooKeeper event: {}", zkEvent.getType(), e);
+                log.error("Error processing ZooKeeper event: {}", eventType, e);
             }
         });
     }
     
-    private void compensateOnChildRemoval(CuratorFramework zkClient, PathChildrenCacheEvent zkEvent, NamingService sourceNamingService, TaskDO taskDO) {
+    private void compensateOnChildRemoval(CuratorFramework zkClient, ChildData zkEvent, NamingService sourceNamingService, TaskDO taskDO) {
         String zkInstancePath = null;
         try {
             List<Instance> allInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()));
-            zkInstancePath = zkEvent.getData().getPath();
+            zkInstancePath = zkEvent.getPath();
             for (Instance instance : allInstances) {
                 String instanceUrl = buildSyncInstance(instance, taskDO);
                 if (zkInstancePath.equals(instanceUrl)) {
@@ -253,13 +256,14 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
      * @param taskDO task instance
      * @return zk path cache
      */
-    private PathChildrenCache getPathCache(TaskDO taskDO) {
+    private CuratorCache getPathCache(TaskDO taskDO) {
         return pathChildrenCacheMap.computeIfAbsent(taskDO.getTaskId(), (key) -> {
             try {
-                PathChildrenCache pathChildrenCache = new PathChildrenCache(
-                    zookeeperServerHolder.get(taskDO.getDestClusterId()), monitorPath.get(key), false);
-                pathChildrenCache.start(PathChildrenCache.StartMode.BUILD_INITIAL_CACHE);
-                return pathChildrenCache;
+                CuratorFramework curatorFramework = zookeeperServerHolder.get(taskDO.getDestClusterId());
+                String path = monitorPath.get(key);
+                CuratorCache curatorCache = CuratorCache.build(curatorFramework, path);
+                curatorCache.start();
+                return curatorCache;
             } catch (Exception e) {
                 log.error("zookeeper path children cache start failed, taskId:{}", taskDO.getTaskId(), e);
                 return null;
