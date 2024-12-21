@@ -13,12 +13,12 @@ import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.BatchTaskExecutor;
 import com.google.common.base.Stopwatch;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -43,7 +43,9 @@ public abstract class AbstractNacosSync implements SyncService {
     private final Map<String, Integer> syncTaskTap = new ConcurrentHashMap<>();
     
     private final ConcurrentHashMap<String, TaskDO> allSyncTaskMap = new ConcurrentHashMap<>();
+    
     private ScheduledExecutorService executorService;
+    
     @Autowired
     private MetricsManager metricsManager;
     
@@ -53,10 +55,10 @@ public abstract class AbstractNacosSync implements SyncService {
     
     
     /**
-     * Due to network issues or other reasons, the Nacos Sync synchronization tasks may fail,
-     * resulting in the target cluster's registry missing synchronized instances.
-     * To prevent the target cluster's registry from missing synchronized instances for an extended period,
-     * a fallback worker thread is started every 5 minutes to execute all synchronization tasks.
+     * Due to network issues or other reasons, the Nacos Sync synchronization tasks may fail, resulting in the target
+     * cluster's registry missing synchronized instances. To prevent the target cluster's registry from missing
+     * synchronized instances for an extended period, a fallback worker thread is started every 5 minutes to execute all
+     * synchronization tasks.
      */
     @PostConstruct
     public void afterPropertiesSet() {
@@ -131,8 +133,9 @@ public abstract class AbstractNacosSync implements SyncService {
             NamingService sourceNamingService = nacosServerHolder.get(taskDO.getSourceClusterId());
             //移除订阅
             EventListener listener = listenerMap.remove(taskId);
-            if (listener!= null) {
-                sourceNamingService.unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()), listener);
+            if (listener != null) {
+                sourceNamingService.unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                        listener);
             }
             sourceNamingService.unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
                     listenerMap.remove(taskId));
@@ -141,7 +144,7 @@ public abstract class AbstractNacosSync implements SyncService {
             
             // 删除目标集群中同步的实例列表
             deregisterInstance(taskDO);
-        }catch (NacosException e) {
+        } catch (NacosException e) {
             log.error("Delete task from nacos to specify destination was failed, taskId:{}", taskId, e);
             metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
             return false;
@@ -173,7 +176,7 @@ public abstract class AbstractNacosSync implements SyncService {
             });
             sourceNamingService.subscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
                     listenerMap.get(taskId));
-        }catch (NacosException e) {
+        } catch (NacosException e) {
             log.error("Nacos sync task process fail, taskId:{}", taskId, e);
             metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
             return false;

@@ -14,21 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacossync.pojo.request;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * @author NacosSync
  * @version $Id: TaskUpdateRequest.java, v 0.1 2018-10-17 PM11:10 NacosSync Exp $$
  */
+@EqualsAndHashCode(callSuper = true)
 @Data
 public class TaskUpdateRequest extends BaseRequest {
-
+    
     private String taskId;
+    
     /**
      * The current task status
      */
     private String taskStatus;
-
+    
 }

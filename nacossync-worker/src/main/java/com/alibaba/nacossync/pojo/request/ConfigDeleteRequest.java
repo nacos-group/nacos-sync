@@ -17,11 +17,13 @@
 package com.alibaba.nacossync.pojo.request;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * @author NacosSync
  * @version $Id: ConfigDeleteRequest.java, v 0.1 2018-09-30 PM5:02 NacosSync Exp $$
  */
+@EqualsAndHashCode(callSuper = true)
 @Data
 public class ConfigDeleteRequest extends BaseRequest {
 }

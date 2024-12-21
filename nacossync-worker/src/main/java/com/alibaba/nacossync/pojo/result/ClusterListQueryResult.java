@@ -16,16 +16,17 @@
  */
 package com.alibaba.nacossync.pojo.result;
 
-import java.util.List;
-
-import lombok.Data;
-
 import com.alibaba.nacossync.pojo.view.ClusterModel;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+import java.util.List;
 
 /**
  * @author NacosSync
  * @version $Id: ClusterListQueryResult.java, v 0.1 2018-09-30 PM2:32 NacosSync Exp $$
  */
+@EqualsAndHashCode(callSuper = true)
 @Data
 public class ClusterListQueryResult extends BaseResult {
     List<ClusterModel> clusterModels;

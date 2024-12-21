@@ -19,11 +19,13 @@ package com.alibaba.nacossync.pojo.result;
 import lombok.Data;
 
 import com.alibaba.nacossync.pojo.view.TaskModel;
+import lombok.EqualsAndHashCode;
 
 /**
  * @author NacosSync
  * @version $Id: TaskDetailResult.java, v 0.1 2018-09-30 PM1:07 NacosSync Exp $$
  */
+@EqualsAndHashCode(callSuper = true)
 @Data
 public class TaskDetailQueryResult extends BaseResult {
     private TaskModel taskModel;

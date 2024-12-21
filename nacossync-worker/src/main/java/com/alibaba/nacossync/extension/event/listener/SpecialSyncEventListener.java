@@ -14,16 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacossync.extension.event.listener;
 
 import com.alibaba.nacossync.extension.event.SpecialSyncEvent;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import java.util.function.Consumer;
 
 /**
@@ -33,6 +34,7 @@ import java.util.function.Consumer;
 @Service
 @Slf4j
 public class SpecialSyncEventListener {
+    
     private final EventBus eventBus;
     
     public SpecialSyncEventListener(EventBus eventBus) {
@@ -43,12 +45,12 @@ public class SpecialSyncEventListener {
     public void init() {
         eventBus.register(this);
     }
-
+    
     @Subscribe
     public void listenerSpecialSyncEvent(SpecialSyncEvent specialSyncEvent) {
         TaskDO taskDO = specialSyncEvent.getTaskDO();
         Consumer<TaskDO> syncAction = specialSyncEvent.getSyncAction();
         syncAction.accept(taskDO);
     }
-
+    
 }

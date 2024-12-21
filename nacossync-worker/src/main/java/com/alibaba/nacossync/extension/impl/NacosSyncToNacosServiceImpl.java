@@ -18,6 +18,7 @@ import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.listener.NamingEvent;
 import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.alibaba.nacos.api.naming.pojo.builder.InstanceBuilder;
 import com.alibaba.nacos.common.utils.CollectionUtils;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
@@ -84,10 +85,10 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     }
     
     /**
-     * Due to network issues or other reasons, the Nacos Sync synchronization tasks may fail,
-     * resulting in the target cluster's registry missing synchronized instances.
-     * To prevent the target cluster's registry from missing synchronized instances for an extended period,
-     * a fallback worker thread is started every 5 minutes to execute all synchronization tasks.
+     * Due to network issues or other reasons, the Nacos Sync synchronization tasks may fail, resulting in the target
+     * cluster's registry missing synchronized instances. To prevent the target cluster's registry from missing
+     * synchronized instances for an extended period, a fallback worker thread is started every 5 minutes to execute all
+     * synchronization tasks.
      */
     @Override
     public void afterPropertiesSet() {
@@ -168,19 +169,18 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                 return false;
             }
             EventListener listener = listenerMap.remove(taskId);
-            if (listener!= null) {
-                sourceNamingService.unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()), listener);
+            if (listener != null) {
+                sourceNamingService.unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                        listener);
             }
             List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
                     getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), false);
             
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
-            for (Instance instance : sourceInstances) {
-                if (needSync(instance.getMetadata(), level, taskDO.getDestClusterId())) {
-                    destNamingService.deregisterInstance(taskDO.getServiceName(),
-                            getGroupNameOrDefault(taskDO.getGroupName()), instance);
-                }
-            }
+            List<Instance> instances = sourceInstances.stream()
+                    .filter(instance -> needSync(instance.getMetadata(), level, taskDO.getDestClusterId())).toList();
+            destNamingService.batchDeregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                    instances);
             // Remove all tasks that need to be synchronized.
             allSyncTaskMap.remove(taskId);
             
@@ -208,9 +208,9 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             log.debug("Time taken to synchronize a service registration: {} ms",
                     stopwatch.elapsed(TimeUnit.MILLISECONDS));
             this.listenerMap.putIfAbsent(taskId, event -> {
-                if (event instanceof NamingEvent) {
-                    NamingEvent namingEvent = (NamingEvent) event;
-                    log.info("Detected changes in service {} information, taskId: {}, number of instances: {}, initiating synchronization",
+                if (event instanceof NamingEvent namingEvent) {
+                    log.info(
+                            "Detected changes in service {} information, taskId: {}, number of instances: {}, initiating synchronization",
                             namingEvent.getServiceName(), taskId,
                             namingEvent.getInstances() == null ? null : namingEvent.getInstances().size());
                     try {
@@ -252,7 +252,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                 handlerPersistenceInstance(taskDO, destNamingService, sourceInstances, level);
             } else if (CollectionUtils.isEmpty(sourceInstances)) {
                 // If the current source cluster is empty, then directly deregister the instances in the target cluster.
-                log.debug("service {} needs to sync ephemeral instance num is null: serviceName ", taskDO.getServiceName());
+                log.debug("service {} needs to sync ephemeral instance num is null: serviceName ",
+                        taskDO.getServiceName());
                 processDeRegisterInstances(taskDO, destNamingService);
             } else {
                 // Handle batch data synchronization of persistent instances.
@@ -276,7 +277,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         
         // Get the instances that the destination cluster has already synchronized
         List<Instance> destHasSyncInstances = destAllInstances.stream()
-                .filter(instance -> hasSync(instance, taskDO.getSourceClusterId())).collect(Collectors.toList());
+                .filter(instance -> hasSync(instance, taskDO.getSourceClusterId())).toList();
         
         // The following two conversions are necessary because the Nacos Instance's equals method
         // is flawed and cannot be used for direct comparison.
@@ -297,23 +298,20 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         // Remove instances from destInstanceMap that are present in newInstanceMap
         List<Instance> invalidInstances = getInvalidInstances(destInstanceMap, needRegisterMap);
         
-        // Register each instance one by one. Take one instance at a time.
-        for (Instance newInstance : newInstances) {
-            destNamingService.registerInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
-                    newInstance);
-        }
+        // Register all instances in batch
+        destNamingService.batchRegisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                newInstances);
         
         if (CollectionUtils.isNotEmpty(invalidInstances)) {
-            log.info("taskId: {}, service {} deregistered, number of executions: {}", taskDO.getTaskId(), taskDO.getServiceName(),
-                    destHasSyncInstances.size());
+            log.info("taskId: {}, service {} deregistered, number of executions: {}", taskDO.getTaskId(),
+                    taskDO.getServiceName(), destHasSyncInstances.size());
         }
-        for (Instance instance : invalidInstances) {
-            destNamingService.deregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
-                    instance);
-        }
+        destNamingService.batchDeregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                invalidInstances);
     }
     
-    private List<Instance> getInvalidInstances(Map<String, Instance> destInstanceMap, Map<String, Instance> needRegisterMap) {
+    private List<Instance> getInvalidInstances(Map<String, Instance> destInstanceMap,
+            Map<String, Instance> needRegisterMap) {
         Map<String, Instance> destClone = new HashMap<>(destInstanceMap);
         
         // Convert newInstances to a Map with the concatenated string as key
@@ -326,7 +324,8 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     }
     
     
-    public List<Instance> removeSyncedInstances(Map<String, Instance> destInstanceMap, Map<String, Instance> needRegisterMap) {
+    public List<Instance> removeSyncedInstances(Map<String, Instance> destInstanceMap,
+            Map<String, Instance> needRegisterMap) {
         // Convert destHasSyncInstances to a Map with the concatenated string as key
         
         Map<String, Instance> destClone = new HashMap<>(destInstanceMap);
@@ -339,7 +338,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         
         return new ArrayList<>(needRegisterClone.values());
     }
-   
+    
     
     private boolean hasSync(Instance instance, String sourceClusterId) {
         if (instance.getMetadata() != null) {
@@ -351,12 +350,11 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     
     
     /**
-     * When the number of instances that the source cluster needs to synchronize is 0,
-     * if the target cluster still has instances synchronized with the source cluster,
-     * perform unregistration.
+     * When the number of instances that the source cluster needs to synchronize is 0, if the target cluster still has
+     * instances synchronized with the source cluster, perform unregistration.
      *
      * @param destNamingService Destination cluster naming service
-     * @throws NacosException
+     *
      */
     private void processDeRegisterInstances(TaskDO taskDO, NamingService destNamingService) throws NacosException {
         // If the instances in sourceInstances are empty, it means the instances are offline or do not exist.
@@ -368,12 +366,10 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         }
         destInstances = filterInstancesForRemoval(destInstances, taskDO.getSourceClusterId());
         if (CollectionUtils.isNotEmpty(destInstances)) {
-            // Deregister each instance one by one. Take one instance at a time.
+            // Deregister the instances that need to be removed.
             // Need to handle redo, otherwise, it will be registered again.
-            for (Instance destInstance : destInstances) {
-                destNamingService.deregisterInstance(taskDO.getServiceName(),
-                        getGroupNameOrDefault(taskDO.getGroupName()), destInstance);
-            }
+            destNamingService.batchDeregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
+                    destInstances);
         }
     }
     
@@ -415,29 +411,18 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     }
     
     private static Instance getInstance(Instance instance) {
-        Instance temp = new Instance();
-        temp.setInstanceId(instance.getInstanceId());
-        temp.setIp(instance.getIp());
-        temp.setPort(instance.getPort());
-        temp.setClusterName(instance.getClusterName());
-        temp.setServiceName(instance.getServiceName());
-        temp.setEnabled(instance.isEnabled());
-        temp.setHealthy(instance.isHealthy());
-        temp.setWeight(instance.getWeight());
-        temp.setEphemeral(instance.isEphemeral());
+        InstanceBuilder builder = InstanceBuilder.newBuilder();
         Map<String, String> metaData = new HashMap<>(instance.getMetadata());
-        temp.setMetadata(metaData);
-        return temp;
+        builder.setInstanceId(instance.getInstanceId()).setIp(instance.getIp()).setPort(instance.getPort())
+                .setClusterName(instance.getClusterName()).setServiceName(instance.getServiceName())
+                .setEnabled(instance.isEnabled()).setHealthy(instance.isHealthy()).setWeight(instance.getWeight())
+                .setEphemeral(instance.isEphemeral()).setMetadata(metaData);
+        return builder.build();
     }
     
     private static String getInstanceKey(Instance instance) {
-        return String.join("|",
-                instance.getIp(),
-                String.valueOf(instance.getPort()),
-                String.valueOf(instance.getWeight()),
-                String.valueOf(instance.isHealthy()),
-                String.valueOf(instance.isEphemeral()),
-                instance.getClusterName(),
-                instance.getServiceName());
+        return String.join("|", instance.getIp(), String.valueOf(instance.getPort()),
+                String.valueOf(instance.getWeight()), String.valueOf(instance.isHealthy()),
+                String.valueOf(instance.isEphemeral()), instance.getClusterName(), instance.getServiceName());
     }
 }

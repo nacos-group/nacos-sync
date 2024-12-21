@@ -18,6 +18,7 @@ package com.alibaba.nacossync.pojo.request;
 
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.List;
 
@@ -25,6 +26,7 @@ import java.util.List;
  * @author NacosSync
  * @version $Id: AddClusterRequest.java, v 0.1 2018-09-25 PM 10:27 NacosSync Exp $$
  */
+@EqualsAndHashCode(callSuper = true)
 @Data
 public class ClusterAddRequest extends BaseRequest {
 

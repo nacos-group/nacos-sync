@@ -16,15 +16,17 @@
  */
 package com.alibaba.nacossync.pojo.request;
 
-import java.util.List;
-
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+import java.util.List;
 
 /**
  * @author yongchao9
  * @version $Id: TaskBatchDeleteRequest.java, v 0.3.1 2019-06-27 PM14:03 NacosSync Exp $$
  */
 
+@EqualsAndHashCode(callSuper = true)
 @Data
 public class TaskDeleteInBatchRequest extends BaseRequest {
     private List<String> taskIds;

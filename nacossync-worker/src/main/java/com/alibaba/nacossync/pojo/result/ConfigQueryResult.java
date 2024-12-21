@@ -17,11 +17,13 @@
 package com.alibaba.nacossync.pojo.result;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * @author NacosSync
  * @version $Id: ConfigQueryResult.java, v 0.1 2018-09-30 PM4:53 NacosSync Exp $$
  */
+@EqualsAndHashCode(callSuper = true)
 @Data
 public class ConfigQueryResult extends BaseResult {
 }
