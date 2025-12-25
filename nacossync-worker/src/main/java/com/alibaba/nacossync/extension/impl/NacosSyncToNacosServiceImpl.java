@@ -19,6 +19,7 @@ import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.listener.NamingEvent;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacos.common.utils.CollectionUtils;
+import com.alibaba.nacos.common.utils.MapUtils;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.MetricsStatisticsType;
@@ -327,17 +328,30 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     
     
     public List<Instance> removeSyncedInstances(Map<String, Instance> destInstanceMap, Map<String, Instance> needRegisterMap) {
-        // Convert destHasSyncInstances to a Map with the concatenated string as key
+        List<Instance> result = new ArrayList<>();
+        for (Map.Entry<String, Instance> entry : needRegisterMap.entrySet()) {
+            String key = entry.getKey();
+            Instance needRegisterInstance = entry.getValue();
+            // If the key does not exist in the destination cluster, it needs to be returned
+            if (!destInstanceMap.containsKey(key)) {
+                result.add(needRegisterInstance);
+            } else {
+                // If the key exists, check if the metadata is the same
+                Instance destInstance = destInstanceMap.get(key);
+                if (!isMetadataEqual(needRegisterInstance.getMetadata(), destInstance.getMetadata())) {
+                    result.add(needRegisterInstance);
+                }
+            }
+        }
         
-        Map<String, Instance> destClone = new HashMap<>(destInstanceMap);
-        
-        // Convert newInstances to a Map with the concatenated string as key
-        Map<String, Instance> needRegisterClone = new HashMap<>(needRegisterMap);
-        
-        // Remove instances from newInstanceMap that are present in destInstanceMap
-        needRegisterClone.keySet().removeAll(destClone.keySet());
-        
-        return new ArrayList<>(needRegisterClone.values());
+        return result;
+    }
+    
+    private boolean isMetadataEqual(Map<String, String> sourceMetadata, Map<String, String> destMetadata) {
+        if (MapUtils.isEmpty(sourceMetadata)) {
+            return MapUtils.isEmpty(destMetadata);
+        }
+        return sourceMetadata.equals(destMetadata);
     }
    
     
