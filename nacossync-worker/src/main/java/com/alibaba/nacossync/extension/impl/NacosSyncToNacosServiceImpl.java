@@ -42,6 +42,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -294,20 +295,41 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         
         // Remove instances from newInstanceMap that are present in destInstanceMap
         List<Instance> newInstances = removeSyncedInstances(destInstanceMap, needRegisterMap);
-        
+        List<Instance> changedInstances = getChangedInstances(destInstanceMap, needRegisterMap);
+
         // Remove instances from destInstanceMap that are present in newInstanceMap
         List<Instance> invalidInstances = getInvalidInstances(destInstanceMap, needRegisterMap);
-        
-        // Register all instances in batch
-        destNamingService.batchRegisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
-                newInstances);
-        
+
         if (CollectionUtils.isNotEmpty(invalidInstances)) {
             log.info("taskId: {}, service {} deregistered, number of executions: {}", taskDO.getTaskId(),
                     taskDO.getServiceName(), destHasSyncInstances.size());
         }
-        destNamingService.batchDeregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
-                invalidInstances);
+        String groupName = getGroupNameOrDefault(taskDO.getGroupName());
+        if (CollectionUtils.isEmpty(needRegisterInstance)) {
+            if (CollectionUtils.isNotEmpty(invalidInstances)) {
+                destNamingService.batchDeregisterInstance(taskDO.getServiceName(), groupName, invalidInstances);
+            }
+            return;
+        }
+        // A batch register replaces every instance this client registered for the service, so it always gets the
+        // full list: registering only the new instances would drop the ones synced earlier. The full list also
+        // drops the invalid instances.
+        if (!newInstances.isEmpty() || !changedInstances.isEmpty() || !invalidInstances.isEmpty()) {
+            destNamingService.batchRegisterInstance(taskDO.getServiceName(), groupName, needRegisterInstance);
+        }
+    }
+
+    /**
+     * Instances synced before whose metadata or enabled flag has changed in the source since.
+     */
+    private List<Instance> getChangedInstances(Map<String, Instance> destInstanceMap,
+            Map<String, Instance> needRegisterMap) {
+        return needRegisterMap.entrySet().stream().filter(entry -> destInstanceMap.containsKey(entry.getKey()))
+                .filter(entry -> {
+                    Instance dest = destInstanceMap.get(entry.getKey());
+                    return dest.isEnabled() != entry.getValue().isEnabled() || !Objects.equals(dest.getMetadata(),
+                            entry.getValue().getMetadata());
+                }).map(Map.Entry::getValue).toList();
     }
     
     private List<Instance> getInvalidInstances(Map<String, Instance> destInstanceMap,

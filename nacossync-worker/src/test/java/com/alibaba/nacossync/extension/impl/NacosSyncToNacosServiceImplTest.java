@@ -27,9 +27,11 @@ import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -87,17 +89,54 @@ public class NacosSyncToNacosServiceImplTest {
         Assert.assertEquals(TEST_SOURCE_CLUSTER_ID + "@@" + TEST_VERSION,
                 metadata.get(SkyWalkerConstants.SYNC_INSTANCE_TAG));
 
-        // Only the destination instance synced from this source and gone from it is deregistered.
-        ArgumentCaptor<List<Instance>> deregistered = ArgumentCaptor.forClass(List.class);
-        verify(destNamingService).batchDeregisterInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
-                deregistered.capture());
-        Assert.assertEquals(1, deregistered.getValue().size());
-        Assert.assertEquals(8082, deregistered.getValue().get(0).getPort());
+        // The batch register replaces this client's instances of the service, which already drops the synced
+        // 8082 that is gone from the source, so no separate deregistration is needed.
+        verify(destNamingService, never()).batchDeregisterInstance(anyString(), anyString(), anyList());
 
         verify(sourceNamingService).subscribe(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
                 any(EventListener.class));
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testInstanceAddedLaterIsRegisteredTogetherWithTheSyncedOnes() throws Exception {
+        // A batch register replaces every instance this client registered for the service: registering only the
+        // new instance would drop 8080, which was synced before.
+        TaskDO taskDO = mock(TaskDO.class);
+        mockSync(taskDO, List.of(buildInstance(8080, Maps.newHashMap()), buildInstance(8084, Maps.newHashMap())),
+                List.of(syncedCopy(8080, Maps.newHashMap())));
+        Assert.assertTrue(nacosSyncToNacosService.sync(taskDO, null));
+
+        ArgumentCaptor<List<Instance>> registered = ArgumentCaptor.forClass(List.class);
+        verify(destNamingService).batchRegisterInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
+                registered.capture());
+        Assert.assertEquals(List.of(8080, 8084), registered.getValue().stream().map(Instance::getPort).sorted().toList());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testMetadataChangeReRegistersTheService() throws Exception {
+        TaskDO taskDO = mock(TaskDO.class);
+        Map<String, String> newMetadata = Maps.newHashMap();
+        newMetadata.put("version", "v2");
+        mockSync(taskDO, List.of(buildInstance(8080, newMetadata)), List.of(syncedCopy(8080, Maps.newHashMap())));
+        Assert.assertTrue(nacosSyncToNacosService.sync(taskDO, null));
+
+        ArgumentCaptor<List<Instance>> registered = ArgumentCaptor.forClass(List.class);
+        verify(destNamingService).batchRegisterInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
+                registered.capture());
+        Assert.assertEquals("v2", registered.getValue().get(0).getMetadata().get("version"));
+    }
+
+    @Test
+    public void testUnchangedServiceIsNotReRegistered() throws Exception {
+        TaskDO taskDO = mock(TaskDO.class);
+        mockSync(taskDO, List.of(buildInstance(8080, Maps.newHashMap())), List.of(syncedCopy(8080, Maps.newHashMap())));
+        Assert.assertTrue(nacosSyncToNacosService.sync(taskDO, null));
+
+        verify(destNamingService, never()).batchRegisterInstance(anyString(), anyString(), anyList());
+        verify(destNamingService, never()).batchDeregisterInstance(anyString(), anyString(), anyList());
+    }
 
     @Test
     @SuppressWarnings("unchecked")
@@ -113,11 +152,11 @@ public class NacosSyncToNacosServiceImplTest {
         Assert.assertTrue(nacosSyncToNacosService.delete(taskDO));
 
         verify(sourceNamingService).unsubscribe(TEST_SERVICE_NAME, Constants.DEFAULT_GROUP, listener.getValue());
-        // The second batch deregistration comes from delete: every source instance that sync would register.
+        // The batch deregistration comes from delete: every source instance that sync would register.
         ArgumentCaptor<List<Instance>> deregistered = ArgumentCaptor.forClass(List.class);
-        verify(destNamingService, times(2)).batchDeregisterInstance(eq(TEST_SERVICE_NAME),
-                eq(Constants.DEFAULT_GROUP), deregistered.capture());
-        List<Instance> removed = deregistered.getAllValues().get(1);
+        verify(destNamingService).batchDeregisterInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
+                deregistered.capture());
+        List<Instance> removed = deregistered.getValue();
         Assert.assertEquals(1, removed.size());
         Assert.assertEquals(8080, removed.get(0).getPort());
     }
@@ -132,6 +171,13 @@ public class NacosSyncToNacosServiceImplTest {
     }
 
     public void mockSync(TaskDO taskDO) throws Exception {
+        Map<String, String> syncedMetadata = Maps.newHashMap();
+        syncedMetadata.put(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY, TEST_SOURCE_CLUSTER_ID);
+        mockSync(taskDO, sourceInstances(), Lists.newArrayList(buildInstance(8082, syncedMetadata),
+                buildInstance(8083, Maps.newHashMap())));
+    }
+
+    private void mockSync(TaskDO taskDO, List<Instance> source, List<Instance> dest) throws Exception {
         when(taskDO.getTaskId()).thenReturn(TEST_TASK_ID);
         when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
         when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
@@ -141,15 +187,20 @@ public class NacosSyncToNacosServiceImplTest {
         doReturn(sourceNamingService).when(nacosServerHolder).get(TEST_SOURCE_CLUSTER_ID);
         when(clusterAccessService.findClusterLevel(TEST_SOURCE_CLUSTER_ID)).thenReturn(0);
         doReturn(ClusterTypeEnum.NACOS).when(skyWalkerCacheServices).getClusterType(TEST_SOURCE_CLUSTER_ID);
-        doReturn(sourceInstances()).when(sourceNamingService)
+        doReturn(source).when(sourceNamingService)
                 .getAllInstances(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP), anyList(), eq(true));
+        doReturn(dest).when(destNamingService)
+                .getAllInstances(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP), anyList(), eq(true));
+    }
 
-        Map<String, String> syncedMetadata = Maps.newHashMap();
-        syncedMetadata.put(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY, TEST_SOURCE_CLUSTER_ID);
-        List<Instance> destInstances = Lists.newArrayList(buildInstance(8082, syncedMetadata),
-                buildInstance(8083, Maps.newHashMap()));
-        doReturn(destInstances).when(destNamingService)
-                .getAllInstances(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP), anyList(), eq(true));
+    /** The copy of a native source instance that a previous sync registered in the destination. */
+    private Instance syncedCopy(int port, Map<String, String> sourceMetadata) {
+        Map<String, String> metadata = Maps.newHashMap(sourceMetadata);
+        metadata.put(SkyWalkerConstants.DEST_CLUSTER_ID_KEY, TEST_DEST_CLUSTER_ID);
+        metadata.put(SkyWalkerConstants.SYNC_SOURCE_KEY, ClusterTypeEnum.NACOS.getCode());
+        metadata.put(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY, TEST_SOURCE_CLUSTER_ID);
+        metadata.put(SkyWalkerConstants.SYNC_INSTANCE_TAG, TEST_SOURCE_CLUSTER_ID + "@@" + TEST_VERSION);
+        return buildInstance(port, metadata);
     }
 
     public void mockDelete() throws Exception {
