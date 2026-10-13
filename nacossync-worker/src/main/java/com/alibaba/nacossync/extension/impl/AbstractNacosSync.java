@@ -196,7 +196,8 @@ public abstract class AbstractNacosSync implements SyncService {
         try {
             // 直接从本地保存的serviceInfoMap中取订阅的服务实例
             List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
-                    getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
+                    getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true).stream()
+                    .filter(this::isSyncable).collect(Collectors.toList());
             // 先删除不存在的
             this.removeInvalidInstance(taskDO, sourceInstances);
             
@@ -255,6 +256,14 @@ public abstract class AbstractNacosSync implements SyncService {
     @Override
     public boolean needSync(Map<String, String> sourceMetaData) {
         return SyncService.super.needSync(sourceMetaData);
+    }
+    
+    /**
+     * Whether a source instance should exist in the destination registry. Filtered instances are handled like
+     * deregistered ones: never registered, and removed if they were synced before.
+     */
+    protected boolean isSyncable(Instance instance) {
+        return true;
     }
     
     public abstract String composeInstanceKey(String ip, int port);
