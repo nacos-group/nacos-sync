@@ -16,10 +16,15 @@
  */
 package com.alibaba.nacossync.template.processor;
 
+import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.dao.TaskAccessService;
+import com.alibaba.nacossync.event.DeleteAllSubTaskEvent;
+import com.alibaba.nacossync.event.DeleteTaskEvent;
+import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskDeleteInBatchRequest;
 import com.alibaba.nacossync.pojo.result.BaseResult;
 import com.alibaba.nacossync.template.Processor;
+import com.google.common.eventbus.EventBus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -35,13 +40,29 @@ public class TaskDeleteInBatchProcessor implements Processor<TaskDeleteInBatchRe
 
     private final TaskAccessService taskAccessService;
     
-    public TaskDeleteInBatchProcessor(TaskAccessService taskAccessService) {
+    private final EventBus eventBus;
+    
+    public TaskDeleteInBatchProcessor(TaskAccessService taskAccessService, EventBus eventBus) {
         this.taskAccessService = taskAccessService;
+        this.eventBus = eventBus;
     }
     
     @Override
     public void process(TaskDeleteInBatchRequest taskBatchDeleteRequest, BaseResult baseResult,
                         Object... others) {
+        // Stop each task the way a single delete does: removing only the rows left the syncs running and
+        // their instances synced in the destination.
+        for (String taskId : taskBatchDeleteRequest.getTaskIds()) {
+            TaskDO taskDO = taskAccessService.findByTaskId(taskId);
+            if (taskDO == null) {
+                continue;
+            }
+            if (SkyWalkerConstants.NACOS_ALL_SERVICE_NAME.equalsIgnoreCase(taskDO.getServiceName())) {
+                eventBus.post(new DeleteAllSubTaskEvent(taskDO));
+            } else {
+                eventBus.post(new DeleteTaskEvent(taskDO));
+            }
+        }
         taskAccessService.deleteTaskInBatch(taskBatchDeleteRequest.getTaskIds());
     }
 }
