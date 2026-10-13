@@ -92,6 +92,16 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
     
     @Override
     public boolean sync(TaskDO taskDO, Integer index) {
+        if (!syncInstances(taskDO)) {
+            return false;
+        }
+        // Poll from now on. A poll only re-syncs and never subscribes, so a poll that is still running when the
+        // task is deleted cannot subscribe the deleted task again.
+        specialSyncEventBus.subscribe(taskDO, this::syncInstances);
+        return true;
+    }
+    
+    private boolean syncInstances(TaskDO taskDO) {
         try {
             
             EurekaNamingService eurekaNamingService = eurekaServerHolder.get(taskDO.getSourceClusterId());
@@ -112,7 +122,6 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
                 }
                 addValidInstance(taskDO, destNamingService, eurekaInstances);
             }
-            specialSyncEventBus.subscribe(taskDO, t -> sync(t, index));
         } catch (Exception e) {
             log.error("sync task from eureka to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
             metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
