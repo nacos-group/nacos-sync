@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -28,6 +29,7 @@ import java.util.Map;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.api.GetChildrenBuilder;
 import org.apache.curator.framework.listen.Listenable;
+import org.apache.curator.framework.recipes.cache.ChildData;
 import org.apache.curator.framework.recipes.cache.CuratorCache;
 import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
 import org.junit.After;
@@ -53,6 +55,7 @@ public class ZookeeperSyncToNacosServiceImplTest {
     private static final String TEST_SERVICE_NAME = "org.apache.dubbo.demo.DemoService";
     private static final String TEST_PROVIDER =
         "hessian%3A%2F%2F172.16.0.10%3A20880%2Forg.apache.dubbo.demo.DemoService%3Fanyhost%3Dtrue%26application%3Ddemo-provider%26dubbo%3D2.0.2%26generic%3Dfalse%26group%3DtestGroup%26interface%3Dorg.apache.dubbo.demo.DemoService%26methods%3DsayHello%26pid%3D5956%26revision%3D1.0.0%26side%3Dprovider%26timestamp%3D1547285978821%26version%3D1.0.0%26weight%3D1";
+    private static final String TEST_PROVIDER_2 = TEST_PROVIDER.replace("%3A20880%2F", "%3A20881%2F");
     private static final String TEST_NACOS_SERVICE_NAME = "providers:org.apache.dubbo.demo.DemoService:1.0.0:testGroup";
     private static final String TEST_INSTANCE_ADDRESS = "172.16.0.10";
     public static final String TEST_SOURCE_CLUSTER_ID = "test-source-cluster-id";
@@ -78,6 +81,9 @@ public class ZookeeperSyncToNacosServiceImplTest {
     private ZookeeperSyncToNacosServiceImpl zookeeperSyncToNacosService;
 
     private MockedStatic<CuratorCache> curatorCacheStatic;
+
+    /** Children currently under /dubbo/{service}/providers in the mocked Zookeeper. */
+    private List<String> providers = List.of(TEST_PROVIDER);
 
     @Before
     public void setUp() {
@@ -132,6 +138,40 @@ public class ZookeeperSyncToNacosServiceImplTest {
         Assert.assertEquals(20880, deregistered.getValue().get(0).getPort());
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testAllProvidersOfAServiceAreRegisteredInOneBatch() throws Exception {
+        // batchRegisterInstance replaces every instance this client registered for the service,
+        // so one call per provider would leave only the last provider in Nacos.
+        TaskDO taskDO = mock(TaskDO.class);
+        providers = List.of(TEST_PROVIDER, TEST_PROVIDER_2);
+        Assert.assertTrue(mockSync(taskDO));
+
+        ArgumentCaptor<List<Instance>> registered = ArgumentCaptor.forClass(List.class);
+        verify(destNamingService).batchRegisterInstance(eq(TEST_NACOS_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
+                registered.capture());
+        Assert.assertEquals(List.of(20880, 20881), registered.getValue().stream().map(Instance::getPort).sorted().toList());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testProviderCreatedEventReRegistersEveryProvider() throws Exception {
+        TaskDO taskDO = mock(TaskDO.class);
+        Assert.assertTrue(mockSync(taskDO));
+        ArgumentCaptor<CuratorCacheListener> listener = ArgumentCaptor.forClass(CuratorCacheListener.class);
+        verify(listenable).addListener(listener.capture());
+
+        // A second provider appears in Zookeeper.
+        providers = List.of(TEST_PROVIDER, TEST_PROVIDER_2);
+        String path = String.format(DubboConstants.DUBBO_PATH_FORMAT, TEST_SERVICE_NAME) + "/" + TEST_PROVIDER_2;
+        listener.getValue().event(CuratorCacheListener.Type.NODE_CREATED, null, new ChildData(path, null, null));
+
+        ArgumentCaptor<List<Instance>> registered = ArgumentCaptor.forClass(List.class);
+        verify(destNamingService, times(2)).batchRegisterInstance(eq(TEST_NACOS_SERVICE_NAME),
+                eq(Constants.DEFAULT_GROUP), registered.capture());
+        Assert.assertEquals(List.of(20880, 20881), registered.getValue().stream().map(Instance::getPort).sorted().toList());
+    }
+
     @Test(expected = Exception.class)
     public void tesZookeeperSyncToNacosWithException() throws Exception {
         Assert.assertFalse(zookeeperSyncToNacosService.sync(null, null));
@@ -155,7 +195,7 @@ public class ZookeeperSyncToNacosServiceImplTest {
                 .thenReturn(treeCache);
         when(curatorFramework.getChildren()).thenReturn(getChildrenBuilder);
         when(getChildrenBuilder.forPath(String.format(DubboConstants.DUBBO_PATH_FORMAT, TEST_SERVICE_NAME)))
-                .thenReturn(List.of(TEST_PROVIDER));
+                .thenAnswer(invocation -> providers);
         doReturn(ClusterTypeEnum.ZK).when(skyWalkerCacheServices).getClusterType(TEST_SOURCE_CLUSTER_ID);
         when(treeCache.listenable()).thenReturn(listenable);
         return zookeeperSyncToNacosService.sync(taskDO,null);

@@ -320,7 +320,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
     }
     
     private void processEvent(TaskDO taskDO, NamingService destNamingService, CuratorCacheListener.Type type,
-            String path, Map<String, String> queryParam) throws NacosException {
+            String path, Map<String, String> queryParam) throws Exception {
         if (!com.alibaba.nacossync.util.StringUtils.isDubboProviderPath(path)) {
             return;
         }
@@ -330,7 +330,6 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
             log.error("Invalid IP and Port data extracted from path: {}", path);
             return;
         }
-        Instance instance = buildSyncInstance(queryParam, ipAndPortParam, taskDO);
         String serviceName = queryParam.get(INTERFACE_KEY);
         if (serviceName == null || serviceName.isEmpty()) {
             log.error("Service name is missing in the query parameters.");
@@ -339,10 +338,9 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         switch (type) {
             case NODE_CREATED:
             case NODE_CHANGED:
-                
-                destNamingService.batchRegisterInstance(
-                        getServiceNameFromCache(taskDO.getTaskId(), serviceName, queryParam),
-                        getGroupNameOrDefault(taskDO.getGroupName()), List.of(instance));
+                // Re-register the whole provider list: a batch register with only this provider would drop the others.
+                registerALLInstances0(taskDO, destNamingService,
+                        zookeeperServerHolder.get(taskDO.getSourceClusterId()), serviceName);
                 break;
             case NODE_DELETED:
                 
@@ -377,17 +375,22 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
             return;
         }
         List<String> providers = zk.getChildren().forPath(path);
+        // batchRegisterInstance replaces every instance this client registered for a service,
+        // so each Nacos service is registered once with all of its providers.
+        Map<String, List<Instance>> instancesByService = new HashMap<>();
         for (String provider : providers) {
             Map<String, String> queryParam = parseQueryString(provider);
             if (isMatch(taskDO, queryParam) && needSync(queryParam)) {
                 Map<String, String> ipAndPortParam = parseIpAndPortString(path + ZOOKEEPER_SEPARATOR + provider);
                 Instance instance = buildSyncInstance(queryParam, ipAndPortParam, taskDO);
-                destNamingService.batchRegisterInstance(
-                        getServiceNameFromCache(taskDO.getTaskId(), serviceName, queryParam),
-                        getGroupNameOrDefault(taskDO.getGroupName()), List.of(instance));
+                instancesByService.computeIfAbsent(getServiceNameFromCache(taskDO.getTaskId(), serviceName, queryParam),
+                        key -> new ArrayList<>()).add(instance);
             }
         }
-        
+        for (Map.Entry<String, List<Instance>> entry : instancesByService.entrySet()) {
+            destNamingService.batchRegisterInstance(entry.getKey(), getGroupNameOrDefault(taskDO.getGroupName()),
+                    entry.getValue());
+        }
     }
     
     
