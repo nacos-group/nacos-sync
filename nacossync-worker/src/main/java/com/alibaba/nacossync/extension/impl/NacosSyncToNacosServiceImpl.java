@@ -161,7 +161,6 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     public boolean delete(TaskDO taskDO) {
         try {
             NamingService sourceNamingService = nacosServerHolder.get(taskDO.getSourceClusterId());
-            int level = clusterAccessService.findClusterLevel(taskDO.getSourceClusterId());
             String taskId = taskDO.getTaskId();
             
             //Handle individual service
@@ -174,22 +173,9 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                 sourceNamingService.unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
                         listener);
             }
-            List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
-                    getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), false);
-            
-            NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
-            List<Instance> instances = sourceInstances.stream()
-                    .filter(instance -> needSync(instance.getMetadata(), level, taskDO.getDestClusterId())).toList();
-            if (CollectionUtils.isNotEmpty(instances) && !instances.get(0).isEphemeral()) {
-                // Batch deregistration only works for instances registered in a batch, which are ephemeral.
-                for (Instance instance : instances) {
-                    destNamingService.deregisterInstance(taskDO.getServiceName(),
-                            getGroupNameOrDefault(taskDO.getGroupName()), instance);
-                }
-            } else {
-                destNamingService.batchDeregisterInstance(taskDO.getServiceName(),
-                        getGroupNameOrDefault(taskDO.getGroupName()), instances);
-            }
+            // Remove what this source synced to the destination. The source's own instance list cannot tell: an
+            // ALL task deletes the sub-task of a service only once the service has no instances left.
+            processDeRegisterInstances(taskDO, nacosServerHolder.get(taskDO.getDestClusterId()));
             // Remove all tasks that need to be synchronized.
             allSyncTaskMap.remove(taskId);
             
@@ -408,7 +394,13 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             return;
         }
         destInstances = filterInstancesForRemoval(destInstances, taskDO.getSourceClusterId());
-        if (CollectionUtils.isNotEmpty(destInstances)) {
+        if (CollectionUtils.isNotEmpty(destInstances) && !destInstances.get(0).isEphemeral()) {
+            // Batch deregistration only works for instances registered in a batch, which are ephemeral.
+            for (Instance instance : destInstances) {
+                destNamingService.deregisterInstance(taskDO.getServiceName(),
+                        getGroupNameOrDefault(taskDO.getGroupName()), instance);
+            }
+        } else if (CollectionUtils.isNotEmpty(destInstances)) {
             // Deregister the instances that need to be removed.
             // Need to handle redo, otherwise, it will be registered again.
             destNamingService.batchDeregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),

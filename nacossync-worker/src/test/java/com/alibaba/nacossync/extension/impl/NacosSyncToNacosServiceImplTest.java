@@ -153,7 +153,11 @@ public class NacosSyncToNacosServiceImplTest {
                 any(Instance.class));
         verify(destNamingService, never()).batchRegisterInstance(anyString(), anyString(), anyList());
 
-        doReturn(List.of(first, second)).when(sourceNamingService)
+        Instance firstCopy = syncedCopy(8080, Maps.newHashMap());
+        firstCopy.setEphemeral(false);
+        Instance secondCopy = syncedCopy(8081, Maps.newHashMap());
+        secondCopy.setEphemeral(false);
+        doReturn(List.of(firstCopy, secondCopy)).when(destNamingService)
                 .getAllInstances(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP), anyList(), eq(false));
         Assert.assertTrue(nacosSyncToNacosService.delete(taskDO));
         verify(destNamingService, times(2)).deregisterInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
@@ -176,13 +180,37 @@ public class NacosSyncToNacosServiceImplTest {
         Assert.assertTrue(nacosSyncToNacosService.delete(taskDO));
 
         verify(sourceNamingService).unsubscribe(TEST_SERVICE_NAME, Constants.DEFAULT_GROUP, listener.getValue());
-        // The batch deregistration comes from delete: every source instance that sync would register.
+        // delete removes the destination instances synced from this source, and leaves native ones alone.
         ArgumentCaptor<List<Instance>> deregistered = ArgumentCaptor.forClass(List.class);
         verify(destNamingService).batchDeregisterInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
                 deregistered.capture());
         List<Instance> removed = deregistered.getValue();
         Assert.assertEquals(1, removed.size());
         Assert.assertEquals(8080, removed.get(0).getPort());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testDeleteRemovesSyncedCopiesWhenTheSourceIsAlreadyEmpty() throws Exception {
+        // An ALL task deletes the sub-task of a service only once the service has no instances left, so the
+        // source's instance list cannot tell what to remove from the destination.
+        TaskDO taskDO = mock(TaskDO.class);
+        when(taskDO.getTaskId()).thenReturn(TEST_TASK_ID);
+        when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
+        when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
+        when(taskDO.getServiceName()).thenReturn(TEST_SERVICE_NAME);
+        doReturn(destNamingService).when(nacosServerHolder).get(TEST_DEST_CLUSTER_ID);
+        doReturn(sourceNamingService).when(nacosServerHolder).get(TEST_SOURCE_CLUSTER_ID);
+        doReturn(List.of(syncedCopy(8080, Maps.newHashMap()), buildInstance(8083, Maps.newHashMap())))
+                .when(destNamingService)
+                .getAllInstances(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP), anyList(), eq(false));
+
+        Assert.assertTrue(nacosSyncToNacosService.delete(taskDO));
+
+        ArgumentCaptor<List<Instance>> deregistered = ArgumentCaptor.forClass(List.class);
+        verify(destNamingService).batchDeregisterInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
+                deregistered.capture());
+        Assert.assertEquals(List.of(8080), deregistered.getValue().stream().map(Instance::getPort).toList());
     }
 
     @Test(expected = Exception.class)
@@ -228,7 +256,8 @@ public class NacosSyncToNacosServiceImplTest {
     }
 
     public void mockDelete() throws Exception {
-        doReturn(sourceInstances()).when(sourceNamingService)
+        doReturn(List.of(syncedCopy(8080, Maps.newHashMap()), buildInstance(8083, Maps.newHashMap())))
+                .when(destNamingService)
                 .getAllInstances(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP), anyList(), eq(false));
     }
 
