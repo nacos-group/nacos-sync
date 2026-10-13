@@ -1,12 +1,16 @@
 package com.alibaba.nacossync.extension.impl;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.doNothing;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.alibaba.nacos.api.common.Constants;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
@@ -14,22 +18,27 @@ import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.extension.holder.ZookeeperServerHolder;
+import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
+import com.alibaba.nacossync.util.DubboConstants;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.api.GetChildrenBuilder;
 import org.apache.curator.framework.listen.Listenable;
-import org.apache.curator.framework.recipes.cache.ChildData;
 import org.apache.curator.framework.recipes.cache.CuratorCache;
 import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
 
@@ -41,8 +50,11 @@ import org.mockito.junit.MockitoJUnitRunner;
 @RunWith(MockitoJUnitRunner.class)
 public class ZookeeperSyncToNacosServiceImplTest {
 
-    private static final String TEST_PATH =
-        "/dubbo/org.apache.dubbo.demo.DemoService/providers/hessian%3A%2F%2F172.16.0.10%3A20880%2Forg.apache.dubbo.demo.DemoService%3Fanyhost%3Dtrue%26application%3Ddemo-provider%26dubbo%3D2.0.2%26generic%3Dfalse%26group%3DtestGroup%26interface%3Dorg.apache.dubbo.demo.DemoService%26methods%3DsayHello%26pid%3D5956%26revision%3D1.0.0%26side%3Dprovider%26timestamp%3D1547285978821%26version%3D1.0.0%26weight%3D1";
+    private static final String TEST_SERVICE_NAME = "org.apache.dubbo.demo.DemoService";
+    private static final String TEST_PROVIDER =
+        "hessian%3A%2F%2F172.16.0.10%3A20880%2Forg.apache.dubbo.demo.DemoService%3Fanyhost%3Dtrue%26application%3Ddemo-provider%26dubbo%3D2.0.2%26generic%3Dfalse%26group%3DtestGroup%26interface%3Dorg.apache.dubbo.demo.DemoService%26methods%3DsayHello%26pid%3D5956%26revision%3D1.0.0%26side%3Dprovider%26timestamp%3D1547285978821%26version%3D1.0.0%26weight%3D1";
+    private static final String TEST_NACOS_SERVICE_NAME = "providers:org.apache.dubbo.demo.DemoService:1.0.0:testGroup";
+    private static final String TEST_INSTANCE_ADDRESS = "172.16.0.10";
     public static final String TEST_SOURCE_CLUSTER_ID = "test-source-cluster-id";
     public static final String TEST_DEST_CLUSTER_ID = "test-dest-cluster-id";
     public static final String TEST_TASK_ID = "test-task-id";
@@ -57,18 +69,51 @@ public class ZookeeperSyncToNacosServiceImplTest {
     private NamingService destNamingService;
     @Mock
     private CuratorCache treeCache;
+    @Mock
+    private Listenable<CuratorCacheListener> listenable;
+    @Mock
+    private MetricsManager metricsManager;
     @InjectMocks
     @Spy
     private ZookeeperSyncToNacosServiceImpl zookeeperSyncToNacosService;
 
-    @Test
-    public void testZookeeperSyncToNacos() {
-        TaskDO taskDO = mock(TaskDO.class);
-        Assert.assertTrue(mockSync(taskDO));
+    private MockedStatic<CuratorCache> curatorCacheStatic;
 
+    @Before
+    public void setUp() {
+        curatorCacheStatic = mockStatic(CuratorCache.class);
+    }
+
+    @After
+    public void tearDown() {
+        curatorCacheStatic.close();
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    public void testZookeeperSyncToNacos() throws Exception {
+        TaskDO taskDO = mock(TaskDO.class);
+        Assert.assertTrue(mockSync(taskDO));
+
+        ArgumentCaptor<List<Instance>> registered = ArgumentCaptor.forClass(List.class);
+        verify(destNamingService).batchRegisterInstance(eq(TEST_NACOS_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
+                registered.capture());
+        Assert.assertEquals(1, registered.getValue().size());
+        Instance instance = registered.getValue().get(0);
+        Assert.assertEquals(TEST_INSTANCE_ADDRESS, instance.getIp());
+        Assert.assertEquals(20880, instance.getPort());
+        Map<String, String> metadata = instance.getMetadata();
+        Assert.assertEquals(TEST_SOURCE_CLUSTER_ID, metadata.get(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY));
+        Assert.assertEquals(TEST_DEST_CLUSTER_ID, metadata.get(SkyWalkerConstants.DEST_CLUSTER_ID_KEY));
+        Assert.assertEquals(ClusterTypeEnum.ZK.getCode(), metadata.get(SkyWalkerConstants.SYNC_SOURCE_KEY));
+        Assert.assertEquals("hessian", metadata.get(DubboConstants.PROTOCOL_KEY));
+
+        verify(treeCache).start();
+        verify(listenable).addListener(any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     public void testZookeeperDeleteToNacos() throws Exception {
         TaskDO taskDO = mock(TaskDO.class);
         mockSync(taskDO);
@@ -76,6 +121,15 @@ public class ZookeeperSyncToNacosServiceImplTest {
 
         Assert.assertTrue(mockDelete(taskDO));
 
+        // The second sync is a no-op because the task already has a running cache.
+        verify(destNamingService).batchRegisterInstance(anyString(), anyString(), anyList());
+        verify(treeCache).close();
+        // Only the instance synced from this source cluster is deregistered.
+        ArgumentCaptor<List<Instance>> deregistered = ArgumentCaptor.forClass(List.class);
+        verify(destNamingService).batchDeregisterInstance(eq(TEST_NACOS_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
+                deregistered.capture());
+        Assert.assertEquals(1, deregistered.getValue().size());
+        Assert.assertEquals(20880, deregistered.getValue().get(0).getPort());
     }
 
     @Test(expected = Exception.class)
@@ -88,34 +142,43 @@ public class ZookeeperSyncToNacosServiceImplTest {
         Assert.assertFalse(zookeeperSyncToNacosService.delete(null));
     }
 
-    public boolean mockSync(TaskDO taskDO) {
-        ChildData childData = new ChildData(TEST_PATH, null, null);
-        Listenable<CuratorCacheListener> listeners = mock(Listenable.class);
+    public boolean mockSync(TaskDO taskDO) throws Exception {
         when(taskDO.getTaskId()).thenReturn(TEST_TASK_ID);
         when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
         when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
+        when(taskDO.getServiceName()).thenReturn(TEST_SERVICE_NAME);
         CuratorFramework curatorFramework = mock(CuratorFramework.class);
-        doReturn(curatorFramework).when(zookeeperServerHolder).get(any() );
-        doReturn(destNamingService).when(nacosServerHolder).get(any());
-        doReturn(treeCache).when(zookeeperSyncToNacosService).getTreeCache(any());
-        when(treeCache.get(any())).thenReturn(Optional.of(childData));
-        doReturn(ClusterTypeEnum.ZK).when(skyWalkerCacheServices).getClusterType(any());
-        when(treeCache.listenable()).thenReturn(listeners);
+        GetChildrenBuilder getChildrenBuilder = mock(GetChildrenBuilder.class);
+        doReturn(curatorFramework).when(zookeeperServerHolder).get(TEST_SOURCE_CLUSTER_ID);
+        doReturn(destNamingService).when(nacosServerHolder).get(TEST_DEST_CLUSTER_ID);
+        curatorCacheStatic.when(() -> CuratorCache.build(curatorFramework, DubboConstants.DUBBO_ROOT_PATH))
+                .thenReturn(treeCache);
+        when(curatorFramework.getChildren()).thenReturn(getChildrenBuilder);
+        when(getChildrenBuilder.forPath(String.format(DubboConstants.DUBBO_PATH_FORMAT, TEST_SERVICE_NAME)))
+                .thenReturn(List.of(TEST_PROVIDER));
+        doReturn(ClusterTypeEnum.ZK).when(skyWalkerCacheServices).getClusterType(TEST_SOURCE_CLUSTER_ID);
+        when(treeCache.listenable()).thenReturn(listenable);
         return zookeeperSyncToNacosService.sync(taskDO,null);
     }
 
     public boolean mockDelete(TaskDO taskDO) throws Exception {
-        doNothing().when(treeCache).close();
-        Instance instance = mock(Instance.class);
         Map<String, String> metadata = Maps.newHashMap();
         metadata.put(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY, TEST_SOURCE_CLUSTER_ID);
-        List<Instance> allInstances = Lists.newArrayList(instance);
+        List<Instance> allInstances = Lists.newArrayList(buildInstance(20880, metadata),
+                buildInstance(20881, Maps.newHashMap()));
 
-        doReturn(allInstances).when(destNamingService).getAllInstances(anyString());
+        doReturn(allInstances).when(destNamingService)
+                .getAllInstances(eq(TEST_NACOS_SERVICE_NAME), eq(Constants.DEFAULT_GROUP), anyList(), eq(true));
 
-        doReturn(metadata).when(instance).getMetadata();
-        // verify(destNamingService).deregisterInstance(anyString(), anyString(), anyInt());
         return zookeeperSyncToNacosService.delete(taskDO);
+    }
+
+    private Instance buildInstance(int port, Map<String, String> metadata) {
+        Instance instance = new Instance();
+        instance.setIp(TEST_INSTANCE_ADDRESS);
+        instance.setPort(port);
+        instance.setMetadata(metadata);
+        return instance;
     }
 
 }
