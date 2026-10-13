@@ -180,8 +180,16 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
             List<Instance> instances = sourceInstances.stream()
                     .filter(instance -> needSync(instance.getMetadata(), level, taskDO.getDestClusterId())).toList();
-            destNamingService.batchDeregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
-                    instances);
+            if (CollectionUtils.isNotEmpty(instances) && !instances.get(0).isEphemeral()) {
+                // Batch deregistration only works for instances registered in a batch, which are ephemeral.
+                for (Instance instance : instances) {
+                    destNamingService.deregisterInstance(taskDO.getServiceName(),
+                            getGroupNameOrDefault(taskDO.getGroupName()), instance);
+                }
+            } else {
+                destNamingService.batchDeregisterInstance(taskDO.getServiceName(),
+                        getGroupNameOrDefault(taskDO.getGroupName()), instances);
+            }
             // Remove all tasks that need to be synchronized.
             allSyncTaskMap.remove(taskId);
             
@@ -305,6 +313,19 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                     taskDO.getServiceName(), destHasSyncInstances.size());
         }
         String groupName = getGroupNameOrDefault(taskDO.getGroupName());
+        if (!sourceInstances.get(0).isEphemeral()) {
+            // Batch registration only accepts ephemeral instances.
+            for (Instance instance : newInstances) {
+                destNamingService.registerInstance(taskDO.getServiceName(), groupName, instance);
+            }
+            for (Instance instance : changedInstances) {
+                destNamingService.registerInstance(taskDO.getServiceName(), groupName, instance);
+            }
+            for (Instance instance : invalidInstances) {
+                destNamingService.deregisterInstance(taskDO.getServiceName(), groupName, instance);
+            }
+            return;
+        }
         if (CollectionUtils.isEmpty(needRegisterInstance)) {
             if (CollectionUtils.isNotEmpty(invalidInstances)) {
                 destNamingService.batchDeregisterInstance(taskDO.getServiceName(), groupName, invalidInstances);

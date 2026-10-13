@@ -139,6 +139,30 @@ public class NacosSyncToNacosServiceImplTest {
     }
 
     @Test
+    public void testPersistentInstancesAreRegisteredOneByOne() throws Exception {
+        // nacos-client rejects persistent instances in a batch registration.
+        TaskDO taskDO = mock(TaskDO.class);
+        Instance first = buildInstance(8080, Maps.newHashMap());
+        first.setEphemeral(false);
+        Instance second = buildInstance(8081, Maps.newHashMap());
+        second.setEphemeral(false);
+        mockSync(taskDO, List.of(first, second), List.of());
+        Assert.assertTrue(nacosSyncToNacosService.sync(taskDO, null));
+
+        verify(destNamingService, times(2)).registerInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
+                any(Instance.class));
+        verify(destNamingService, never()).batchRegisterInstance(anyString(), anyString(), anyList());
+
+        doReturn(List.of(first, second)).when(sourceNamingService)
+                .getAllInstances(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP), anyList(), eq(false));
+        Assert.assertTrue(nacosSyncToNacosService.delete(taskDO));
+        verify(destNamingService, times(2)).deregisterInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
+                any(Instance.class));
+        verify(destNamingService, never()).batchDeregisterInstance(anyString(), anyString(), anyList());
+    }
+
+
+    @Test
     @SuppressWarnings("unchecked")
     public void testDeleteSyncToNacos() throws Exception {
         TaskDO taskDO = mock(TaskDO.class);
