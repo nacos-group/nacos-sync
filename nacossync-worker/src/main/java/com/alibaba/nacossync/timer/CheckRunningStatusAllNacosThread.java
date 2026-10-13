@@ -19,7 +19,7 @@ package com.alibaba.nacossync.timer;
 
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.ListView;
-import com.alibaba.nacos.client.naming.utils.CollectionUtils;
+import com.alibaba.nacos.common.utils.CollectionUtils;
 import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.TaskAccessService;

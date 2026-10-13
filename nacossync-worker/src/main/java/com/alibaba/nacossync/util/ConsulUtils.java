@@ -1,6 +1,6 @@
 package com.alibaba.nacossync.util;
 
-import com.alibaba.nacos.client.naming.utils.CollectionUtils;
+import com.alibaba.nacos.common.utils.CollectionUtils;
 
 import java.util.HashMap;
 import java.util.List;
