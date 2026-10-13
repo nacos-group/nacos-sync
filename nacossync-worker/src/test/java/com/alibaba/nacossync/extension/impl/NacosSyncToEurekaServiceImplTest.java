@@ -26,6 +26,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.anyList;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -33,7 +34,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Nacos health and enabled state must be reflected in Eureka (issue #394).
+ * Nacos health, enabled state and metadata must be reflected in Eureka (issue #394).
  */
 class NacosSyncToEurekaServiceImplTest {
 
@@ -103,6 +104,23 @@ class NacosSyncToEurekaServiceImplTest {
 
         verify(eurekaNamingService).deregisterInstance(synced8081);
         verify(eurekaNamingService, never()).deregisterInstance(synced8080);
+    }
+
+    /**
+     * Guards the current re-register-on-every-sync behaviour: an existing instance whose metadata changed must be
+     * registered again with the new metadata.
+     */
+    @Test
+    void metadataChangeIsPropagatedToEureka() throws Exception {
+        givenSourceInstances(List.of(nacosInstance(8080, Map.of("version", "v1"))),
+                List.of(nacosInstance(8080, Map.of("version", "v2"))));
+
+        assertTrue(nacosSyncToEurekaService.sync(taskDO, 0));
+        assertTrue(nacosSyncToEurekaService.sync(taskDO, 0));
+
+        ArgumentCaptor<InstanceInfo> registered = ArgumentCaptor.forClass(InstanceInfo.class);
+        verify(eurekaNamingService, atLeastOnce()).registerInstance(registered.capture());
+        assertEquals("v2", registered.getValue().getMetadata().get("version"));
     }
 
     /**
