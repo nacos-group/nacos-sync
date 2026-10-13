@@ -32,6 +32,7 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.BatchTaskExecutor;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
 import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 
@@ -51,6 +52,11 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
     
     private final Map<String, Set<String>> subTaskService = new ConcurrentHashMap<>();
     
+    /**
+     * The ALL tasks seen so far, so that their sub-tasks can still be built once the task row is gone.
+     */
+    private final Map<String, TaskDO> allTasks = new ConcurrentHashMap<>();
+    
     private final MetricsManager metricsManager;
     
     private final TaskAccessService taskAccessService;
@@ -66,6 +72,8 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
         this.taskAccessService = taskAccessService;
         this.nacosServerHolder = nacosServerHolder;
         this.eventBus = eventBus;
+        // Created with new by QuerySyncTaskTimer rather than as a bean, so it registers itself.
+        eventBus.register(this);
     }
     
     /**
@@ -76,11 +84,12 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
         
         try {
             List<TaskDO> tasks = taskAccessService.findAllByServiceNameEqualAll();
-            if (CollectionUtils.isEmpty(tasks)) {
-                return;
+            if (tasks == null) {
+                tasks = Collections.emptyList();
             }
             
-            // Get the set of all task IDs
+            // Get the set of all task IDs. The cleanup below must also run when no ALL task is left, which is
+            // exactly the case after the last one was deleted.
             Set<String> taskIdSet = tasks.stream().map(TaskDO::getTaskId).collect(Collectors.toSet());
             
             // Filter and handle sub-tasks that need to be deleted. This handles the case where tasks have been deleted
@@ -102,6 +111,7 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
      *
      * @param deleteAllSubTaskEvent The event object containing the task information to be deleted.
      */
+    @Subscribe
     public void listenerDeleteAllTaskEvent(DeleteAllSubTaskEvent deleteAllSubTaskEvent) {
         // Retrieve the task object
         TaskDO task = deleteAllSubTaskEvent.getTaskDO();
@@ -132,8 +142,12 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
     }
     
     private void postDeleteAllSubTaskEvent(String taskId) {
-        TaskDO taskDO = new TaskDO();
-        taskDO.setTaskId(taskId);
+        // The sub-tasks are built from the task's clusters and group, so the task id alone is not enough.
+        TaskDO taskDO = allTasks.remove(taskId);
+        if (taskDO == null) {
+            taskDO = new TaskDO();
+            taskDO.setTaskId(taskId);
+        }
         eventBus.post(new DeleteAllSubTaskEvent(taskDO));
     }
     
@@ -144,6 +158,7 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
      * @param task The task object to be processed.
      */
     private void processTask(TaskDO task) {
+        allTasks.put(task.getTaskId(), task);
         // Retrieve the set of services for the task, creating a new set if it does not exist
         Set<String> serviceSet = subTaskService.computeIfAbsent(task.getTaskId(), k -> ConcurrentHashMap.newKeySet());
         
