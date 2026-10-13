@@ -109,11 +109,12 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
             NamingService sourceNamingService =
                 nacosServerHolder.get(taskDO.getSourceClusterId());
             EventListener eventListener = nacosListenerMap.remove(taskDO.getTaskId());
-            CuratorCache pathChildrenCache = pathChildrenCacheMap.get(taskDO.getTaskId());
+            // Remove, not just read, the per-task state so that a re-added task does not reuse a closed cache.
+            CuratorCache pathChildrenCache = pathChildrenCacheMap.remove(taskDO.getTaskId());
             sourceNamingService.unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
                 eventListener);
             CloseableUtils.closeQuietly(pathChildrenCache);
-            Set<String> instanceUrlSet = instanceBackupMap.get(taskDO.getTaskId());
+            Set<String> instanceUrlSet = instanceBackupMap.remove(taskDO.getTaskId());
             CuratorFramework client = zookeeperServerHolder.get(taskDO.getDestClusterId());
             if(!CollectionUtils.isEmpty(instanceUrlSet)){
                 for (String instanceUrl : instanceUrlSet) {
@@ -137,17 +138,7 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
             nacosListenerMap.putIfAbsent(taskDO.getTaskId(), event -> {
                 if (event instanceof NamingEvent) {
                     try {
-
-                        List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
-                            getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
-                        Set<String> newInstanceUrlSet = getWaitingToAddInstance(taskDO, client, sourceInstances);
-
-                        // fetch the instance backup
-                        deleteInvalidInstances(taskDO, client, newInstanceUrlSet);
-                        // replace the instance backup
-                        instanceBackupMap.put(taskDO.getTaskId(), newInstanceUrlSet);
-                        // try to compensate for the removed instance
-                        tryToCompensate(taskDO, sourceNamingService, sourceInstances);
+                        syncInstances(taskDO, sourceNamingService, client);
                     } catch (Exception e) {
                         log.error("event process fail, taskId:{}", taskDO.getTaskId(), e);
                         metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
@@ -156,6 +147,9 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
                 }
             });
 
+            // nacos-client only fires a NamingEvent when its cached service info changes, so a task re-added for an
+            // unchanged service would never be synced. Sync the current instances before waiting for events.
+            syncInstances(taskDO, sourceNamingService, client);
             sourceNamingService.subscribe(taskDO.getServiceName(),getGroupNameOrDefault(taskDO.getGroupName()),
                 nacosListenerMap.get(taskDO.getTaskId()));
         } catch (Exception e) {
@@ -166,6 +160,20 @@ public class NacosSyncToZookeeperServiceImpl implements SyncService {
         return true;
     }
     
+    private void syncInstances(TaskDO taskDO, NamingService sourceNamingService, CuratorFramework client)
+        throws Exception {
+        List<Instance> sourceInstances = sourceNamingService.getAllInstances(taskDO.getServiceName(),
+            getGroupNameOrDefault(taskDO.getGroupName()), new ArrayList<>(), true);
+        Set<String> newInstanceUrlSet = getWaitingToAddInstance(taskDO, client, sourceInstances);
+
+        // fetch the instance backup
+        deleteInvalidInstances(taskDO, client, newInstanceUrlSet);
+        // replace the instance backup
+        instanceBackupMap.put(taskDO.getTaskId(), newInstanceUrlSet);
+        // try to compensate for the removed instance
+        tryToCompensate(taskDO, sourceNamingService, sourceInstances);
+    }
+
     private void tryToCompensate(TaskDO taskDO, NamingService sourceNamingService, List<Instance> sourceInstances) {
         if (!CollectionUtils.isEmpty(sourceInstances)) {
             final CuratorCache pathCache = getPathCache(taskDO);
