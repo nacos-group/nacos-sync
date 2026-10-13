@@ -19,11 +19,12 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.framework.listen.ListenerContainer;
+import org.apache.curator.framework.listen.Listenable;
 import org.apache.curator.framework.recipes.cache.ChildData;
-import org.apache.curator.framework.recipes.cache.TreeCache;
-import org.apache.curator.framework.recipes.cache.TreeCacheListener;
+import org.apache.curator.framework.recipes.cache.CuratorCache;
+import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -55,7 +56,7 @@ public class ZookeeperSyncToNacosServiceImplTest {
     @Mock
     private NamingService destNamingService;
     @Mock
-    private TreeCache treeCache;
+    private CuratorCache treeCache;
     @InjectMocks
     @Spy
     private ZookeeperSyncToNacosServiceImpl zookeeperSyncToNacosService;
@@ -89,7 +90,7 @@ public class ZookeeperSyncToNacosServiceImplTest {
 
     public boolean mockSync(TaskDO taskDO) {
         ChildData childData = new ChildData(TEST_PATH, null, null);
-        ListenerContainer<TreeCacheListener> listeners = mock(ListenerContainer.class);
+        Listenable<CuratorCacheListener> listeners = mock(Listenable.class);
         when(taskDO.getTaskId()).thenReturn(TEST_TASK_ID);
         when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
         when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
@@ -97,9 +98,9 @@ public class ZookeeperSyncToNacosServiceImplTest {
         doReturn(curatorFramework).when(zookeeperServerHolder).get(any() );
         doReturn(destNamingService).when(nacosServerHolder).get(any());
         doReturn(treeCache).when(zookeeperSyncToNacosService).getTreeCache(any());
-        when(treeCache.getCurrentData(any())).thenReturn(childData);
+        when(treeCache.get(any())).thenReturn(Optional.of(childData));
         doReturn(ClusterTypeEnum.ZK).when(skyWalkerCacheServices).getClusterType(any());
-        when(treeCache.getListenable()).thenReturn(listeners);
+        when(treeCache.listenable()).thenReturn(listeners);
         return zookeeperSyncToNacosService.sync(taskDO,null);
     }
 
