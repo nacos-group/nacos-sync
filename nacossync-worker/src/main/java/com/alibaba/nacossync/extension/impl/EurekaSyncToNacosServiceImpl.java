@@ -34,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.CollectionUtils;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -96,7 +97,8 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
             EurekaNamingService eurekaNamingService = eurekaServerHolder.get(taskDO.getSourceClusterId());
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
             
-            List<InstanceInfo> eurekaInstances = eurekaNamingService.getApplications(taskDO.getServiceName());
+            List<InstanceInfo> eurekaInstances = filterUpInstances(
+                    eurekaNamingService.getApplications(taskDO.getServiceName()));
             List<Instance> nacosInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
                     NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()));
             
@@ -117,6 +119,18 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
             return false;
         }
         return true;
+    }
+    
+    /**
+     * Only UP instances receive traffic in Eureka. DOWN, OUT_OF_SERVICE, STARTING and UNKNOWN instances are treated
+     * as absent so they are removed from Nacos instead of being registered as healthy.
+     */
+    private List<InstanceInfo> filterUpInstances(List<InstanceInfo> eurekaInstances) {
+        if (CollectionUtils.isEmpty(eurekaInstances)) {
+            return Collections.emptyList();
+        }
+        return eurekaInstances.stream().filter(instance -> InstanceInfo.InstanceStatus.UP == instance.getStatus())
+                .toList();
     }
     
     private void addValidInstance(TaskDO taskDO, NamingService destNamingService, List<InstanceInfo> eurekaInstances)
