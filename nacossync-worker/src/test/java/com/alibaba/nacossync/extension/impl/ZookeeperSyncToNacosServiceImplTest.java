@@ -172,6 +172,21 @@ public class ZookeeperSyncToNacosServiceImplTest {
         Assert.assertEquals(List.of(20880, 20881), registered.getValue().stream().map(Instance::getPort).sorted().toList());
     }
 
+    @Test
+    public void testProviderDeletedEventDeregistersItFromNacos() throws Exception {
+        // CuratorCacheListener passes a deleted node as oldData; newData is null.
+        TaskDO taskDO = mock(TaskDO.class);
+        Assert.assertTrue(mockSync(taskDO));
+        ArgumentCaptor<CuratorCacheListener> listener = ArgumentCaptor.forClass(CuratorCacheListener.class);
+        verify(listenable).addListener(listener.capture());
+
+        String path = String.format(DubboConstants.DUBBO_PATH_FORMAT, TEST_SERVICE_NAME) + "/" + TEST_PROVIDER;
+        listener.getValue().event(CuratorCacheListener.Type.NODE_DELETED, new ChildData(path, null, null), null);
+
+        verify(destNamingService).deregisterInstance(TEST_NACOS_SERVICE_NAME, Constants.DEFAULT_GROUP,
+                TEST_INSTANCE_ADDRESS, 20880);
+    }
+
     @Test(expected = Exception.class)
     public void tesZookeeperSyncToNacosWithException() throws Exception {
         Assert.assertFalse(zookeeperSyncToNacosService.sync(null, null));

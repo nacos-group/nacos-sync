@@ -29,6 +29,7 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.recipes.cache.ChildData;
 import org.apache.curator.framework.recipes.cache.CuratorCache;
 import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
 import org.apache.curator.utils.CloseableUtils;
@@ -146,12 +147,14 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         CuratorCache treeCache = Objects.requireNonNull(getTreeCache(taskDO));
         treeCache.listenable().addListener((type, oldData, newData) -> {
             try {
-                // INITIALIZED is a special event that is not triggered by the Zookeeper server
-                if (newData == null) {
+                // A deleted node only comes as oldData. Neither is set for INITIALIZED, which the Zookeeper
+                // server does not trigger.
+                ChildData data = newData != null ? newData : oldData;
+                if (data == null) {
                     log.warn("TreeCache event data is null, taskId:{}", taskDO.getTaskId());
                     return;
                 }
-                String path = newData.getPath();
+                String path = data.getPath();
                 Map<String, String> queryParam = parseQueryString(path);
                 if (isMatch(taskDO, queryParam) && needSync(queryParam)) {
                     processEvent(taskDO, destNamingService, type, path, queryParam);
