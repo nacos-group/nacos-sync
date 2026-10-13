@@ -43,18 +43,49 @@
             <artifactId>spring-test</artifactId>
         </dependency>
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-        </dependency>
-        <dependency>
             <groupId>com.ning</groupId>
             <artifactId>async-http-client</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-mysql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Embedded Eureka registry for the integration tests; never part of the nacos-sync context. -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <plugin>
+                <!-- Same as nacossync-worker: pinned here so settings.xml profiles cannot lower the level. -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>17</source>
+                    <target>17</target>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -65,4 +96,40 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- Docker-backed integration tests (*IT.java): mvn -Pit verify -pl nacossync-test -am -->
+        <profile>
+            <id>it</id>
+            <properties>
+                <nacos.image.tag>v3.2.4</nacos.image.tag>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <redirectTestOutputToFile>true</redirectTestOutputToFile>
+                            <systemPropertyVariables>
+                                <nacos.image.tag>${nacos.image.tag}</nacos.image.tag>
+                                <!-- Keep nacos-client cache and logs out of the user's home directory. -->
+                                <JM.SNAPSHOT.PATH>${project.build.directory}/nacos-client</JM.SNAPSHOT.PATH>
+                                <JM.LOG.PATH>${project.build.directory}/nacos-client/logs</JM.LOG.PATH>
+                                <nacos.logging.default.config.enabled>false</nacos.logging.default.config.enabled>
+                            </systemPropertyVariables>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
