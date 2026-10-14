@@ -56,9 +56,10 @@ eventually $WAIT "nacos->nacos: persistent instances synced" nacos_count $NACOS_
 delete_task "$T_PS"
 eventually $WAIT "nacos->nacos: persistent synced instances removed on task delete" nacos_count $NACOS_B $PS 0
 
-# --- serviceName=ALL copies every (non-synced) service of the source group
+# --- serviceName=ALL copies every (non-synced) service of the source group. Created without a group, as the console
+# does by default, which means DEFAULT_GROUP.
 start_app nacos-cloud-consumer http://localhost:18035/hello $(nacos_app_env)
-T_ALL=$(add_task "$NACOS_A_ID" "$NACOS_B_ID" ALL)
+T_ALL=$(add_task "$NACOS_A_ID" "$NACOS_B_ID" ALL "")
 eventually $WAIT "ALL task: $NP copied to Nacos B" nacos_has_port $NACOS_B $NP 18088
 eventually $WAIT "ALL task: spring-cloud-nacos-consumer copied to Nacos B" nacos_has_port $NACOS_B spring-cloud-nacos-consumer 18035
 stop_app nacos-cloud-consumer TERM

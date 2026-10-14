@@ -30,6 +30,7 @@ import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.BatchTaskExecutor;
+import com.alibaba.nacossync.util.NacosUtils;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
@@ -252,8 +253,9 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
             return Collections.emptyList();
         }
         try {
+            // Nacos lists no service for an empty group; a task without a group means DEFAULT_GROUP, as elsewhere.
             ListView<String> servicesOfServer = namingService.getServicesOfServer(0, Integer.MAX_VALUE,
-                    taskDO.getGroupName());
+                    NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()));
             return servicesOfServer.getData();
         } catch (Exception e) {
             log.error("query service list failure", e);

@@ -92,6 +92,16 @@ class CheckRunningStatusAllNacosThreadTest {
         assertDeletedSubTaskOfSvcA();
     }
 
+    @Test
+    void allTaskWithoutAGroupSyncsTheDefaultGroup() {
+        // The console sends an empty group when none is entered, and Nacos lists no service for an empty group.
+        allTask.setGroupName("");
+        when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask));
+        thread.run();
+
+        assertEquals(List.of("svc-a"), synced.stream().map(TaskDO::getServiceName).toList());
+    }
+
     private void assertDeletedSubTaskOfSvcA() {
         assertEquals(1, deleted.size());
         TaskDO subTask = deleted.get(0);

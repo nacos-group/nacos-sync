@@ -98,8 +98,9 @@ add_cluster() { # add_cluster <name> <NACOS|EUREKA|CONSUL|ZK> <connectKey[,conne
   sync_api POST /v1/cluster/add "$body" >/dev/null && echo "$id"
 }
 
+# An empty groupName is sent as is, as the console does when no group is entered; a missing one is DEFAULT_GROUP.
 add_task() { # add_task <srcClusterId> <destClusterId> <serviceName> [groupName] [version]: prints taskId
-  local src=$1 dst=$2 svc=$3 grp=${4:-DEFAULT_GROUP} ver=${5:-}
+  local src=$1 dst=$2 svc=$3 grp=${4-DEFAULT_GROUP} ver=${5:-}
   sync_api POST /v1/task/add "$(jq -nc --arg s "$src" --arg d "$dst" --arg n "$svc" --arg g "$grp" --arg v "$ver" \
     '{sourceClusterId:$s, destClusterId:$d, serviceName:$n, groupName:$g} + (if $v == "" then {} else {version:$v} end)')" >/dev/null &&
     md5hex "${svc}_${grp}_${src}_${dst}"
