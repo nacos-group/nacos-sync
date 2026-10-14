@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -32,6 +33,7 @@ import org.apache.curator.framework.listen.Listenable;
 import org.apache.curator.framework.recipes.cache.ChildData;
 import org.apache.curator.framework.recipes.cache.CuratorCache;
 import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
+import org.apache.zookeeper.KeeperException;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -187,6 +189,41 @@ public class ZookeeperSyncToNacosServiceImplTest {
                 TEST_INSTANCE_ADDRESS, 20880);
     }
 
+    @Test
+    public void testTaskCreatedBeforeItsProvidersListensForThem() throws Exception {
+        // Zookeeper has no node for the service until its first provider registers; the listener picks that up.
+        TaskDO taskDO = mock(TaskDO.class);
+        GetChildrenBuilder children = stubZookeeper(taskDO, TEST_SERVICE_NAME);
+        doReturn(destNamingService).when(nacosServerHolder).get(TEST_DEST_CLUSTER_ID);
+        String path = String.format(DubboConstants.DUBBO_PATH_FORMAT, TEST_SERVICE_NAME);
+        when(children.forPath(path)).thenThrow(new KeeperException.NoNodeException(path));
+
+        Assert.assertTrue(zookeeperSyncToNacosService.sync(taskDO, null));
+
+        verify(destNamingService, never()).batchRegisterInstance(anyString(), anyString(), anyList());
+        verify(listenable).addListener(any());
+    }
+
+    @Test
+    public void testWildcardTaskSkipsNodesWithoutProviders() throws Exception {
+        // Dubbo 3 keeps config, mapping and metadata next to the services under /dubbo; they have no providers.
+        TaskDO taskDO = mock(TaskDO.class);
+        GetChildrenBuilder children = stubZookeeper(taskDO, DubboConstants.ALL_SERVICE_NAME_PATTERN);
+        doReturn(destNamingService).when(nacosServerHolder).get(TEST_DEST_CLUSTER_ID);
+        when(children.forPath(DubboConstants.DUBBO_ROOT_PATH)).thenReturn(List.of("config", TEST_SERVICE_NAME,
+                "mapping"));
+        for (String node : List.of("config", "mapping")) {
+            String path = String.format(DubboConstants.DUBBO_PATH_FORMAT, node);
+            when(children.forPath(path)).thenThrow(new KeeperException.NoNodeException(path));
+        }
+
+        Assert.assertTrue(zookeeperSyncToNacosService.sync(taskDO, null));
+
+        verify(destNamingService).batchRegisterInstance(eq(TEST_NACOS_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
+                anyList());
+        verify(listenable).addListener(any());
+    }
+
     @Test(expected = Exception.class)
     public void tesZookeeperSyncToNacosWithException() throws Exception {
         Assert.assertFalse(zookeeperSyncToNacosService.sync(null, null));
@@ -198,14 +235,20 @@ public class ZookeeperSyncToNacosServiceImplTest {
     }
 
     public boolean mockSync(TaskDO taskDO) throws Exception {
+        stubZookeeper(taskDO, TEST_SERVICE_NAME);
+        doReturn(destNamingService).when(nacosServerHolder).get(TEST_DEST_CLUSTER_ID);
+        return zookeeperSyncToNacosService.sync(taskDO,null);
+    }
+
+    /** A task for {@code serviceName} and a Zookeeper whose test service lists {@link #providers}. */
+    private GetChildrenBuilder stubZookeeper(TaskDO taskDO, String serviceName) throws Exception {
         when(taskDO.getTaskId()).thenReturn(TEST_TASK_ID);
         when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
         when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
-        when(taskDO.getServiceName()).thenReturn(TEST_SERVICE_NAME);
+        when(taskDO.getServiceName()).thenReturn(serviceName);
         CuratorFramework curatorFramework = mock(CuratorFramework.class);
         GetChildrenBuilder getChildrenBuilder = mock(GetChildrenBuilder.class);
         doReturn(curatorFramework).when(zookeeperServerHolder).get(TEST_SOURCE_CLUSTER_ID);
-        doReturn(destNamingService).when(nacosServerHolder).get(TEST_DEST_CLUSTER_ID);
         curatorCacheStatic.when(() -> CuratorCache.build(curatorFramework, DubboConstants.DUBBO_ROOT_PATH))
                 .thenReturn(treeCache);
         when(curatorFramework.getChildren()).thenReturn(getChildrenBuilder);
@@ -213,7 +256,7 @@ public class ZookeeperSyncToNacosServiceImplTest {
                 .thenAnswer(invocation -> providers);
         doReturn(ClusterTypeEnum.ZK).when(skyWalkerCacheServices).getClusterType(TEST_SOURCE_CLUSTER_ID);
         when(treeCache.listenable()).thenReturn(listenable);
-        return zookeeperSyncToNacosService.sync(taskDO,null);
+        return getChildrenBuilder;
     }
 
     public boolean mockDelete(TaskDO taskDO) throws Exception {

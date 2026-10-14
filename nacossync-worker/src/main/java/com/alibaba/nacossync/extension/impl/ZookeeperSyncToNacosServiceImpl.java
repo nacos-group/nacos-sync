@@ -33,6 +33,7 @@ import org.apache.curator.framework.recipes.cache.ChildData;
 import org.apache.curator.framework.recipes.cache.CuratorCache;
 import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
 import org.apache.curator.utils.CloseableUtils;
+import org.apache.zookeeper.KeeperException;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -377,7 +378,14 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         if (zk.getChildren() == null) {
             return;
         }
-        List<String> providers = zk.getChildren().forPath(path);
+        List<String> providers;
+        try {
+            providers = zk.getChildren().forPath(path);
+        } catch (KeeperException.NoNodeException e) {
+            // No provider has registered yet, which the listener picks up, or the node is not a service:
+            // Dubbo 3 keeps config, mapping and metadata next to the services.
+            return;
+        }
         // batchRegisterInstance replaces every instance this client registered for a service,
         // so each Nacos service is registered once with all of its providers.
         Map<String, List<Instance>> instancesByService = new HashMap<>();
