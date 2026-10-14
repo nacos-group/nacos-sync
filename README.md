@@ -6,6 +6,11 @@ between different registries. It is designed to help users migrate from one regi
 
 ## [Example](https://github.com/paderlol/nacos-sync-example)
 
+## Upgrading
+
+Upgrading from 0.5.0 to 2.0, moving to Nacos 3.x and the version compatibility: see [UPGRADE.md](UPGRADE.md)
+([简体中文](UPGRADE.zh-CN.md)).
+
 ## Testing
 
 - Unit tests: `mvn test`
