@@ -164,6 +164,24 @@ public class NacosSyncToNacosServiceImplTest {
     }
 
     @Test
+    public void testPersistentCopyTheDestinationHealthChecksIsNotDeregistered() throws Exception {
+        // The destination health-checks persistent copies itself, so a copy can be unhealthy (or have another
+        // weight) there while the source instance is healthy. It is still the copy of that source instance.
+        TaskDO taskDO = mock(TaskDO.class);
+        Instance source = buildInstance(8080, Maps.newHashMap());
+        source.setEphemeral(false);
+        Instance copy = syncedCopy(8080, Maps.newHashMap());
+        copy.setEphemeral(false);
+        copy.setHealthy(false);
+        mockSync(taskDO, List.of(source), List.of(copy));
+        Assert.assertTrue(nacosSyncToNacosService.sync(taskDO, null));
+
+        verify(destNamingService).registerInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
+                any(Instance.class));
+        verify(destNamingService, never()).deregisterInstance(anyString(), anyString(), any(Instance.class));
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     public void testTaskWhoseCopiesCannotBeRemovedStopsSyncing() throws Exception {
         // delete() must stop the task even when removing its copies fails, or the periodic full sync keeps

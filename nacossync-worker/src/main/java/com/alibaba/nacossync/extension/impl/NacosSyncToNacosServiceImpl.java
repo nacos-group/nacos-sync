@@ -420,9 +420,12 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         return builder.build();
     }
     
+    /**
+     * Identifies the endpoint only. Health and weight are left out: the destination health-checks persistent copies
+     * itself, and a copy whose flags differ from the source must not count as invalid and be deregistered.
+     */
     private static String getInstanceKey(Instance instance) {
-        return String.join("|", instance.getIp(), String.valueOf(instance.getPort()),
-                String.valueOf(instance.getWeight()), String.valueOf(instance.isHealthy()),
-                String.valueOf(instance.isEphemeral()), instance.getClusterName(), instance.getServiceName());
+        return String.join("|", instance.getIp(), String.valueOf(instance.getPort()), instance.getClusterName(),
+                instance.getServiceName());
     }
 }
