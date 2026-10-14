@@ -1,0 +1,121 @@
+# E2E environment for nacos-sync. Registries and nacos-sync run in containers so that
+# `docker network disconnect` produces a real partition (dropped packets, not refused connections).
+# Example applications run on the host and reach the registries through the published ports.
+name: nacos-sync-e2e
+
+x-nacos-env: &nacos-env
+  MODE: standalone
+  PREFER_HOST_MODE: hostname
+  NACOS_AUTH_ENABLE: "true"
+  NACOS_AUTH_TOKEN: ${NACOS_AUTH_TOKEN}
+  NACOS_AUTH_IDENTITY_KEY: e2e-identity
+  NACOS_AUTH_IDENTITY_VALUE: e2e-identity-value
+  JVM_XMS: 512m
+  JVM_XMX: 512m
+  JVM_XMN: 256m
+
+x-nacos-health: &nacos-health
+  # 3.2+ dropped the v1 console API; 2.x has no v3 admin API.
+  test: ["CMD-SHELL", "curl -sf http://localhost:8848/nacos/v3/admin/core/state/readiness || curl -sf http://localhost:8848/nacos/v1/console/health/readiness"]
+  interval: 5s
+  timeout: 3s
+  retries: 60
+
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: nacos_sync
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 3s
+      timeout: 3s
+      retries: 60
+
+  # Two independent Nacos clusters: A is the "main" registry, B is used for Nacos <-> Nacos.
+  # Host ports keep the +1000 gRPC offset that nacos-client derives from the HTTP port.
+  nacos-a:
+    image: nacos/nacos-server:${NACOS_VERSION}
+    hostname: nacos-a
+    environment: *nacos-env
+    ports: ["8848:8848", "9848:9848", "28080:8080"]
+    healthcheck: *nacos-health
+
+  nacos-b:
+    image: nacos/nacos-server:${NACOS_VERSION}
+    hostname: nacos-b
+    environment: *nacos-env
+    ports: ["18848:8848", "19848:9848", "28081:8080"]
+    healthcheck: *nacos-health
+
+  eureka:
+    image: nacos-sync-e2e/eureka-server:${SC_TRAIN}
+    hostname: eureka
+    ports: ["18033:18033"]
+    environment:
+      EUREKA_URI: http://localhost:18033/eureka
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/18033'"]
+      interval: 3s
+      timeout: 3s
+      retries: 60
+
+  consul:
+    image: hashicorp/consul:1.20
+    hostname: consul
+    command: agent -dev -client=0.0.0.0 -log-level=warn
+    ports: ["8900:8500"]
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 3s
+      timeout: 3s
+      retries: 60
+
+  zookeeper:
+    image: zookeeper:3.7.2-jre-17
+    hostname: zookeeper
+    ports: ["2181:2181"]
+    environment:
+      ZOO_4LW_COMMANDS_WHITELIST: ruok,srvr,stat
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc -w 2 127.0.0.1 2181 | grep imok"]
+      interval: 3s
+      timeout: 3s
+      retries: 60
+
+  nacos-sync:
+    image: nacos-sync-e2e/nacos-sync:local
+    hostname: nacos-sync
+    ports: ["8083:8083"]
+    environment: &sync-env
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/nacos_sync?characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    depends_on: &sync-depends
+      mysql:
+        condition: service_healthy
+    healthcheck: &sync-health
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8083'"]
+      interval: 3s
+      timeout: 3s
+      retries: 100
+
+  # Only for scenarios/07-upgrade (profile "upgrade"): the previous release on the same database, and a
+  # Nacos 3.x server to check that release against.
+  nacos-sync-old:
+    image: nacos-sync-e2e/nacos-sync:old
+    profiles: [upgrade]
+    hostname: nacos-sync-old
+    ports: ["8084:8083"]
+    environment: *sync-env
+    depends_on: *sync-depends
+    healthcheck: *sync-health
+
+  nacos-v3:
+    image: nacos/nacos-server:v3.2.4
+    profiles: [upgrade]
+    hostname: nacos-v3
+    environment: *nacos-env
+    ports: ["28848:8848"]
+    healthcheck: *nacos-health
