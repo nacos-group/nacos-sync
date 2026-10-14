@@ -42,7 +42,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -286,10 +285,6 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         // Convert newInstances to a Map with the concatenated string as key
         Map<String, Instance> needRegisterMap = needRegisterInstance.stream()
                 .collect(Collectors.toMap(NacosSyncToNacosServiceImpl::getInstanceKey, instance -> instance));
-        
-        // Remove instances from newInstanceMap that are present in destInstanceMap
-        List<Instance> newInstances = removeSyncedInstances(destInstanceMap, needRegisterMap);
-        List<Instance> changedInstances = getChangedInstances(destInstanceMap, needRegisterMap);
 
         // Remove instances from destInstanceMap that are present in newInstanceMap
         List<Instance> invalidInstances = getInvalidInstances(destInstanceMap, needRegisterMap);
@@ -299,12 +294,12 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                     taskDO.getServiceName(), destHasSyncInstances.size());
         }
         String groupName = getGroupNameOrDefault(taskDO.getGroupName());
+        // Register the copies on every sync, also when the destination already lists them: another client may hold
+        // them, e.g. the nacos-sync process this one replaced or another node, and they go away with that client.
+        // Nothing would register them again before the next full sync, 300 s later.
         if (!sourceInstances.get(0).isEphemeral()) {
             // Batch registration only accepts ephemeral instances.
-            for (Instance instance : newInstances) {
-                destNamingService.registerInstance(taskDO.getServiceName(), groupName, instance);
-            }
-            for (Instance instance : changedInstances) {
+            for (Instance instance : needRegisterInstance) {
                 destNamingService.registerInstance(taskDO.getServiceName(), groupName, instance);
             }
             for (Instance instance : invalidInstances) {
@@ -321,24 +316,9 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         // A batch register replaces every instance this client registered for the service, so it always gets the
         // full list: registering only the new instances would drop the ones synced earlier. The full list also
         // drops the invalid instances.
-        if (!newInstances.isEmpty() || !changedInstances.isEmpty() || !invalidInstances.isEmpty()) {
-            destNamingService.batchRegisterInstance(taskDO.getServiceName(), groupName, needRegisterInstance);
-        }
+        destNamingService.batchRegisterInstance(taskDO.getServiceName(), groupName, needRegisterInstance);
     }
 
-    /**
-     * Instances synced before whose metadata or enabled flag has changed in the source since.
-     */
-    private List<Instance> getChangedInstances(Map<String, Instance> destInstanceMap,
-            Map<String, Instance> needRegisterMap) {
-        return needRegisterMap.entrySet().stream().filter(entry -> destInstanceMap.containsKey(entry.getKey()))
-                .filter(entry -> {
-                    Instance dest = destInstanceMap.get(entry.getKey());
-                    return dest.isEnabled() != entry.getValue().isEnabled() || !Objects.equals(dest.getMetadata(),
-                            entry.getValue().getMetadata());
-                }).map(Map.Entry::getValue).toList();
-    }
-    
     private List<Instance> getInvalidInstances(Map<String, Instance> destInstanceMap,
             Map<String, Instance> needRegisterMap) {
         Map<String, Instance> destClone = new HashMap<>(destInstanceMap);
@@ -351,23 +331,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         
         return new ArrayList<>(destClone.values());
     }
-    
-    
-    public List<Instance> removeSyncedInstances(Map<String, Instance> destInstanceMap,
-            Map<String, Instance> needRegisterMap) {
-        // Convert destHasSyncInstances to a Map with the concatenated string as key
-        
-        Map<String, Instance> destClone = new HashMap<>(destInstanceMap);
-        
-        // Convert newInstances to a Map with the concatenated string as key
-        Map<String, Instance> needRegisterClone = new HashMap<>(needRegisterMap);
-        
-        // Remove instances from newInstanceMap that are present in destInstanceMap
-        needRegisterClone.keySet().removeAll(destClone.keySet());
-        
-        return new ArrayList<>(needRegisterClone.values());
-    }
-    
+
     
     private boolean hasSync(Instance instance, String sourceClusterId) {
         if (instance.getMetadata() != null) {

@@ -129,13 +129,35 @@ public class NacosSyncToNacosServiceImplTest {
     }
 
     @Test
-    public void testUnchangedServiceIsNotReRegistered() throws Exception {
+    @SuppressWarnings("unchecked")
+    public void testCopiesListedByAnotherClientAreStillRegistered() throws Exception {
+        // The destination already lists the copy, but another client holds it: the nacos-sync process this one
+        // replaced, whose ephemeral instances only expire after it is gone. Skipping the register leaves the copy
+        // missing from then until the next full sync, 300 s later.
         TaskDO taskDO = mock(TaskDO.class);
         mockSync(taskDO, List.of(buildInstance(8080, Maps.newHashMap())), List.of(syncedCopy(8080, Maps.newHashMap())));
         Assert.assertTrue(nacosSyncToNacosService.sync(taskDO, null));
 
-        verify(destNamingService, never()).batchRegisterInstance(anyString(), anyString(), anyList());
+        ArgumentCaptor<List<Instance>> registered = ArgumentCaptor.forClass(List.class);
+        verify(destNamingService).batchRegisterInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
+                registered.capture());
+        Assert.assertEquals(List.of(8080), registered.getValue().stream().map(Instance::getPort).toList());
         verify(destNamingService, never()).batchDeregisterInstance(anyString(), anyString(), anyList());
+    }
+
+    @Test
+    public void testPersistentCopiesListedByAnotherClientAreStillRegistered() throws Exception {
+        TaskDO taskDO = mock(TaskDO.class);
+        Instance source = buildInstance(8080, Maps.newHashMap());
+        source.setEphemeral(false);
+        Instance copy = syncedCopy(8080, Maps.newHashMap());
+        copy.setEphemeral(false);
+        mockSync(taskDO, List.of(source), List.of(copy));
+        Assert.assertTrue(nacosSyncToNacosService.sync(taskDO, null));
+
+        verify(destNamingService).registerInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
+                any(Instance.class));
+        verify(destNamingService, never()).deregisterInstance(anyString(), anyString(), any(Instance.class));
     }
 
     @Test
