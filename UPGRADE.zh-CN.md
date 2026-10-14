@@ -82,3 +82,10 @@ Nacos 2.x 时会自动回退到 v1 登录接口。
 - Nacos 到 Nacos 会同步元数据和 `enabled` 的变化，支持持久实例，并且每次同步都会重新注册副本。
 - Eureka 重启后，nacos-sync 会在下一次心跳时重新注册副本，不再等待 300 s 的全量同步。
 - 删除不存在的任务时，返回 `success: false` 和对应的任务 ID，而不是报错。
+- ZooKeeper 到 Nacos：任务不填分组和版本时，每个分组、版本的 provider 进入各自的 Nacos 服务，删除任务时全部清理。
+  `*` 任务支持 Dubbo 3（它在 `/dubbo` 下还放了 `config`、`mapping`、`metadata`）。先于 provider 创建的任务会在 provider
+  注册时同步过去；首次同步失败（例如目标端暂时不可达）的任务会在下一轮重新开始。
+- `ALL` 任务不填分组时同步 `DEFAULT_GROUP` 的服务，和单服务任务一致。
+- 新增服务名为 `ALL`（不区分大小写）的任务时，如果源集群不是 Nacos 会被拒绝：只有 Nacos 源能列出全部服务，这类任务
+  以前能添加成功，却从不同步。要同步 ZooKeeper 中的全部 Dubbo 服务，请用 `*`。数据库里已有的这类任务仍然不会同步，
+  请删除。

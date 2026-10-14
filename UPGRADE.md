@@ -92,3 +92,11 @@ redundancy, run one active node.
 - After a Eureka restart, nacos-sync registers its copies again on the next heartbeat instead of after the 300 s full
   sync.
 - Deleting a task that does not exist returns `success: false` with the task ID instead of failing with an error.
+- ZooKeeper to Nacos: a task without a group or version registers the providers of each group and version in their own
+  Nacos service, and deleting the task removes all of them. A `*` task works with Dubbo 3, which keeps `config`,
+  `mapping` and `metadata` under `/dubbo`. A task created before its providers picks them up when they register, and
+  a task whose first sync fails, e.g. while the destination is unreachable, starts over on the next round.
+- An `ALL` task without a group syncs the services of `DEFAULT_GROUP`, as a task for one service does.
+- Adding a task named `ALL` (in any case) is rejected unless the source cluster is Nacos: only a Nacos source can list
+  its services, and such a task used to be added and then never synced. To sync every Dubbo service from ZooKeeper,
+  use `*`. Tasks of that kind already in the database still do nothing; delete them.
