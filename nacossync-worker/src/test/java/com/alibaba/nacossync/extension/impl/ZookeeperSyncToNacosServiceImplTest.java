@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -13,6 +14,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.alibaba.nacos.api.common.Constants;
+import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
@@ -221,6 +223,24 @@ public class ZookeeperSyncToNacosServiceImplTest {
 
         verify(destNamingService).batchRegisterInstance(eq(TEST_NACOS_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
                 anyList());
+        verify(listenable).addListener(any());
+    }
+
+    @Test
+    public void testSyncThatFailedToStartIsRetriedInFull() throws Exception {
+        // The destination is not reachable when the task starts. The cache already exists by then; the next sync
+        // must not take it as a started task, or the task never registers or listens.
+        TaskDO taskDO = mock(TaskDO.class);
+        stubZookeeper(taskDO, TEST_SERVICE_NAME);
+        doReturn(destNamingService).when(nacosServerHolder).get(TEST_DEST_CLUSTER_ID);
+        doThrow(new NacosException(NacosException.SERVER_ERROR, "destination down")).doNothing()
+                .when(destNamingService).batchRegisterInstance(anyString(), anyString(), anyList());
+
+        Assert.assertFalse(zookeeperSyncToNacosService.sync(taskDO, null));
+        Assert.assertTrue(zookeeperSyncToNacosService.sync(taskDO, null));
+
+        verify(destNamingService, times(2)).batchRegisterInstance(eq(TEST_NACOS_SERVICE_NAME),
+                eq(Constants.DEFAULT_GROUP), anyList());
         verify(listenable).addListener(any());
     }
 

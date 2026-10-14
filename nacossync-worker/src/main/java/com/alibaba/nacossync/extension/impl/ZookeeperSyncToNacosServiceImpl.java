@@ -105,14 +105,13 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
             if (treeCacheMap.containsKey(taskDO.getTaskId())) {
                 return true;
             }
-            if (!initializeTreeCache(taskDO)) {
-                return false;
-            }
-            
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
             if (destNamingService == null) {
                 logAndRecordSyncError("Failed to obtain NamingService for destination clusterId: {}",
                         taskDO.getDestClusterId(), null);
+                return false;
+            }
+            if (!initializeTreeCache(taskDO)) {
                 return false;
             }
             // 初次执行任务统一注册所有实例
@@ -121,6 +120,8 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         } catch (Exception e) {
             log.error("sync task from Zookeeper to Nacos was failed, taskId:{}", taskDO.getTaskId(), e);
             metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
+            // The cache marks the task as started, so drop it and start over on the next sync.
+            CloseableUtils.closeQuietly(treeCacheMap.remove(taskDO.getTaskId()));
             return false;
         }
         return true;
