@@ -21,6 +21,7 @@ import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.dao.TaskAccessService;
 import com.alibaba.nacossync.event.DeleteAllSubTaskEvent;
 import com.alibaba.nacossync.event.DeleteTaskEvent;
+import com.alibaba.nacossync.exception.SkyWalkerException;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskDeleteRequest;
 import com.alibaba.nacossync.pojo.result.BaseResult;
@@ -49,6 +50,9 @@ public class TaskDeleteProcessor implements Processor<TaskDeleteRequest, BaseRes
     @Override
     public void process(TaskDeleteRequest taskDeleteRequest, BaseResult baseResult, Object... others) {
         TaskDO taskDO = taskAccessService.findByTaskId(taskDeleteRequest.getTaskId());
+        if (null == taskDO) {
+            throw new SkyWalkerException("taskDo is null,taskId :" + taskDeleteRequest.getTaskId());
+        }
         // delete all sub task when ServiceName is all
         if (SkyWalkerConstants.NACOS_ALL_SERVICE_NAME.equalsIgnoreCase(taskDO.getServiceName())) {
             eventBus.post(new DeleteAllSubTaskEvent(taskDO));
