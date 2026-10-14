@@ -19,8 +19,8 @@ Upgrading from 0.5.0 to 2.0, moving to Nacos 3.x and the version compatibility: 
 
 - Unit tests: `mvn test`
 - Integration tests against real registries in Docker (Testcontainers): `mvn -Pit verify -pl nacossync-test -am`
-- End-to-end tests with the example applications, Eureka across Spring Cloud trains and upgrades from the previous
-  release: see [e2e/README.md](e2e/README.md)
+- End-to-end tests with the example applications, Nacos to Nacos across versions, Eureka across Spring Cloud trains
+  and upgrades from the previous release: see [e2e/README.md](e2e/README.md)
 
 ## Function
 
@@ -74,7 +74,7 @@ Info |      +------------+                   ^
 
 | Source    | Target    | Support | Note                                                                                                              |
 |-----------|-----------|---------|-------------------------------------------------------------------------------------------------------------------|
-| Nacos     | Nacos     | Yes     | Nacos 2.x and 3.x, tested with source and target on the same version (2.5.4, 3.2.4)                              |
+| Nacos     | Nacos     | Yes     | Nacos 2.x and 3.x, tested on 2.5.4 and 3.2.4, also from one version to the other in both directions              |
 | Nacos     | Zookeeper | Yes     | Only support registery center of **Dubbo**                                                                        |
 | Nacos     | Consul    | Yes     | Only support  registery center of **Spring Cloud**                                                                |
 | Nacos     | Eureka    | Yes     | Only support  registery center of **Spring Cloud**                                                                |

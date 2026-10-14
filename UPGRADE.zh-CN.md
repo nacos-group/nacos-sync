@@ -13,6 +13,9 @@
 | 2.0 | 17+ | 3.2.4 | 2.x 和 3.x | Nacos 2.5.4 和 3.2.4（均开启鉴权）；Spring Cloud 2021.0 到 2025.0 的 Eureka 服务端（eureka-core 1.10.18 到 2.0.6）；Consul 1.20；ZooKeeper 3.7.2；MySQL 8.4 |
 | 0.5.0 | 11+ | 1.4.7 | 1.x 和 2.x，**不支持 3.x** | Nacos 2.5.4。对接 Nacos 3.2.4 时既读不到也写不进：Nacos 3.2 不再提供它所依赖的 v1 HTTP API（`/nacos/v1/ns/instance` 返回 404） |
 
+Nacos 到 Nacos 的同步也支持跨大版本，所以可以把 Nacos 2.x 集群的服务同步到新的 Nacos 3.x 集群：源为 Nacos 2.5.4、
+目标为 3.2.4，以及反过来，E2E 场景 `04-nacos-nacos`、`05-batch` 和 `06-interrupt` 都全部通过（每个方向 51 项检查）。
+
 对接 Nacos 3.x 集群时，集群地址要填服务端口（`8848`，不是控制台端口 `8080`），并且要让 nacos-sync 能访问 gRPC 端口
 （`9848`，即服务端口加 1000）。开启鉴权时，在集群配置里填写用户名和密码：2.0 通过 `/v3/auth/user/login` 登录，对接
 Nacos 2.x 时会自动回退到 v1 登录接口。

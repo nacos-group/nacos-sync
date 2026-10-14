@@ -16,8 +16,8 @@ nacos-sync 2.x 的示例在 nacos-sync-example 的 `2.0` 分支上，`master` �
 
 - 单元测试：`mvn test`
 - 在 Docker 中对接真实注册中心的集成测试（Testcontainers）：`mvn -Pit verify -pl nacossync-test -am`
-- 使用示例应用的端到端测试，包括 Spring Cloud 各版本系列下的 Eureka 和从上一个发布版升级：见
-  [e2e/README.zh-CN.md](e2e/README.zh-CN.md)
+- 使用示例应用的端到端测试，包括跨版本的 Nacos 到 Nacos 同步、Spring Cloud 各版本系列下的 Eureka 和从上一个
+  发布版升级：见 [e2e/README.zh-CN.md](e2e/README.zh-CN.md)
 
 ## 功能
 
@@ -71,7 +71,7 @@ Info |      +------------+                   ^
 
 | 源 | 目标 | 是否支持 | 说明 |
 |-----------|-----------|---------|------|
-| Nacos     | Nacos     | 是      | Nacos 2.x 和 3.x，源和目标为同一版本时已测试（2.5.4、3.2.4） |
+| Nacos     | Nacos     | 是      | Nacos 2.x 和 3.x，已在 2.5.4 和 3.2.4 上测试，包括两个版本之间的双向同步 |
 | Nacos     | Zookeeper | 是      | 仅支持 **Dubbo** 的注册中心 |
 | Nacos     | Consul    | 是      | 仅支持 **Spring Cloud** 的注册中心 |
 | Nacos     | Eureka    | 是      | 仅支持 **Spring Cloud** 的注册中心 |

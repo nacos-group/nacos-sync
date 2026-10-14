@@ -14,6 +14,10 @@ Nacos for one service, persistent instances and `ALL`).
 | 2.0 | 17+ | 3.2.4 | 2.x and 3.x | Nacos 2.5.4 and 3.2.4 with auth enabled; Eureka servers from Spring Cloud 2021.0 to 2025.0 (eureka-core 1.10.18 to 2.0.6); Consul 1.20; ZooKeeper 3.7.2; MySQL 8.4 |
 | 0.5.0 | 11+ | 1.4.7 | 1.x and 2.x, **not 3.x** | Nacos 2.5.4. Against Nacos 3.2.4 it can neither read nor write: Nacos 3.2 no longer serves the v1 HTTP API it uses (`/nacos/v1/ns/instance` returns 404) |
 
+Nacos to Nacos also works across major versions, so a Nacos 2.x cluster can be copied to a new Nacos 3.x cluster: the
+E2E scenarios `04-nacos-nacos`, `05-batch` and `06-interrupt` pass with the source on Nacos 2.5.4 and the target on
+3.2.4, and the other way round (51 of 51 checks each way).
+
 For a Nacos 3.x cluster, register the server port (`8848`, not the console port `8080`) and let nacos-sync reach the gRPC
 port (`9848`, the server port plus 1000). With auth enabled, set the username and password on the cluster: 2.0 logs in
 through `/v3/auth/user/login` and falls back to the v1 login on Nacos 2.x.
