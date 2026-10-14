@@ -16,12 +16,13 @@ NACOS_ARGS=(SPRING_APPLICATION_JSON="$(dubbo_json "$(dubbo_nacos_url)")")
 zk_count() { [ "$(zk_providers $IFACE | grep -c "group=$1")" -eq "$2" ]; }
 zk_synced() { zk_providers $IFACE | grep "group=$1" | grep -q "sourceClusterId=$2"; }
 
+# --- one-way, both directions. For a ZK source the task group is the Dubbo group and the Nacos group.
+# The ZK -> Nacos task starts before its provider, while Zookeeper has no node for the service yet.
+T_ZN=$(add_task "$ZK_ID" "$NACOS_A_ID" $IFACE zk 1.0.0)
+sleep 5
 start_app zookeeper-provider "log:is ready" "${ZK_ARGS[@]}" || exit 1
 start_app nacos-provider "log:is ready" "${NACOS_ARGS[@]}" || exit 1
 check "zookeeper-provider registered in Zookeeper" zk_count zk 1
-
-# --- one-way, both directions. For a ZK source the task group is the Dubbo group and the Nacos group.
-T_ZN=$(add_task "$ZK_ID" "$NACOS_A_ID" $IFACE zk 1.0.0)
 T_NZ=$(add_task "$NACOS_A_ID" "$ZK_ID" "$NACOS_SVC" DEFAULT_GROUP)
 eventually $WAIT "zk->nacos: Dubbo provider registered in Nacos (group zk)" bash -c ". '$E2E_DIR/lib.sh'; nacos_instances $NACOS_A '$ZK_SVC' zk | jq -e 'length == 1 and .[0].metadata.sourceClusterId == \"$ZK_ID\"'"
 eventually $WAIT "nacos->zk: Dubbo provider written to Zookeeper with sync metadata" zk_synced nacos "$NACOS_A_ID"
@@ -67,5 +68,16 @@ for t in "$T_ZN" "$T_NZ" "$T_NZ2" "$T_ZN2"; do delete_task "$t"; done
 eventually $WAIT "task delete: synced provider removed from Nacos" nacos_count $NACOS_A "$ZK_SVC" 0 zk
 eventually $WAIT "task delete: synced provider removed from Zookeeper" zk_count nacos 0
 check "task delete: native ZK provider untouched" zk_count zk 1
+
+# --- serviceName=* syncs every Dubbo service in Zookeeper. Dubbo 3 also keeps config, mapping and metadata under
+# /dubbo, which have no providers.
+T_ZALL=$(add_task "$ZK_ID" "$NACOS_A_ID" '*' zk)
+eventually $WAIT "zk->nacos (*): provider registered in Nacos" nacos_count $NACOS_A "$ZK_SVC" 1 zk
+start_app "zookeeper-provider#2" "log:is ready" "${ZK_ARGS[@]}"
+eventually $WAIT "zk->nacos (*): provider started later synced to Nacos" nacos_count $NACOS_A "$ZK_SVC" 2 zk
+stop_app "zookeeper-provider#2" TERM
+eventually $WAIT "zk->nacos (*): stopped provider removed from Nacos" nacos_count $NACOS_A "$ZK_SVC" 1 zk
+delete_task "$T_ZALL"
+eventually $WAIT "zk->nacos (*): task delete removes the synced provider" nacos_count $NACOS_A "$ZK_SVC" 0 zk
 
 stop_app nacos-consumer; stop_app zookeeper-consumer; stop_app zookeeper-provider; stop_app nacos-provider
