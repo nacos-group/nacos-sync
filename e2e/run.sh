@@ -9,7 +9,8 @@
 #   -b  git ref to build (default: HEAD)
 #   -e  nacos-sync-example checkout or git URL with the example applications (default: the GitHub repository)
 #   -E  examples ref to build (default: the commit pinned below). Also only committed code.
-#   -n  nacos/nacos-server tag, e.g. v2.5.4 or v3.2.4 (default: NACOS_VERSION in .env)
+#   -n  nacos/nacos-server tag, e.g. v2.5.4 or v3.2.4 (default: NACOS_VERSION in .env). NACOS_A_VERSION and
+#       NACOS_B_VERSION in the environment run Nacos A and B on different tags, e.g. NACOS_B_VERSION=v3.2.4 -n v2.5.4
 #   -s  Spring Cloud train for the Eureka Server and the Eureka example apps: 2021.0 2022.0 2023.0 2024.0 2025.0
 #   -k  keep the environment running afterwards
 #   scenario  names from scenarios/, e.g. 01-eureka-nacos (default: all)
@@ -31,12 +32,14 @@ while getopts r:b:e:E:n:s:k opt; do
     n) export NACOS_VERSION=$OPTARG ;;
     s) export SC_TRAIN=$OPTARG ;;
     k) KEEP=1 ;;
-    *) sed -n '2,16p' "$0"; exit 2 ;;
+    *) sed -n '2,17p' "$0"; exit 2 ;;
   esac
 done
 shift $((OPTIND - 1))
 export SYNC_REPO=$REPO   # 07-upgrade builds the previous release from the same checkout
 . ./lib.sh   # -n / -s were exported above, so they win over .env
+NACOS_LABEL=$NACOS_A_VERSION
+[ "$NACOS_B_VERSION" = "$NACOS_A_VERSION" ] || NACOS_LABEL="$NACOS_A_VERSION-$NACOS_B_VERSION"
 
 sc_versions() { # <train> -> "<spring-boot.version> <spring-cloud.version>"
   case $1 in
@@ -64,8 +67,8 @@ fi
 # One results file and report per run, so earlier runs never leak into this report.
 RUN_ID=$(date +%Y%m%d-%H%M%S)
 mkdir -p "$OUT_DIR/runs"
-export RESULTS="$OUT_DIR/runs/$RUN_ID-$NACOS_VERSION-sc$SC_TRAIN.tsv"
-export RUN_LABEL="nacos=$NACOS_VERSION sc=$SC_TRAIN sync=$COMMIT"
+export RESULTS="$OUT_DIR/runs/$RUN_ID-$NACOS_LABEL-sc$SC_TRAIN.tsv"
+export RUN_LABEL="nacos=$NACOS_LABEL sc=$SC_TRAIN sync=$COMMIT"
 rm -rf nacos-sync/dist && cp -R "$SRC"/nacossync-distribution/target/nacos-sync-*/nacos-sync nacos-sync/dist
 docker build -q -t nacos-sync-e2e/nacos-sync:local nacos-sync >/dev/null || exit 1
 
@@ -111,7 +114,7 @@ for s in "$@"; do
 done
 
 # ---------------------------------------------------------------- report
-REPORT="$OUT_DIR/report-$RUN_ID-${NACOS_VERSION}-sc${SC_TRAIN}.md"
+REPORT="$OUT_DIR/report-$RUN_ID-${NACOS_LABEL}-sc${SC_TRAIN}.md"
 {
   echo "# nacos-sync E2E: $RUN_LABEL"
   echo

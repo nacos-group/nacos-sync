@@ -14,6 +14,8 @@ while IFS='=' read -r _k _v; do
   [ -n "${!_k+x}" ] || export "$_k=$_v"
 done < "$E2E_DIR/.env"
 unset _k _v
+# Nacos A and B run the same tag unless NACOS_A_VERSION / NACOS_B_VERSION differ, e.g. to test 2.x -> 3.x sync.
+export NACOS_A_VERSION=${NACOS_A_VERSION:-$NACOS_VERSION} NACOS_B_VERSION=${NACOS_B_VERSION:-$NACOS_VERSION}
 
 JAVA=${JAVA_HOME:+$JAVA_HOME/bin/}java
 SYNC_URL=${SYNC_URL:-http://localhost:8083}
@@ -133,12 +135,16 @@ nacos_token() { # nacos_token <port>: cached for 10 minutes
   printf '%s' "$tok" > "$f"; printf '%s' "$tok"
 }
 
-nacos_is_v3() { [[ $NACOS_VERSION == v3* ]]; }
+nacos_is_v3() { # nacos_is_v3 [port]: whether the Nacos on that port (default: NACOS_VERSION) runs 3.x
+  local v=$NACOS_VERSION
+  case ${1:-} in "$NACOS_A") v=$NACOS_A_VERSION ;; "$NACOS_B") v=$NACOS_B_VERSION ;; esac
+  [[ $v == v3* ]]
+}
 
 nacos_instances() { # nacos_instances <port> <service> [group]: JSON array of {ip,port,healthy,enabled,metadata}
   local port=$1 svc=$2 grp=${3:-DEFAULT_GROUP} tok resp
   tok=$(nacos_token "$port")
-  if nacos_is_v3; then
+  if nacos_is_v3 "$port"; then
     resp=$(curl -s -G -H "accessToken: $tok" "localhost:$port/nacos/v3/admin/ns/instance/list" \
       --data-urlencode "serviceName=$svc" --data-urlencode "groupName=$grp" --data-urlencode "namespaceId=public")
     jq -c 'if (.data|type) == "array" then [.data[] | {ip, port, healthy, enabled, metadata}] else [] end' <<<"$resp" 2>/dev/null || echo '[]'
@@ -152,7 +158,7 @@ nacos_instances() { # nacos_instances <port> <service> [group]: JSON array of {i
 nacos_services() { # nacos_services <port> [group]: JSON array of service names
   local port=$1 grp=${2:-DEFAULT_GROUP} tok
   tok=$(nacos_token "$port")
-  if nacos_is_v3; then
+  if nacos_is_v3 "$port"; then
     curl -s -G -H "accessToken: $tok" "localhost:$port/nacos/v3/admin/ns/service/list" --data-urlencode "namespaceId=public" \
       --data-urlencode "groupNameParam=$grp" --data-urlencode "pageNo=1" --data-urlencode "pageSize=1000" |
       jq -c '[.data.pageItems[]? | .name]' 2>/dev/null || echo '[]'
@@ -169,7 +175,7 @@ nacos_set_instance() { # nacos_set_instance <port> <service> <ip> <port> <enable
     --data-urlencode "ip=$ip" --data-urlencode "port=$iport" --data-urlencode "enabled=$enabled" --data-urlencode "ephemeral=true"
     --data-urlencode "clusterName=DEFAULT" --data-urlencode "weight=1")
   [ -n "$meta" ] && args+=(--data-urlencode "metadata=$meta")
-  if nacos_is_v3; then
+  if nacos_is_v3 "$nport"; then
     curl -s -X PUT -H "accessToken: $tok" "localhost:$nport/nacos/v3/admin/ns/instance" "${args[@]}"
   else
     curl -s -X PUT "localhost:$nport/nacos/v1/ns/instance" "${args[@]}" --data-urlencode "accessToken=$tok"

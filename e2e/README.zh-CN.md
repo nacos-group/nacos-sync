@@ -15,7 +15,7 @@ IT 互为补充：IT 用内嵌客户端覆盖同步逻辑，这套测试覆盖 S
 |---|---|---|
 | nacos-sync（用当前仓库构建） | 容器 | 8083 |
 | MySQL 8.4（nacos-sync 的数据库） | 容器 | — |
-| Nacos A / Nacos B（`NACOS_VERSION`，开启鉴权） | 容器 | 8848+9848 / 18848+19848（控制台 28080 / 28081） |
+| Nacos A / Nacos B（`NACOS_VERSION`，两边版本不同时用 `NACOS_A_VERSION` / `NACOS_B_VERSION`；开启鉴权） | 容器 | 8848+9848 / 18848+19848（控制台 28080 / 28081） |
 | Eureka Server（用示例仓库的 `cloud-eureka/eureka-server` 按 `SC_TRAIN` 构建） | 容器 | 18033 |
 | Consul 1.20（dev agent） | 容器 | 8900 |
 | Zookeeper 3.7.2 | 容器 | 2181 |
@@ -49,6 +49,9 @@ JAVA_HOME=/path/to/jdk17 ./run.sh -n v3.2.4 -s 2024.0
 
 # 测当前仓库的另一个分支，示例应用用本地的 nacos-sync-example
 ./run.sh -b sync-2.x -e ../../nacos-sync-example -n v3.2.4
+
+# Nacos A 用 2.5.4、Nacos B 用 3.2.4：跨版本的 Nacos -> Nacos 同步，即迁移到 Nacos 3.x 的场景
+NACOS_B_VERSION=v3.2.4 ./run.sh -n v2.5.4 04-nacos-nacos 05-batch
 
 # 只跑一个场景，跑完保留环境以便排查
 ./run.sh -n v2.5.4 -k 01-eureka-nacos

@@ -16,7 +16,7 @@ the committed state of a fixed commit of it (`EXAMPLES_REF` in `run.sh`), the sa
 |---|---|---|
 | nacos-sync (built from this checkout) | container | 8083 |
 | MySQL 8.4 (nacos-sync database) | container | — |
-| Nacos A / Nacos B (`NACOS_VERSION`, auth enabled) | container | 8848+9848 / 18848+19848 (console 28080 / 28081) |
+| Nacos A / Nacos B (`NACOS_VERSION`, or `NACOS_A_VERSION` / `NACOS_B_VERSION` for different tags; auth enabled) | container | 8848+9848 / 18848+19848 (console 28080 / 28081) |
 | Eureka Server (built from the examples' `cloud-eureka/eureka-server` for `SC_TRAIN`) | container | 18033 |
 | Consul 1.20 (dev agent) | container | 8900 |
 | Zookeeper 3.7.2 | container | 2181 |
@@ -49,6 +49,9 @@ JAVA_HOME=/path/to/jdk17 ./run.sh -n v3.2.4 -s 2024.0
 
 # another branch of this checkout, examples from a local nacos-sync-example checkout
 ./run.sh -b sync-2.x -e ../../nacos-sync-example -n v3.2.4
+
+# Nacos A on 2.5.4 and Nacos B on 3.2.4: Nacos -> Nacos across versions, as when migrating to Nacos 3.x
+NACOS_B_VERSION=v3.2.4 ./run.sh -n v2.5.4 04-nacos-nacos 05-batch
 
 # one scenario, keep the environment up afterwards for debugging
 ./run.sh -n v2.5.4 -k 01-eureka-nacos

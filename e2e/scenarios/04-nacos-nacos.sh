@@ -40,7 +40,7 @@ check "task delete: native instance in Nacos A untouched" nacos_has_port $NACOS_
 PS=e2e-persistent
 nacos_register_persistent() { # <port> <ip> <instancePort>
   local tok; tok=$(nacos_token "$1")
-  if nacos_is_v3; then
+  if nacos_is_v3 "$1"; then
     curl -s -X POST -H "accessToken: $tok" "localhost:$1/nacos/v3/admin/ns/instance" --data-urlencode "serviceName=$PS" \
       --data-urlencode "groupName=DEFAULT_GROUP" --data-urlencode "namespaceId=public" --data-urlencode "ip=$2" \
       --data-urlencode "port=$3" --data-urlencode "ephemeral=false"
