@@ -1,6 +1,7 @@
 package com.alibaba.nacossync.extension.impl;
 
 import com.alibaba.nacos.api.common.Constants;
+import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.pojo.Instance;
@@ -21,6 +22,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -158,6 +161,24 @@ public class NacosSyncToNacosServiceImplTest {
         verify(destNamingService).registerInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
                 any(Instance.class));
         verify(destNamingService, never()).deregisterInstance(anyString(), anyString(), any(Instance.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testTaskWhoseCopiesCannotBeRemovedStopsSyncing() throws Exception {
+        // delete() must stop the task even when removing its copies fails, or the periodic full sync keeps
+        // registering them for a task that no longer exists.
+        TaskDO taskDO = mock(TaskDO.class);
+        mockSync(taskDO);
+        Assert.assertTrue(nacosSyncToNacosService.sync(taskDO, null));
+        mockDelete();
+        doThrow(new NacosException(NacosException.INVALID_PARAM, "batch deRegister is not BatchInstanceRedoData type"))
+                .when(destNamingService).batchDeregisterInstance(anyString(), anyString(), anyList());
+        Assert.assertFalse(nacosSyncToNacosService.delete(taskDO));
+
+        ReflectionTestUtils.invokeMethod(nacosSyncToNacosService, "executeSyncTasks");
+
+        verify(destNamingService, times(1)).batchRegisterInstance(anyString(), anyString(), anyList());
     }
 
     @Test

@@ -167,6 +167,9 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                 log.warn("taskId is null data synchronization is not currently performed.{}", taskId);
                 return false;
             }
+            // Stop the full sync before anything that can fail. Otherwise a task whose copies cannot be removed
+            // keeps registering them every 300 s although it no longer exists.
+            allSyncTaskMap.remove(taskId);
             EventListener listener = listenerMap.remove(taskId);
             if (listener != null) {
                 sourceNamingService.unsubscribe(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
@@ -175,8 +178,6 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             // Remove what this source synced to the destination. The source's own instance list cannot tell: an
             // ALL task deletes the sub-task of a service only once the service has no instances left.
             processDeRegisterInstances(taskDO, nacosServerHolder.get(taskDO.getDestClusterId()));
-            // Remove all tasks that need to be synchronized.
-            allSyncTaskMap.remove(taskId);
             
         } catch (Exception e) {
             log.error("delete task from nacos to nacos was failed, operationalId:{}", taskDO.getOperationId(), e);
