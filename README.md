@@ -6,6 +6,13 @@ between different registries. It is designed to help users migrate from one regi
 
 ## [Example](https://github.com/paderlol/nacos-sync-example)
 
+## Testing
+
+- Unit tests: `mvn test`
+- Integration tests against real registries in Docker (Testcontainers): `mvn -Pit verify -pl nacossync-test -am`
+- End-to-end tests with the example applications, Eureka across Spring Cloud trains and upgrades from the previous
+  release: see [e2e/README.md](e2e/README.md)
+
 ## Function
 
 - Console: provide API and console for management
@@ -73,7 +80,7 @@ Info |      +------------+                   ^
 | Java Jdk         | 17       |
 | Spring Boot      | 3.4.0    |
 | Spring Cloud     | 2024.0.0 |
-| Nacos Client     | 2.3.4    |
+| Nacos Client     | 3.2.4    |
 | Zookeeper Client | 3.7.2    |
 | Consul Client    | 1.4.5    |
 | Eureka Client    | 2.0.4    |
@@ -89,9 +96,9 @@ Info |      +------------+                   ^
 Before you begin, install the following:
 
 - 64bit OS: Linux/Unix/Mac/Windows supported, Linux/Unix/Mac recommended.
-- 64bit JDK 1.8+: downloads, JAVA_HOME settings.
+- 64bit JDK 17+: downloads, JAVA_HOME settings.
 - Maven 3.5.2+: [downloads](https://maven.apache.org/download.cgi), [settings](https://maven.apache.org/settings.html).
-- MySql 5.6.+
+- MySQL 8 (tested with 8.4)
 
 ## Download & Build From Release
 
