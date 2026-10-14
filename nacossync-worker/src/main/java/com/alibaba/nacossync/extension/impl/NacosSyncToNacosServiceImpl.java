@@ -42,6 +42,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -65,6 +66,14 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
     private final Map<String, Integer> syncTaskTap = new ConcurrentHashMap<>();
     
     private final ConcurrentHashMap<String, TaskDO> allSyncTaskMap = new ConcurrentHashMap<>();
+    
+    /**
+     * Tasks whose ephemeral copies this node batch-registered and has not removed yet. Only those can be batch
+     * deregistered: copies listed for any other task belong to another client (the nacos-sync process this one
+     * replaced, or another node) and go away with it, and nacos-client rejects a batch deregistration for a service
+     * this client never batch-registered.
+     */
+    private final Set<String> batchRegisteredTasks = ConcurrentHashMap.newKeySet();
     
     private ScheduledExecutorService executorService;
     
@@ -178,6 +187,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             // Remove what this source synced to the destination. The source's own instance list cannot tell: an
             // ALL task deletes the sub-task of a service only once the service has no instances left.
             processDeRegisterInstances(taskDO, nacosServerHolder.get(taskDO.getDestClusterId()));
+            batchRegisteredTasks.remove(taskId);
             
         } catch (Exception e) {
             log.error("delete task from nacos to nacos was failed, operationalId:{}", taskDO.getOperationId(), e);
@@ -309,8 +319,9 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
             return;
         }
         if (CollectionUtils.isEmpty(needRegisterInstance)) {
-            if (CollectionUtils.isNotEmpty(invalidInstances)) {
+            if (CollectionUtils.isNotEmpty(invalidInstances) && batchRegisteredTasks.contains(taskDO.getTaskId())) {
                 destNamingService.batchDeregisterInstance(taskDO.getServiceName(), groupName, invalidInstances);
+                batchRegisteredTasks.remove(taskDO.getTaskId());
             }
             return;
         }
@@ -318,6 +329,7 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         // full list: registering only the new instances would drop the ones synced earlier. The full list also
         // drops the invalid instances.
         destNamingService.batchRegisterInstance(taskDO.getServiceName(), groupName, needRegisterInstance);
+        batchRegisteredTasks.add(taskDO.getTaskId());
     }
 
     private List<Instance> getInvalidInstances(Map<String, Instance> destInstanceMap,
@@ -365,11 +377,12 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
                 destNamingService.deregisterInstance(taskDO.getServiceName(),
                         getGroupNameOrDefault(taskDO.getGroupName()), instance);
             }
-        } else if (CollectionUtils.isNotEmpty(destInstances)) {
+        } else if (CollectionUtils.isNotEmpty(destInstances) && batchRegisteredTasks.contains(taskDO.getTaskId())) {
             // Deregister the instances that need to be removed.
             // Need to handle redo, otherwise, it will be registered again.
             destNamingService.batchDeregisterInstance(taskDO.getServiceName(), getGroupNameOrDefault(taskDO.getGroupName()),
                     destInstances);
+            batchRegisteredTasks.remove(taskDO.getTaskId());
         }
     }
     

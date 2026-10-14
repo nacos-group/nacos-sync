@@ -256,15 +256,9 @@ public class NacosSyncToNacosServiceImplTest {
         // An ALL task deletes the sub-task of a service only once the service has no instances left, so the
         // source's instance list cannot tell what to remove from the destination.
         TaskDO taskDO = mock(TaskDO.class);
-        when(taskDO.getTaskId()).thenReturn(TEST_TASK_ID);
-        when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
-        when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
-        when(taskDO.getServiceName()).thenReturn(TEST_SERVICE_NAME);
-        doReturn(destNamingService).when(nacosServerHolder).get(TEST_DEST_CLUSTER_ID);
-        doReturn(sourceNamingService).when(nacosServerHolder).get(TEST_SOURCE_CLUSTER_ID);
-        doReturn(List.of(syncedCopy(8080, Maps.newHashMap()), buildInstance(8083, Maps.newHashMap())))
-                .when(destNamingService)
-                .getAllInstances(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP), anyList(), eq(false));
+        mockSync(taskDO, List.of(buildInstance(8080, Maps.newHashMap())), List.of());
+        Assert.assertTrue(nacosSyncToNacosService.sync(taskDO, null));
+        mockDelete();
 
         Assert.assertTrue(nacosSyncToNacosService.delete(taskDO));
 
@@ -272,6 +266,39 @@ public class NacosSyncToNacosServiceImplTest {
         verify(destNamingService).batchDeregisterInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
                 deregistered.capture());
         Assert.assertEquals(List.of(8080), deregistered.getValue().stream().map(Instance::getPort).toList());
+    }
+
+    @Test
+    public void testDeleteLeavesCopiesOfOtherClientsAlone() throws Exception {
+        // This node never registered the service, so the listed copy is another client's (the nacos-sync process
+        // this one replaced, or another node) and goes away with that client. nacos-client rejects a batch
+        // deregistration for a service this client never batch-registered.
+        TaskDO taskDO = mock(TaskDO.class);
+        when(taskDO.getTaskId()).thenReturn(TEST_TASK_ID);
+        when(taskDO.getSourceClusterId()).thenReturn(TEST_SOURCE_CLUSTER_ID);
+        when(taskDO.getDestClusterId()).thenReturn(TEST_DEST_CLUSTER_ID);
+        when(taskDO.getServiceName()).thenReturn(TEST_SERVICE_NAME);
+        doReturn(destNamingService).when(nacosServerHolder).get(TEST_DEST_CLUSTER_ID);
+        doReturn(sourceNamingService).when(nacosServerHolder).get(TEST_SOURCE_CLUSTER_ID);
+        mockDelete();
+
+        Assert.assertTrue(nacosSyncToNacosService.delete(taskDO));
+
+        verify(destNamingService, never()).batchDeregisterInstance(anyString(), anyString(), anyList());
+    }
+
+    @Test
+    public void testSyncLeavesCopiesOfOtherClientsAloneWhenNothingIsLeftToSync() throws Exception {
+        // The source only has an instance synced from elsewhere, so nothing is left to sync, and the listed copy
+        // is another client's.
+        TaskDO taskDO = mock(TaskDO.class);
+        Map<String, String> syncedElsewhere = Maps.newHashMap();
+        syncedElsewhere.put(SkyWalkerConstants.SYNC_INSTANCE_TAG, "other-cluster@@1");
+        mockSync(taskDO, List.of(buildInstance(8081, syncedElsewhere)), List.of(syncedCopy(8080, Maps.newHashMap())));
+
+        Assert.assertTrue(nacosSyncToNacosService.sync(taskDO, null));
+
+        verify(destNamingService, never()).batchDeregisterInstance(anyString(), anyString(), anyList());
     }
 
     @Test(expected = Exception.class)
