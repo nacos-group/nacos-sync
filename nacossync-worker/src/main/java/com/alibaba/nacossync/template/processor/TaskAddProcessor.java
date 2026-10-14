@@ -16,6 +16,8 @@
  */
 package com.alibaba.nacossync.template.processor;
 
+import com.alibaba.nacossync.constant.ClusterTypeEnum;
+import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.ClusterAccessService;
 import com.alibaba.nacossync.dao.TaskAccessService;
@@ -70,6 +72,14 @@ public class TaskAddProcessor implements Processor<TaskAddRequest, TaskAddResult
         if (null == syncManagerService.getSyncService(sourceCluster.getClusterId(), destCluster.getClusterId())) {
 
             throw new SkyWalkerException("不支持当前同步类型");
+        }
+
+        // Only a Nacos source can list its services. Any other task named ALL would be skipped by the sync timer
+        // and never synced.
+        if (SkyWalkerConstants.NACOS_ALL_SERVICE_NAME.equalsIgnoreCase(taskAddRequest.getServiceName())
+                && !ClusterTypeEnum.NACOS.getCode().equals(sourceCluster.getClusterType())) {
+
+            throw new SkyWalkerException("服务名 ALL 只支持 Nacos 源集群；ZooKeeper 同步全部服务请用 *");
         }
 
         String taskId = SkyWalkerUtil.generateTaskId(taskAddRequest);

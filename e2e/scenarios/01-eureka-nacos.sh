@@ -84,4 +84,10 @@ eventually $WAIT "task delete: synced instance removed from Eureka" eureka_lacks
 check "task delete: native Nacos instance untouched" nacos_has_port $NACOS_A $NC 18035
 check "task delete: native Eureka instance untouched" eureka_has_port $EP 18032
 
+# --- ALL lists the services of a Nacos source. From Eureka such a task used to be added and then never synced.
+fails() { ! "$@"; }
+has_task() { task_ids | grep -qx "$1"; }
+check "ALL task from Eureka is rejected" fails add_task "$EUREKA_ID" "$NACOS_A_ID" ALL
+check "rejected ALL task is not stored" fails has_task "$(md5hex "ALL_DEFAULT_GROUP_${EUREKA_ID}_${NACOS_A_ID}")"
+
 stop_app eureka-provider; stop_app nacos-cloud-consumer
