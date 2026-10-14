@@ -35,7 +35,10 @@ public class SpecialSyncEventBus {
     }
 
     public void unsubscribe(TaskDO taskDO) {
-        specialSyncEventRegistry.remove(taskDO.getTaskId());
+        SpecialSyncEvent specialSyncEvent = specialSyncEventRegistry.remove(taskDO.getTaskId());
+        if (specialSyncEvent != null) {
+            specialSyncEvent.cancel();
+        }
     }
 
     public Collection<SpecialSyncEvent> getAllSpecialSyncEvent() {

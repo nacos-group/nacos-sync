@@ -18,14 +18,11 @@
 package com.alibaba.nacossync.extension.event.listener;
 
 import com.alibaba.nacossync.extension.event.SpecialSyncEvent;
-import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import java.util.function.Consumer;
 
 /**
  * @author paderlol
@@ -48,9 +45,7 @@ public class SpecialSyncEventListener {
     
     @Subscribe
     public void listenerSpecialSyncEvent(SpecialSyncEvent specialSyncEvent) {
-        TaskDO taskDO = specialSyncEvent.getTaskDO();
-        Consumer<TaskDO> syncAction = specialSyncEvent.getSyncAction();
-        syncAction.accept(taskDO);
+        specialSyncEvent.sync();
     }
     
 }

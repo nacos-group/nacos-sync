@@ -13,7 +13,10 @@
 package com.alibaba.nacossync.extension.event;
 
 import com.alibaba.nacossync.pojo.model.TaskDO;
+import lombok.AccessLevel;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.function.Consumer;
 
@@ -25,4 +28,24 @@ import java.util.function.Consumer;
 public class SpecialSyncEvent {
     private TaskDO taskDO;
     private Consumer<TaskDO> syncAction;
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
+    private boolean cancelled;
+
+    /**
+     * Runs one poll, unless the task has been unsubscribed.
+     */
+    public synchronized void sync() {
+        if (!cancelled) {
+            syncAction.accept(taskDO);
+        }
+    }
+
+    /**
+     * Stops later polls and waits for a running one to finish, so whatever it registers is in place before the delete
+     * that follows removes the synced instances.
+     */
+    public synchronized void cancel() {
+        cancelled = true;
+    }
 }
