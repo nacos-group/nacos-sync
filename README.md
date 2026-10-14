@@ -70,7 +70,7 @@ Info |      +------------+                   ^
 
 | Source    | Target    | Support | Note                                                                                                              |
 |-----------|-----------|---------|-------------------------------------------------------------------------------------------------------------------|
-| Nacos     | Nacos     | Yes     | Only supports the same version of Nacos migration,**especially** the version of **0.8** migrates to 1.0 or above. |
+| Nacos     | Nacos     | Yes     | Nacos 2.x and 3.x, tested with source and target on the same version (2.5.4, 3.2.4)                              |
 | Nacos     | Zookeeper | Yes     | Only support registery center of **Dubbo**                                                                        |
 | Nacos     | Consul    | Yes     | Only support  registery center of **Spring Cloud**                                                                |
 | Nacos     | Eureka    | Yes     | Only support  registery center of **Spring Cloud**                                                                |
@@ -123,7 +123,7 @@ The path to the target file:
 
 ``` xml
 
-nacos-sync/nacossync-distribution/target/nacos-sync-0.5.0.tar.gz
+nacos-sync/nacossync-distribution/target/nacos-sync-2.0.0.tar.gz
 
 ```
 
@@ -157,7 +157,7 @@ The default is Mysql database, which can support other relational databases
 
 ## DB Configuration
 
-In the bin folder, application.properties:
+In the conf folder, application.properties:
 
 ``` xml
 
