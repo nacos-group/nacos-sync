@@ -26,6 +26,7 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskDeleteRequest;
 import com.alibaba.nacossync.pojo.result.BaseResult;
 import com.alibaba.nacossync.template.Processor;
+import com.alibaba.nacossync.util.TaskLocks;
 import com.google.common.eventbus.EventBus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -53,14 +54,17 @@ public class TaskDeleteProcessor implements Processor<TaskDeleteRequest, BaseRes
         if (null == taskDO) {
             throw new SkyWalkerException("taskDo is null,taskId :" + taskDeleteRequest.getTaskId());
         }
-        // delete all sub task when ServiceName is all
-        if (SkyWalkerConstants.NACOS_ALL_SERVICE_NAME.equalsIgnoreCase(taskDO.getServiceName())) {
-            eventBus.post(new DeleteAllSubTaskEvent(taskDO));
-        } else {
-            eventBus.post(new DeleteTaskEvent(taskDO));
-        }
-        log.info("删除同步任务数据之前，发出一个同步事件:{}", taskDO);
-        taskAccessService.deleteTaskById(taskDeleteRequest.getTaskId());
+        // Remove the row before stopping the task: the sync timer starts every task it finds in the database.
+        TaskLocks.runLocked(taskDO.getTaskId(), () -> {
+            taskAccessService.deleteTaskById(taskDeleteRequest.getTaskId());
+            // delete all sub task when ServiceName is all
+            if (SkyWalkerConstants.NACOS_ALL_SERVICE_NAME.equalsIgnoreCase(taskDO.getServiceName())) {
+                eventBus.post(new DeleteAllSubTaskEvent(taskDO));
+            } else {
+                eventBus.post(new DeleteTaskEvent(taskDO));
+            }
+            log.info("删除同步任务数据之后，发出一个同步事件:{}", taskDO);
+        });
     }
     
     

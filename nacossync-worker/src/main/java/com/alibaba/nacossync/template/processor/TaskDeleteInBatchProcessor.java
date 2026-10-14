@@ -24,6 +24,7 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskDeleteInBatchRequest;
 import com.alibaba.nacossync.pojo.result.BaseResult;
 import com.alibaba.nacossync.template.Processor;
+import com.alibaba.nacossync.util.TaskLocks;
 import com.google.common.eventbus.EventBus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -50,19 +51,22 @@ public class TaskDeleteInBatchProcessor implements Processor<TaskDeleteInBatchRe
     @Override
     public void process(TaskDeleteInBatchRequest taskBatchDeleteRequest, BaseResult baseResult,
                         Object... others) {
-        // Stop each task the way a single delete does: removing only the rows left the syncs running and
-        // their instances synced in the destination.
+        // Delete each task the way a single delete does: removing only the rows left the syncs running and
+        // their instances synced in the destination, and a row still there once its task is stopped lets the
+        // sync timer start the task again.
         for (String taskId : taskBatchDeleteRequest.getTaskIds()) {
             TaskDO taskDO = taskAccessService.findByTaskId(taskId);
             if (taskDO == null) {
                 continue;
             }
-            if (SkyWalkerConstants.NACOS_ALL_SERVICE_NAME.equalsIgnoreCase(taskDO.getServiceName())) {
-                eventBus.post(new DeleteAllSubTaskEvent(taskDO));
-            } else {
-                eventBus.post(new DeleteTaskEvent(taskDO));
-            }
+            TaskLocks.runLocked(taskId, () -> {
+                taskAccessService.deleteTaskById(taskId);
+                if (SkyWalkerConstants.NACOS_ALL_SERVICE_NAME.equalsIgnoreCase(taskDO.getServiceName())) {
+                    eventBus.post(new DeleteAllSubTaskEvent(taskDO));
+                } else {
+                    eventBus.post(new DeleteTaskEvent(taskDO));
+                }
+            });
         }
-        taskAccessService.deleteTaskInBatch(taskBatchDeleteRequest.getTaskIds());
     }
 }

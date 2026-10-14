@@ -17,7 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class TaskDeleteInBatchProcessorTest {
@@ -29,8 +30,9 @@ class TaskDeleteInBatchProcessorTest {
     private final TaskDeleteInBatchProcessor processor = new TaskDeleteInBatchProcessor(taskAccessService, eventBus);
 
     @Test
-    void batchDeleteStopsEachTaskBeforeDeletingTheRows() throws Exception {
-        // Like a single delete: without the events the syncs keep running and their instances stay synced.
+    void batchDeleteRemovesEachRowAndThenStopsItsTask() throws Exception {
+        // Like a single delete: without the events the syncs keep running and their instances stay synced. The row
+        // goes first, or the sync timer starts the task again from the row once the delete has stopped it.
         TaskDO single = task("single-task", "spring-cloud-eureka-provider");
         TaskDO all = task("all-task", "ALL");
         when(taskAccessService.findByTaskId("single-task")).thenReturn(single);
@@ -42,8 +44,11 @@ class TaskDeleteInBatchProcessorTest {
 
         ArgumentCaptor<Object> events = ArgumentCaptor.forClass(Object.class);
         InOrder order = inOrder(eventBus, taskAccessService);
-        order.verify(eventBus, times(2)).post(events.capture());
-        order.verify(taskAccessService).deleteTaskInBatch(request.getTaskIds());
+        order.verify(taskAccessService).deleteTaskById("single-task");
+        order.verify(eventBus).post(events.capture());
+        order.verify(taskAccessService).deleteTaskById("all-task");
+        order.verify(eventBus).post(events.capture());
+        verify(taskAccessService, never()).deleteTaskById("missing-task");
         assertEquals(DeleteTaskEvent.class, events.getAllValues().get(0).getClass());
         assertSame(single, ((DeleteTaskEvent) events.getAllValues().get(0)).getTaskDO());
         assertEquals(DeleteAllSubTaskEvent.class, events.getAllValues().get(1).getClass());

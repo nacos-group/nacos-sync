@@ -25,6 +25,7 @@ import com.alibaba.nacossync.event.SyncTaskEvent;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
+import com.alibaba.nacossync.util.TaskLocks;
 import com.google.common.eventbus.EventBus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -99,9 +100,15 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
                     }
 
                     if (TaskStatusEnum.SYNC.getCode().equals(taskDO.getTaskStatus())) {
-
-                        eventBus.post(new SyncTaskEvent(taskDO));
-                        log.debug("从数据库中查询到一个同步任务，发出一个同步事件:{}", taskDO);
+                        // The rows were read before: start the task only if it is still there and still
+                        // syncing. A delete removes the row and stops the task under the same lock.
+                        TaskLocks.runLocked(taskDO.getTaskId(), () -> {
+                            TaskDO current = taskAccessService.findByTaskId(taskDO.getTaskId());
+                            if (current != null && TaskStatusEnum.SYNC.getCode().equals(current.getTaskStatus())) {
+                                eventBus.post(new SyncTaskEvent(current));
+                                log.debug("从数据库中查询到一个同步任务，发出一个同步事件:{}", current);
+                            }
+                        });
                     }
 
                     if (TaskStatusEnum.DELETE.getCode().equals(taskDO.getTaskStatus())) {
