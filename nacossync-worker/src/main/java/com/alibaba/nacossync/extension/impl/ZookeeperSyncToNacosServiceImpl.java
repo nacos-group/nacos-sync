@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.alibaba.nacossync.util.DubboConstants.ALL_SERVICE_NAME_PATTERN;
@@ -79,9 +80,9 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
     private final Map<String, CuratorCache> treeCacheMap = new ConcurrentHashMap<>();
     
     /**
-     * service name cache
+     * Nacos services each task registered to, format taskId -> service names
      */
-    private final Map<String, ConcurrentHashMap<String, String>> nacosServiceNameMap = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> nacosServiceNameMap = new ConcurrentHashMap<>();
     
     private final ZookeeperServerHolder zookeeperServerHolder;
     
@@ -197,21 +198,9 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
     
     
     private Collection<String> getServiceNamesToDelete(TaskDO taskDO) {
-        String taskId = taskDO.getTaskId();
-        // Get the service map for the task
-        ConcurrentHashMap<String, String> serviceMap = nacosServiceNameMap.get(taskId);
-        // If the service map is null, there is no service to delete
-        if (serviceMap == null) {
-            return Collections.emptyList();
-        }
-        // If the service name is not specified, delete all services
-        if (ALL_SERVICE_NAME_PATTERN.equals(taskDO.getServiceName())) {
-            return nacosServiceNameMap.remove(taskId).values();
-        }
-        
-        // Delete the specified service
-        String removedService = serviceMap.remove(taskDO.getServiceName());
-        return StringUtils.isNotBlank(removedService) ? Collections.singletonList(removedService) : Collections.emptyList();
+        // One interface can map to several Nacos services, one per version and group
+        Set<String> serviceNames = nacosServiceNameMap.remove(taskDO.getTaskId());
+        return serviceNames == null ? Collections.emptyList() : serviceNames;
     }
 
     
@@ -296,7 +285,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         Instance instance = new Instance();
         instance.setIp(ipAndPortMap.get(INSTANCE_IP_KEY));
         instance.setPort(Integer.parseInt(ipAndPortMap.get(INSTANCE_PORT_KEY)));
-        instance.setServiceName(getServiceNameFromCache(taskDO.getTaskId(), queryParam.get(INTERFACE_KEY), queryParam));
+        instance.setServiceName(getServiceNameFromCache(taskDO.getTaskId(), queryParam));
         instance.setWeight(parseWeight(queryParam));
         instance.setHealthy(true);
         instance.setMetadata(buildMetadata(queryParam, ipAndPortMap, taskDO));
@@ -349,11 +338,9 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
                 break;
             case NODE_DELETED:
                 
-                destNamingService.deregisterInstance(
-                        getServiceNameFromCache(taskDO.getTaskId(), serviceName, queryParam),
+                destNamingService.deregisterInstance(getServiceNameFromCache(taskDO.getTaskId(), queryParam),
                         getGroupNameOrDefault(taskDO.getGroupName()), ipAndPortParam.get(INSTANCE_IP_KEY),
                         Integer.parseInt(ipAndPortParam.get(INSTANCE_PORT_KEY)));
-                nacosServiceNameMap.remove(serviceName);
                 break;
             default:
                 break;
@@ -395,8 +382,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
             if (isMatch(taskDO, queryParam) && needSync(queryParam)) {
                 Map<String, String> ipAndPortParam = parseIpAndPortString(path + ZOOKEEPER_SEPARATOR + provider);
                 Instance instance = buildSyncInstance(queryParam, ipAndPortParam, taskDO);
-                instancesByService.computeIfAbsent(getServiceNameFromCache(taskDO.getTaskId(), serviceName, queryParam),
-                        key -> new ArrayList<>()).add(instance);
+                instancesByService.computeIfAbsent(instance.getServiceName(), key -> new ArrayList<>()).add(instance);
             }
         }
         for (Map.Entry<String, List<Instance>> entry : instancesByService.entrySet()) {
@@ -407,17 +393,16 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
     
     
     /**
-     * cteate Dubbo service name
+     * Creates the Nacos service name of a Dubbo provider and records it for the task.
      *
-     * @param taskId      taskId
-     * @param serviceName dubbo metadata
-     * @param queryParam  dubbo metadata
+     * @param taskId     taskId
+     * @param queryParam dubbo metadata
      */
-    protected String getServiceNameFromCache(String taskId, String serviceName, Map<String, String> queryParam) {
-        ConcurrentHashMap<String, String> partitionCache = nacosServiceNameMap.computeIfAbsent(taskId,
-                (key) -> new ConcurrentHashMap<>());
-        
-        return partitionCache.computeIfAbsent(serviceName, (key) -> createServiceName(queryParam));
+    protected String getServiceNameFromCache(String taskId, Map<String, String> queryParam) {
+        // The name depends on the version and group of each provider, not only on the interface.
+        String nacosServiceName = createServiceName(queryParam);
+        nacosServiceNameMap.computeIfAbsent(taskId, key -> ConcurrentHashMap.newKeySet()).add(nacosServiceName);
+        return nacosServiceName;
     }
     
 }

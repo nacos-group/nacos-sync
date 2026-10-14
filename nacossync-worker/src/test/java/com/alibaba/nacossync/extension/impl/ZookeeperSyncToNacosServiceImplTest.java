@@ -61,6 +61,10 @@ public class ZookeeperSyncToNacosServiceImplTest {
         "hessian%3A%2F%2F172.16.0.10%3A20880%2Forg.apache.dubbo.demo.DemoService%3Fanyhost%3Dtrue%26application%3Ddemo-provider%26dubbo%3D2.0.2%26generic%3Dfalse%26group%3DtestGroup%26interface%3Dorg.apache.dubbo.demo.DemoService%26methods%3DsayHello%26pid%3D5956%26revision%3D1.0.0%26side%3Dprovider%26timestamp%3D1547285978821%26version%3D1.0.0%26weight%3D1";
     private static final String TEST_PROVIDER_2 = TEST_PROVIDER.replace("%3A20880%2F", "%3A20881%2F");
     private static final String TEST_NACOS_SERVICE_NAME = "providers:org.apache.dubbo.demo.DemoService:1.0.0:testGroup";
+    private static final String OTHER_GROUP_PROVIDER = TEST_PROVIDER.replace("%3A20880%2F", "%3A20881%2F")
+            .replace("group%3DtestGroup", "group%3DotherGroup");
+    private static final String OTHER_GROUP_NACOS_SERVICE_NAME =
+            "providers:org.apache.dubbo.demo.DemoService:1.0.0:otherGroup";
     private static final String TEST_INSTANCE_ADDRESS = "172.16.0.10";
     public static final String TEST_SOURCE_CLUSTER_ID = "test-source-cluster-id";
     public static final String TEST_DEST_CLUSTER_ID = "test-dest-cluster-id";
@@ -189,6 +193,37 @@ public class ZookeeperSyncToNacosServiceImplTest {
 
         verify(destNamingService).deregisterInstance(TEST_NACOS_SERVICE_NAME, Constants.DEFAULT_GROUP,
                 TEST_INSTANCE_ADDRESS, 20880);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testProvidersOfOtherGroupsGoToTheirOwnNacosService() throws Exception {
+        // A task without group and version takes every provider of the interface. Each group must keep its own
+        // Nacos service, or consumers of one group get the providers of another.
+        TaskDO taskDO = mock(TaskDO.class);
+        providers = List.of(TEST_PROVIDER, OTHER_GROUP_PROVIDER);
+        Assert.assertTrue(mockSync(taskDO));
+
+        ArgumentCaptor<List<Instance>> testGroup = ArgumentCaptor.forClass(List.class);
+        verify(destNamingService).batchRegisterInstance(eq(TEST_NACOS_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
+                testGroup.capture());
+        Assert.assertEquals(List.of(20880), testGroup.getValue().stream().map(Instance::getPort).toList());
+        ArgumentCaptor<List<Instance>> otherGroup = ArgumentCaptor.forClass(List.class);
+        verify(destNamingService).batchRegisterInstance(eq(OTHER_GROUP_NACOS_SERVICE_NAME),
+                eq(Constants.DEFAULT_GROUP), otherGroup.capture());
+        Assert.assertEquals(List.of(20881), otherGroup.getValue().stream().map(Instance::getPort).toList());
+
+        // Deleting the task removes the copies from both services.
+        Map<String, String> synced = Map.of(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY, TEST_SOURCE_CLUSTER_ID);
+        doReturn(List.of(buildInstance(20880, synced))).when(destNamingService)
+                .getAllInstances(eq(TEST_NACOS_SERVICE_NAME), eq(Constants.DEFAULT_GROUP), anyList(), eq(true));
+        doReturn(List.of(buildInstance(20881, synced))).when(destNamingService)
+                .getAllInstances(eq(OTHER_GROUP_NACOS_SERVICE_NAME), eq(Constants.DEFAULT_GROUP), anyList(), eq(true));
+        Assert.assertTrue(zookeeperSyncToNacosService.delete(taskDO));
+        verify(destNamingService).batchDeregisterInstance(eq(TEST_NACOS_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
+                anyList());
+        verify(destNamingService).batchDeregisterInstance(eq(OTHER_GROUP_NACOS_SERVICE_NAME),
+                eq(Constants.DEFAULT_GROUP), anyList());
     }
 
     @Test
