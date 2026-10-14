@@ -1,5 +1,7 @@
 # nacos-sync E2E
 
+English | [简体中文](README.zh-CN.md)
+
 Runs real applications against a real nacos-sync and real registries, and checks sync behaviour end to end. It complements
 the Testcontainers ITs in `nacossync-test`: those cover the sync logic with embedded clients, this suite covers Spring Cloud
 and Dubbo applications, real calls through the synced registry, interruptions, batch sizes, Eureka across Spring Cloud
