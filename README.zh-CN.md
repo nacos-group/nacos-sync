@@ -4,7 +4,9 @@
 
 Nacos Sync 是一个在不同注册中心之间同步服务注册信息的工具，用于帮助用户从一个注册中心迁移到另一个注册中心。
 
-## [示例](https://github.com/paderlol/nacos-sync-example)
+## [示例](https://github.com/paderlol/nacos-sync-example/tree/2.0)
+
+nacos-sync 2.x 的示例在 nacos-sync-example 的 `2.0` 分支上，`master` 分支是 0.x 的示例。
 
 ## 升级
 

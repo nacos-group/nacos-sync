@@ -6,7 +6,7 @@
 IT 互为补充：IT 用内嵌客户端覆盖同步逻辑，这套测试覆盖 Spring Cloud 和 Dubbo 应用、通过同步后的注册中心发起的真实调用、
 各种中断、批量规模、Spring Cloud 各版本系列下的 Eureka，以及从上一个发布版升级。
 
-示例应用来自 [nacos-sync-example](https://github.com/paderlol/nacos-sync-example)。`run.sh` 会构建它某个固定 commit
+示例应用来自 [nacos-sync-example](https://github.com/paderlol/nacos-sync-example/tree/2.0)。`run.sh` 会构建它某个固定 commit
 （`run.sh` 里的 `EXAMPLES_REF`）上已提交的代码，方式和构建 nacos-sync 一样。
 
 ## 各组件运行在哪里

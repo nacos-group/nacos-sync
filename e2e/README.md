@@ -7,7 +7,7 @@ the Testcontainers ITs in `nacossync-test`: those cover the sync logic with embe
 and Dubbo applications, real calls through the synced registry, interruptions, batch sizes, Eureka across Spring Cloud
 trains, and upgrading from the previous release.
 
-The example applications come from [nacos-sync-example](https://github.com/paderlol/nacos-sync-example). `run.sh` builds
+The example applications come from [nacos-sync-example](https://github.com/paderlol/nacos-sync-example/tree/2.0). `run.sh` builds
 the committed state of a fixed commit of it (`EXAMPLES_REF` in `run.sh`), the same way it builds nacos-sync.
 
 ## What runs where

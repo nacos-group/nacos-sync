@@ -6,7 +6,9 @@ Nacos Sync is a tool for synchronizing service registration information between 
 help users migrate from one registry to another. It is also a tool for synchronizing service registration information
 between different registries. It is designed to help users migrate from one registry to another.
 
-## [Example](https://github.com/paderlol/nacos-sync-example)
+## [Example](https://github.com/paderlol/nacos-sync-example/tree/2.0)
+
+The examples for nacos-sync 2.x are on the `2.0` branch of nacos-sync-example; its `master` branch holds the examples for 0.x.
 
 ## Upgrading
 
