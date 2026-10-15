@@ -65,6 +65,17 @@ eventually $WAIT "ALL task: spring-cloud-nacos-consumer copied to Nacos B" nacos
 stop_app nacos-cloud-consumer TERM
 eventually $WAIT "ALL task: stopped service instance removed from Nacos B" nacos_count $NACOS_B spring-cloud-nacos-consumer 0
 
+# A source that cannot be reached for a while says nothing about which of its services are gone, so no sub-task is
+# deleted. The copies would survive here anyway, as deleting a sub-task needs the source too; they would not on a
+# source that only fails to list its services.
+delete_failures() { compose logs nacos-sync 2>/dev/null | grep -c "deleteTaskEvent delete failure"; }
+failures_before=$(delete_failures)
+compose pause nacos-a >/dev/null 2>&1
+stays 20 "ALL task: copies stay in Nacos B while Nacos A is unreachable" nacos_has_port $NACOS_B $NP 18088
+compose unpause nacos-a >/dev/null 2>&1
+check "ALL task: no sub-task deleted while Nacos A was unreachable" [ "$(delete_failures)" -eq "$failures_before" ]
+eventually $WAIT "ALL task: Nacos A answers again after the pause" nacos_has_port $NACOS_A $NP 18088
+
 # Pause/resume through the status update API.
 set_task_status "$T_ALL" DELETE
 eventually $WAIT "ALL task paused (status DELETE): synced instances removed from Nacos B" nacos_count $NACOS_B $NP 0
