@@ -160,6 +160,8 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
         
         // Remove the set of service names corresponding to the task ID from subTaskService
         Set<String> serviceNameSet = subTaskService.remove(taskId);
+        allTasks.remove(taskId);
+        skippedTasks.remove(taskId);
         
         // If the set of service names is empty, return immediately
         if (CollectionUtils.isEmpty(serviceNameSet)) {
