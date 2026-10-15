@@ -13,6 +13,9 @@ import com.alibaba.nacossync.event.SyncTaskEvent;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
+import com.alibaba.nacossync.pojo.request.TaskDeleteRequest;
+import com.alibaba.nacossync.pojo.result.BaseResult;
+import com.alibaba.nacossync.template.processor.TaskDeleteProcessor;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,11 +23,18 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -129,6 +139,44 @@ class CheckRunningStatusAllNacosThreadTest {
         thread.run();
 
         assertEquals(List.of(), synced.stream().map(TaskDO::getServiceName).toList());
+    }
+
+    @Test
+    void aDeleteWaitsForTheScanOfTheTask() throws Exception {
+        // The scan starts the sub-tasks under the task lock. A delete that comes in meanwhile must wait: otherwise it
+        // finds no sub-task to stop yet, and the scan then starts them for a task that is gone.
+        CountDownLatch scanning = new CountDownLatch(1);
+        CountDownLatch deleteDone = new CountDownLatch(1);
+        eventBus.register(new Object() {
+            @Subscribe
+            public void onSync(SyncTaskEvent event) throws InterruptedException {
+                // Give a delete that does not wait for the scan the time to finish first.
+                scanning.countDown();
+                deleteDone.await(300, TimeUnit.MILLISECONDS);
+            }
+        });
+        doAnswer(invocation -> {
+            rowDeleted = true;
+            return null;
+        }).when(taskAccessService).deleteTaskById("all-task");
+        when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask));
+        TaskDeleteRequest request = new TaskDeleteRequest();
+        request.setTaskId("all-task");
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> scan = executor.submit(thread);
+            assertTrue(scanning.await(5, TimeUnit.SECONDS));
+            Future<?> delete = executor.submit(() -> {
+                new TaskDeleteProcessor(taskAccessService, eventBus).process(request, new BaseResult());
+                deleteDone.countDown();
+            });
+            scan.get(5, TimeUnit.SECONDS);
+            delete.get(5, TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertDeletedSubTaskOfSvcA();
     }
 
     @Test

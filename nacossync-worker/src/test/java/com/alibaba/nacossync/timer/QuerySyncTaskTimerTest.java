@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -24,7 +25,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -60,7 +63,9 @@ class QuerySyncTaskTimerTest {
         ArgumentCaptor<Runnable> scheduled = ArgumentCaptor.forClass(Runnable.class);
         verify(scheduledExecutorService, times(2)).scheduleWithFixedDelay(scheduled.capture(), anyLong(), anyLong(),
                 any(TimeUnit.class));
-        checkTaskRows = scheduled.getAllValues().get(0);
+        // The other one is the ALL scan.
+        checkTaskRows = scheduled.getAllValues().stream()
+                .filter(runnable -> !(runnable instanceof CheckRunningStatusAllNacosThread)).findFirst().orElseThrow();
         when(taskAccessService.findAllByServiceNameNotEqualAll()).thenReturn(List.of(task(TaskStatusEnum.SYNC)));
     }
 
@@ -90,40 +95,47 @@ class QuerySyncTaskTimerTest {
     }
 
     @Test
-    void rowReadBeforeADeleteDoesNotStartTheTaskWhileItIsBeingStopped() throws Exception {
-        // deleteInBatch of 20 Eureka -> Nacos tasks in the E2E: every task kept polling, because the timer started
-        // them again from rows it read while the delete was stopping them.
+    void aDeleteWaitsForAStartInProgress() throws Exception {
+        // The timer re-reads the row and starts the task under the task lock. A delete that comes in between must
+        // wait: otherwise it stops the task first, the timer then starts it from the row it had read, and the deleted
+        // task keeps running.
+        List<String> order = new CopyOnWriteArrayList<>();
         AtomicBoolean rowDeleted = new AtomicBoolean();
-        when(taskAccessService.findByTaskId(TASK_ID)).thenAnswer(invocation -> rowDeleted.get() ? null
-                : task(TaskStatusEnum.SYNC));
+        AtomicInteger reads = new AtomicInteger();
+        CountDownLatch rowRead = new CountDownLatch(1);
+        CountDownLatch deleteDone = new CountDownLatch(1);
+        when(taskAccessService.findByTaskId(TASK_ID)).thenAnswer(invocation -> {
+            TaskDO row = rowDeleted.get() ? null : task(TaskStatusEnum.SYNC);
+            if (reads.getAndIncrement() == 0) {
+                // The timer has read the row: give a delete that does not wait for it the time to finish first.
+                rowRead.countDown();
+                deleteDone.await(300, TimeUnit.MILLISECONDS);
+            }
+            return row;
+        });
         doAnswer(invocation -> {
             rowDeleted.set(true);
             return null;
         }).when(taskAccessService).deleteTaskById(TASK_ID);
-        CountDownLatch stopping = new CountDownLatch(1);
-        CountDownLatch stopMayFinish = new CountDownLatch(1);
-        doAnswer(invocation -> {
-            stopping.countDown();
-            assertTrue(stopMayFinish.await(5, TimeUnit.SECONDS));
-            return null;
-        }).when(eventBus).post(any(DeleteTaskEvent.class));
+        doAnswer(invocation -> order.add("sync")).when(eventBus).post(any(SyncTaskEvent.class));
+        doAnswer(invocation -> order.add("delete")).when(eventBus).post(any(DeleteTaskEvent.class));
         TaskDeleteRequest request = new TaskDeleteRequest();
         request.setTaskId(TASK_ID);
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
-            Future<?> delete = executor.submit(
-                    () -> new TaskDeleteProcessor(taskAccessService, eventBus).process(request, new BaseResult()));
-            assertTrue(stopping.await(5, TimeUnit.SECONDS));
             Future<?> check = executor.submit(checkTaskRows);
-            Thread.sleep(300);
-            stopMayFinish.countDown();
-            delete.get(5, TimeUnit.SECONDS);
+            assertTrue(rowRead.await(5, TimeUnit.SECONDS));
+            Future<?> delete = executor.submit(() -> {
+                new TaskDeleteProcessor(taskAccessService, eventBus).process(request, new BaseResult());
+                deleteDone.countDown();
+            });
             check.get(5, TimeUnit.SECONDS);
+            delete.get(5, TimeUnit.SECONDS);
         } finally {
             executor.shutdownNow();
         }
 
-        verify(eventBus, never()).post(any(SyncTaskEvent.class));
+        assertEquals(List.of("sync", "delete"), order);
     }
 
     private static TaskDO task(TaskStatusEnum status) {
