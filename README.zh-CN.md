@@ -15,7 +15,10 @@ nacos-sync 2.x 的示例在 nacos-sync-example 的 `2.0` 分支上，`master` �
 ## 测试
 
 - 单元测试：`mvn test`
-- 在 Docker 中对接真实注册中心的集成测试（Testcontainers）：`mvn -Pit verify -pl nacossync-test -am`
+- 在 Docker 中对接真实注册中心的集成测试（Testcontainers）：`mvn -Pit verify -pl nacossync-test -am`，默认用 Nacos
+  3.2.4，其他版本加 `-Dnacos.image.tag=v2.5.4`。Nacos 容器占用宿主机 40000-40999 的端口（`-Dit.nacos.port.min` /
+  `-Dit.nacos.port.max`）；在 Linux 上这一段落在默认的临时端口范围（32768-60999）内，如果启动时报端口被占用，把它移到
+  这个范围以下。
 - 使用示例应用的端到端测试，包括跨版本的 Nacos 到 Nacos 同步、Spring Cloud 各版本系列下的 Eureka 和从上一个
   发布版升级：见 [e2e/README.zh-CN.md](e2e/README.zh-CN.md)
 
@@ -57,7 +60,7 @@ Info |      +------------+                   ^
 - 多个 NacosSync 实例执行相同的任务。
     - 多个 NacosSync 实例保证高可用。
     - 多个实例执行相同的任务，让架构保持简单。
-    - 目标 Nacos 集群会对来自 Nacos 的同步信息去重。
+    - 多个节点如何运行、为什么建议只运行一个活动节点，见 [UPGRADE.zh-CN.md](UPGRADE.zh-CN.md#多节点部署)。
 
 ## 快速开始
 
@@ -193,6 +196,7 @@ http://127.0.0.1:8083/#/serviceSync
 
 ### 从 Nacos 全量同步到 Nacos
 
-在表单的“Service Name”字段中填写“All”时，会自动同步当前集群**默认分组**下的所有服务。
+在表单的“Service Name”字段中填写“ALL”时，会同步源集群中任务所填分组下的所有服务；不填分组时同步 `DEFAULT_GROUP`。`ALL`
+只支持 Nacos 源集群，ZooKeeper 请用“*”。
 
 ![img_2.png](img_2.png)

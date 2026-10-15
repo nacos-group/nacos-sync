@@ -15,7 +15,7 @@ IT 互为补充：IT 用内嵌客户端覆盖同步逻辑，这套测试覆盖 S
 |---|---|---|
 | nacos-sync（用当前仓库构建） | 容器 | 8083 |
 | MySQL 8.4（nacos-sync 的数据库） | 容器 | — |
-| Nacos A / Nacos B（`NACOS_VERSION`，两边版本不同时用 `NACOS_A_VERSION` / `NACOS_B_VERSION`；开启鉴权） | 容器 | 8848+9848 / 18848+19848（控制台 28080 / 28081） |
+| Nacos A / Nacos B（`NACOS_VERSION`，两边版本不同时用 `NACOS_A_VERSION` / `NACOS_B_VERSION`；开启鉴权） | 容器 | 8848+9848 / 18848+19848（控制台：Nacos 3.x 为 28080 / 28081，2.x 在 8848/nacos） |
 | Eureka Server（用示例仓库的 `cloud-eureka/eureka-server` 按 `SC_TRAIN` 构建） | 容器 | 18033 |
 | Consul 1.20（dev agent） | 容器 | 8900 |
 | Zookeeper 3.7.2 | 容器 | 2181 |
@@ -41,7 +41,15 @@ Testcontainers IT 把固定的 Nacos 端口对限制在 40000-41999。
 
 ## 运行
 
-前置条件：Docker、JDK 17（`JAVA_HOME`）、Maven、`curl`、`jq`、`python3`、bash 4+（`07-upgrade` 需要 bash 5+）。
+前置条件：
+
+- Docker 和 Compose v2（`docker compose up --wait`），容器约需 4.5 GB 内存：在 01-06 期间实测，每个 Nacos 约 1.25 GB。
+  `07-upgrade` 还要再起一个 Nacos 和旧版 nacos-sync，约多 2 GB。
+- JDK 17（`JAVA_HOME`）、Maven、`curl`、`jq`、`python3`、bash 4+。
+- 跑 `07-upgrade` 还需要 bash 5+、用来构建 0.5.0 的 JDK 11（`OLD_JAVA_HOME`），以及当前仓库里的 `0.5.0` tag
+  （`git fetch --tags`）。对 Nacos 2.x 运行且不指定场景时会包含 `07-upgrade`。
+- 宿主机上给示例应用空出这些端口：18032、18035、18042、18045、18080、18081、18088、18089、18098 和 18099。
+- 第一次运行需要访问 GitHub、Docker Hub 和 Maven Central。
 
 ```bash
 # 在 e2e/ 目录下，对 Nacos 3.2.4 和 Spring Cloud 2024.0 的 Eureka 跑全部场景
@@ -55,6 +63,7 @@ NACOS_B_VERSION=v3.2.4 ./run.sh -n v2.5.4 04-nacos-nacos 05-batch
 
 # 只跑一个场景，跑完保留环境以便排查
 ./run.sh -n v2.5.4 -k 01-eureka-nacos
+docker compose -p nacos-sync-e2e down -v   # 排查完后清理环境
 
 # Spring Cloud 2021.0 - 2025.0 各版本系列下的 Eureka 兼容性
 ./matrix.sh -n v3.2.4

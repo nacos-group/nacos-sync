@@ -2,8 +2,8 @@
 
 [English](UPGRADE.md) | 简体中文
 
-本文介绍如何从 nacos-sync 0.5.0 升级到 2.0，以及之后如何把 Nacos 从 2.x 升级到 3.x。文中所有实测数据都来自 E2E
-场景 `07-upgrade`（见 [e2e/README.md](e2e/README.md)）：0.5.0 和 2.0 使用同一个 MySQL 数据库，对接 Nacos 2.5.4，
+本文介绍如何从 nacos-sync 0.5.0 升级到 2.0，以及之后如何把 Nacos 从 2.x 升级到 3.x。除特别说明外，文中实测数据都来自
+E2E 场景 `07-upgrade`（见 [e2e/README.zh-CN.md](e2e/README.zh-CN.md)）：0.5.0 和 2.0 使用同一个 MySQL 数据库，对接 Nacos 2.5.4，
 覆盖所有类型的任务（Eureka、Consul、ZooKeeper 的双向同步，以及 Nacos 到 Nacos 的单服务、持久实例和 `ALL` 任务）。
 
 ## 兼容性
@@ -11,10 +11,10 @@
 | nacos-sync | JDK | nacos-client | Nacos 服务端 | 实测环境 |
 |---|---|---|---|---|
 | 2.0 | 17+ | 3.2.4 | 2.x 和 3.x | Nacos 2.5.4 和 3.2.4（均开启鉴权）；Spring Cloud 2021.0 到 2025.0 的 Eureka 服务端（eureka-core 1.10.18 到 2.0.6）；Consul 1.20；ZooKeeper 3.7.2；MySQL 8.4 |
-| 0.5.0 | 11+ | 1.4.7 | 1.x 和 2.x，**不支持 3.x** | Nacos 2.5.4。对接 Nacos 3.2.4 时既读不到也写不进：Nacos 3.2 不再提供它所依赖的 v1 HTTP API（`/nacos/v1/ns/instance` 返回 404） |
+| 0.5.0 | 11+ | 1.4.7 | 1.x 和 2.x，**不支持 3.2 及以上** | Nacos 2.5.4。对接 Nacos 3.2.4 时既读不到也写不进：Nacos 3.2 不再提供它所依赖的 v1 HTTP API（`/nacos/v1/ns/instance` 返回 404）。Nacos 3.0 和 3.1 未测试 |
 
 Nacos 到 Nacos 的同步也支持跨大版本，所以可以把 Nacos 2.x 集群的服务同步到新的 Nacos 3.x 集群：源为 Nacos 2.5.4、
-目标为 3.2.4，以及反过来，E2E 场景 `04-nacos-nacos`、`05-batch` 和 `06-interrupt` 都全部通过（每个方向 51 项检查）。
+目标为 3.2.4，以及反过来，E2E 场景 `04-nacos-nacos`、`05-batch` 和 `06-interrupt` 都全部通过（每个方向 54 项检查）。
 
 对接 Nacos 3.x 集群时，集群地址要填服务端口（`8848`，不是控制台端口 `8080`），并且要让 nacos-sync 能访问 gRPC 端口
 （`9848`，即服务端口加 1000）。开启鉴权时，在集群配置里填写用户名和密码：2.0 通过 `/v3/auth/user/login` 登录，对接
@@ -22,7 +22,7 @@ Nacos 2.x 时会自动回退到 v1 登录接口。
 
 ## 升级前准备
 
-1. 先升级 nacos-sync，再把 Nacos 服务端升级到 3.x：0.5.0 完全无法和 Nacos 3.x 同步。
+1. 先升级 nacos-sync，再把 Nacos 服务端升级到 3.x：0.5.0 完全无法和 Nacos 3.2 及以上版本同步。
 2. 安装 JDK 17。
 3. 备份 `nacos_sync` 数据库。不需要迁移数据：2.0 直接使用 0.5.0 的表，也不会修改表结构。0.5.0 建的表使用 MyISAM
    引擎，升级后保持不变；是否改成 InnoDB 由你决定（未测试）。

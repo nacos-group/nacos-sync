@@ -16,7 +16,7 @@ the committed state of a fixed commit of it (`EXAMPLES_REF` in `run.sh`), the sa
 |---|---|---|
 | nacos-sync (built from this checkout) | container | 8083 |
 | MySQL 8.4 (nacos-sync database) | container | — |
-| Nacos A / Nacos B (`NACOS_VERSION`, or `NACOS_A_VERSION` / `NACOS_B_VERSION` for different tags; auth enabled) | container | 8848+9848 / 18848+19848 (console 28080 / 28081) |
+| Nacos A / Nacos B (`NACOS_VERSION`, or `NACOS_A_VERSION` / `NACOS_B_VERSION` for different tags; auth enabled) | container | 8848+9848 / 18848+19848 (console 28080 / 28081 on Nacos 3.x; on 2.x it is at 8848/nacos) |
 | Eureka Server (built from the examples' `cloud-eureka/eureka-server` for `SC_TRAIN`) | container | 18033 |
 | Consul 1.20 (dev agent) | container | 8900 |
 | Zookeeper 3.7.2 | container | 2181 |
@@ -41,7 +41,15 @@ All fixed host ports stay below 32768, so they never clash with Docker's random 
 
 ## Running
 
-Prerequisites: Docker, JDK 17 (`JAVA_HOME`), Maven, `curl`, `jq`, `python3`, bash 4+ (`07-upgrade`: bash 5+).
+Prerequisites:
+
+- Docker with Compose v2 (`docker compose up --wait`), with about 4.5 GB of memory for the containers: measured during
+  01-06, each Nacos takes about 1.25 GB. `07-upgrade` adds a third Nacos and the old nacos-sync, about 2 GB more.
+- JDK 17 (`JAVA_HOME`), Maven, `curl`, `jq`, `python3`, bash 4+.
+- For `07-upgrade` also bash 5+, a JDK 11 to build 0.5.0 (`OLD_JAVA_HOME`) and the `0.5.0` tag in this checkout
+  (`git fetch --tags`). A run on Nacos 2.x without scenario names includes `07-upgrade`.
+- Free host ports for the example apps: 18032, 18035, 18042, 18045, 18080, 18081, 18088, 18089, 18098 and 18099.
+- The first run downloads from GitHub, Docker Hub and Maven Central.
 
 ```bash
 # all scenarios against Nacos 3.2.4 and Eureka from Spring Cloud 2024.0, run from e2e/
@@ -55,6 +63,7 @@ NACOS_B_VERSION=v3.2.4 ./run.sh -n v2.5.4 04-nacos-nacos 05-batch
 
 # one scenario, keep the environment up afterwards for debugging
 ./run.sh -n v2.5.4 -k 01-eureka-nacos
+docker compose -p nacos-sync-e2e down -v   # when done with it
 
 # Eureka compatibility across Spring Cloud trains 2021.0 - 2025.0
 ./matrix.sh -n v3.2.4

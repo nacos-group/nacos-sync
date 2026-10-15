@@ -18,7 +18,10 @@ Upgrading from 0.5.0 to 2.0, moving to Nacos 3.x and the version compatibility: 
 ## Testing
 
 - Unit tests: `mvn test`
-- Integration tests against real registries in Docker (Testcontainers): `mvn -Pit verify -pl nacossync-test -am`
+- Integration tests against real registries in Docker (Testcontainers): `mvn -Pit verify -pl nacossync-test -am`, on
+  Nacos 3.2.4, or another tag with `-Dnacos.image.tag=v2.5.4`. The Nacos containers take host ports from 40000-40999
+  (`-Dit.nacos.port.min` / `-Dit.nacos.port.max`); on Linux that range lies within the default ephemeral ports
+  (32768-60999), so move it below them if a start fails on a port that is taken.
 - End-to-end tests with the example applications, Nacos to Nacos across versions, Eureka across Spring Cloud trains
   and upgrades from the previous release: see [e2e/README.md](e2e/README.md)
 
@@ -60,7 +63,8 @@ Info |      +------------+                   ^
 - Multiple NacosSync instances will perform the same job.
     - Multiple NacosSync instances ensure high availability.
     - Multiple NacosSync instances performing the same job ensure the simplicity.
-    - NacosCluster target will dedup the synchronization information from Nacos.
+    - How several nodes behave and why one active node is recommended: see
+      [UPGRADE.md](UPGRADE.md#running-several-nodes).
 
 ## Quick Start:
 
@@ -199,7 +203,8 @@ Nacos, but only when using Dubbo.
 
 ### Full Synchronization from Nacos to Nacos
 
-When “All” is entered in the “Service Name” field of this form, it will automatically synchronize all registered
-services within the **default group** of the current cluster.
+When “ALL” is entered in the “Service Name” field of this form, every service of the source cluster in the task's group
+is synchronized, or in `DEFAULT_GROUP` when no group is entered. `ALL` works only with a Nacos source cluster; for
+ZooKeeper, use “*”.
 
 ![img_2.png](img_2.png)

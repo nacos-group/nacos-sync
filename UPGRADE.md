@@ -2,8 +2,8 @@
 
 English | [简体中文](UPGRADE.zh-CN.md)
 
-This guide covers moving from nacos-sync 0.5.0 to 2.0 and, after that, from Nacos 2.x to Nacos 3.x. Every measured
-number below comes from the `07-upgrade` E2E scenario (see [e2e/README.md](e2e/README.md)): 0.5.0 and 2.0 on one MySQL
+This guide covers moving from nacos-sync 0.5.0 to 2.0 and, after that, from Nacos 2.x to Nacos 3.x. Unless noted
+otherwise, the measured numbers below come from the `07-upgrade` E2E scenario (see [e2e/README.md](e2e/README.md)): 0.5.0 and 2.0 on one MySQL
 database, against Nacos 2.5.4, with tasks of every kind (Eureka, Consul and ZooKeeper in both directions, and Nacos to
 Nacos for one service, persistent instances and `ALL`).
 
@@ -12,11 +12,11 @@ Nacos for one service, persistent instances and `ALL`).
 | nacos-sync | JDK | nacos-client | Nacos server | Tested with |
 |---|---|---|---|---|
 | 2.0 | 17+ | 3.2.4 | 2.x and 3.x | Nacos 2.5.4 and 3.2.4 with auth enabled; Eureka servers from Spring Cloud 2021.0 to 2025.0 (eureka-core 1.10.18 to 2.0.6); Consul 1.20; ZooKeeper 3.7.2; MySQL 8.4 |
-| 0.5.0 | 11+ | 1.4.7 | 1.x and 2.x, **not 3.x** | Nacos 2.5.4. Against Nacos 3.2.4 it can neither read nor write: Nacos 3.2 no longer serves the v1 HTTP API it uses (`/nacos/v1/ns/instance` returns 404) |
+| 0.5.0 | 11+ | 1.4.7 | 1.x and 2.x, **not 3.2+** | Nacos 2.5.4. Against Nacos 3.2.4 it can neither read nor write: Nacos 3.2 no longer serves the v1 HTTP API it uses (`/nacos/v1/ns/instance` returns 404). Nacos 3.0 and 3.1 not tested |
 
 Nacos to Nacos also works across major versions, so a Nacos 2.x cluster can be copied to a new Nacos 3.x cluster: the
 E2E scenarios `04-nacos-nacos`, `05-batch` and `06-interrupt` pass with the source on Nacos 2.5.4 and the target on
-3.2.4, and the other way round (51 of 51 checks each way).
+3.2.4, and the other way round (54 of 54 checks each way).
 
 For a Nacos 3.x cluster, register the server port (`8848`, not the console port `8080`) and let nacos-sync reach the gRPC
 port (`9848`, the server port plus 1000). With auth enabled, set the username and password on the cluster: 2.0 logs in
@@ -24,7 +24,7 @@ through `/v3/auth/user/login` and falls back to the v1 login on Nacos 2.x.
 
 ## Before you upgrade
 
-1. Upgrade nacos-sync first, and only then move Nacos servers to 3.x: 0.5.0 cannot sync with Nacos 3.x at all.
+1. Upgrade nacos-sync first, and only then move Nacos servers to 3.x: 0.5.0 cannot sync with Nacos 3.2 or later at all.
 2. Install JDK 17.
 3. Back up the `nacos_sync` database. No migration is needed: 2.0 starts on the 0.5.0 tables and leaves them unchanged.
    Tables created by 0.5.0 use the MyISAM engine and stay that way; converting them to InnoDB is up to you (not tested).
