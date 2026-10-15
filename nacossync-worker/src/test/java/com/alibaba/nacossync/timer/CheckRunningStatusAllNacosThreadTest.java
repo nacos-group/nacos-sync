@@ -1,5 +1,6 @@
 package com.alibaba.nacossync.timer;
 
+import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.ListView;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
@@ -120,6 +121,30 @@ class CheckRunningStatusAllNacosThreadTest {
         thread.run();
 
         assertEquals(List.of(), synced.stream().map(TaskDO::getServiceName).toList());
+    }
+
+    @Test
+    void failedServiceListKeepsTheSubTasks() throws Exception {
+        // A failed call, e.g. while the source Nacos is unreachable, says nothing about which services are gone.
+        when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask));
+        thread.run();
+        when(sourceNamingService.getServicesOfServer(anyInt(), anyInt(), eq("DEFAULT_GROUP")))
+                .thenThrow(new NacosException(NacosException.SERVER_ERROR, "source unreachable"));
+
+        thread.run();
+
+        assertEquals(List.of(), deleted);
+    }
+
+    @Test
+    void sourceWithoutAClientKeepsTheSubTasks() {
+        when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask));
+        thread.run();
+        when(nacosServerHolder.get("source")).thenReturn(null);
+
+        thread.run();
+
+        assertEquals(List.of(), deleted);
     }
 
     private void assertDeletedSubTaskOfSvcA() {

@@ -172,7 +172,11 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
         
         // Get the list of all service names associated with the task
         List<String> serviceNameList = getAllServiceName(task);
-        
+        if (serviceNameList == null) {
+            // Not known this round: keep the sub-tasks as they are rather than taking every service as gone.
+            return;
+        }
+
         // Determine the services that need to be inserted (those not in the current service set)
         List<TaskDO> servicesPendingInsertion = serviceNameList.stream()
                 .filter(serviceName -> !serviceSet.contains(serviceName))
@@ -251,13 +255,13 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
     /**
      * Retrieves all service names associated with the given task.
      *
-     * @return A list of service names.
+     * @return A list of service names, or null when the source could not be asked.
      */
     private List<String> getAllServiceName(TaskDO taskDO) {
         NamingService namingService = nacosServerHolder.get(taskDO.getSourceClusterId());
         if (namingService == null) {
             log.warn("naming service is null or not found, clusterId:{}", taskDO.getSourceClusterId());
-            return Collections.emptyList();
+            return null;
         }
         try {
             // Nacos lists no service for an empty group; a task without a group means DEFAULT_GROUP, as elsewhere.
@@ -267,8 +271,8 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
         } catch (Exception e) {
             log.error("query service list failure", e);
         }
-        
-        return Collections.emptyList();
+
+        return null;
     }
     
     
