@@ -30,6 +30,9 @@ SCENARIO=${SCENARIO:-adhoc}
 WAIT=${WAIT:-60}
 
 compose() { docker compose -f "$E2E_DIR/docker-compose.yml" --env-file "$E2E_DIR/.env" "$@"; }
+# Bound every request, so that a registry that stops answering fails a check instead of stalling the run.
+# A --max-time given by the caller comes later on the command line and wins.
+curl() { command curl --max-time 30 "$@"; }
 log() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
 
 # ---------------------------------------------------------------- results
