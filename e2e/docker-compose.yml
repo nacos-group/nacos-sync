@@ -37,14 +37,14 @@ services:
   # Two independent Nacos clusters: A is the "main" registry, B is used for Nacos <-> Nacos.
   # Host ports keep the +1000 gRPC offset that nacos-client derives from the HTTP port.
   nacos-a:
-    image: nacos/nacos-server:${NACOS_A_VERSION}
+    image: nacos/nacos-server:${NACOS_A_VERSION:-${NACOS_VERSION}}
     hostname: nacos-a
     environment: *nacos-env
     ports: ["127.0.0.1:8848:8848", "127.0.0.1:9848:9848", "127.0.0.1:28080:8080"]
     healthcheck: *nacos-health
 
   nacos-b:
-    image: nacos/nacos-server:${NACOS_B_VERSION}
+    image: nacos/nacos-server:${NACOS_B_VERSION:-${NACOS_VERSION}}
     hostname: nacos-b
     environment: *nacos-env
     ports: ["127.0.0.1:18848:8848", "127.0.0.1:19848:9848", "127.0.0.1:28081:8080"]

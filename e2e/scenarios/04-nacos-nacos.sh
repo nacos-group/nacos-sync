@@ -24,7 +24,6 @@ stays 30 "bidirectional: Nacos A keeps exactly 1 $NP (no echo from B)" nacos_cou
 check "bidirectional: Nacos B keeps exactly 1 $NP" nacos_count $NACOS_B $NP 1
 
 nacos_set_instance $NACOS_A $NP "$(np_ip)" 18088 true '{"e2e-version":"v2","preserved.register.source":"SPRING_CLOUD"}' >/dev/null
-# Known gap (PR nacos-group/nacos-sync#392): Nacos -> Nacos only diffs ip:port, so metadata changes are not copied.
 eventually $WAIT "nacos->nacos: metadata update propagated" nacos_meta_is $NACOS_B $NP 18088 e2e-version v2
 
 stop_app nacos-provider-cloud TERM
@@ -68,6 +67,7 @@ eventually $WAIT "ALL task: stopped service instance removed from Nacos B" nacos
 # A source that cannot be reached for a while says nothing about which of its services are gone, so no sub-task is
 # deleted. The copies would survive here anyway, as deleting a sub-task needs the source too; they would not on a
 # source that only fails to list its services.
+# The check counts the warning EventListener logs for a delete that fails: keep the two in step.
 delete_failures() { compose logs nacos-sync 2>/dev/null | grep -c "deleteTaskEvent delete failure"; }
 failures_before=$(delete_failures)
 compose pause nacos-a >/dev/null 2>&1

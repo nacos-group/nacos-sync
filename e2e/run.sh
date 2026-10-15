@@ -32,7 +32,7 @@ while getopts r:b:e:E:n:s:k opt; do
     n) export NACOS_VERSION=$OPTARG ;;
     s) export SC_TRAIN=$OPTARG ;;
     k) KEEP=1 ;;
-    *) sed -n '2,17p' "$0"; exit 2 ;;
+    *) sed -n '2,16p' "$0"; exit 2 ;;
   esac
 done
 shift $((OPTIND - 1))
