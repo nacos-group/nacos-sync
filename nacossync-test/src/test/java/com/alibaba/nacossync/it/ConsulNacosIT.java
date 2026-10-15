@@ -2,6 +2,7 @@ package com.alibaba.nacossync.it;
 
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.ecwid.consul.v1.OperationException;
 import com.ecwid.consul.v1.QueryParams;
 import com.ecwid.consul.v1.agent.model.NewService;
 import com.ecwid.consul.v1.health.model.HealthService;
@@ -124,7 +125,16 @@ class ConsulNacosIT extends AbstractSyncIT {
         newService.setPort(PORT);
         newService.setTags(tags.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).toList());
         infra.consul().agentServiceRegister(newService);
-        afterTest(() -> infra.consul().agentServiceDeregister(id));
+        afterTest(() -> {
+            try {
+                infra.consul().agentServiceDeregister(id);
+            } catch (OperationException e) {
+                // A test that deregisters the instance itself leaves nothing to clean up.
+                if (e.getStatusCode() != 404) {
+                    throw e;
+                }
+            }
+        });
         return id;
     }
 

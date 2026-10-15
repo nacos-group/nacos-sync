@@ -1,6 +1,7 @@
 package com.alibaba.nacossync.it;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.time.Duration;
 import java.util.Map;
@@ -10,8 +11,10 @@ import java.util.Map;
  * again, without waiting for the 300 s full re-sync. That they then stay put is
  * {@link NacosNacosIT#syncedInstanceStaysRegisteredWhileTaskRuns()}.
  *
- * <p>Nacos B is shared with other test classes; both tests leave it running and ready.
+ * <p>Nacos B is shared with other test classes, so no other test may run meanwhile; both tests leave it running
+ * and ready.
  */
+@Isolated
 class RegistryOutageIT extends AbstractSyncIT {
 
     private static final int PORT = 8080;
