@@ -29,7 +29,11 @@ import java.util.concurrent.locks.Lock;
  */
 public final class TaskLocks {
 
-    private static final Striped<Lock> LOCKS = Striped.lock(64);
+    /**
+     * An ALL task holds its lock until all its new sub-tasks have started, which can take a while for a big source.
+     * Tasks sharing its stripe are skipped by the timers, and their deletes wait, all that time: keep them few.
+     */
+    private static final Striped<Lock> LOCKS = Striped.lock(1024);
 
     private TaskLocks() {
     }
