@@ -285,7 +285,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
         Instance instance = new Instance();
         instance.setIp(ipAndPortMap.get(INSTANCE_IP_KEY));
         instance.setPort(Integer.parseInt(ipAndPortMap.get(INSTANCE_PORT_KEY)));
-        instance.setServiceName(getServiceNameFromCache(taskDO.getTaskId(), queryParam));
+        instance.setServiceName(recordServiceName(taskDO.getTaskId(), queryParam));
         instance.setWeight(parseWeight(queryParam));
         instance.setHealthy(true);
         instance.setMetadata(buildMetadata(queryParam, ipAndPortMap, taskDO));
@@ -338,7 +338,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
                 break;
             case NODE_DELETED:
                 
-                destNamingService.deregisterInstance(getServiceNameFromCache(taskDO.getTaskId(), queryParam),
+                destNamingService.deregisterInstance(recordServiceName(taskDO.getTaskId(), queryParam),
                         getGroupNameOrDefault(taskDO.getGroupName()), ipAndPortParam.get(INSTANCE_IP_KEY),
                         Integer.parseInt(ipAndPortParam.get(INSTANCE_PORT_KEY)));
                 break;
@@ -404,7 +404,7 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
      * @param taskId     taskId
      * @param queryParam dubbo metadata
      */
-    protected String getServiceNameFromCache(String taskId, Map<String, String> queryParam) {
+    protected String recordServiceName(String taskId, Map<String, String> queryParam) {
         // The name depends on the version and group of each provider, not only on the interface.
         String nacosServiceName = createServiceName(queryParam);
         nacosServiceNameMap.computeIfAbsent(taskId, key -> ConcurrentHashMap.newKeySet()).add(nacosServiceName);
