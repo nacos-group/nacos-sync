@@ -42,6 +42,9 @@ class CheckRunningStatusAllNacosThreadTest {
 
     private TaskDO allTask;
 
+    /** Whether the task row is gone, as after TaskDeleteProcessor removed it. */
+    private volatile boolean rowDeleted;
+
     @BeforeEach
     void setUp() throws Exception {
         eventBus.register(new Object() {
@@ -62,6 +65,7 @@ class CheckRunningStatusAllNacosThreadTest {
         allTask.setSourceClusterId("source");
         allTask.setDestClusterId("dest");
         allTask.setTaskStatus(TaskStatusEnum.SYNC.getCode());
+        when(taskAccessService.findByTaskId("all-task")).thenAnswer(invocation -> rowDeleted ? null : allTask);
         when(nacosServerHolder.get("source")).thenReturn(sourceNamingService);
         ListView<String> services = new ListView<>();
         services.setData(List.of("svc-a"));
@@ -100,6 +104,22 @@ class CheckRunningStatusAllNacosThreadTest {
         thread.run();
 
         assertEquals(List.of("svc-a"), synced.stream().map(TaskDO::getServiceName).toList());
+    }
+
+    @Test
+    void allTaskDeletedWhileTheScanRunsIsNotStartedAgain() {
+        when(taskAccessService.findAllByServiceNameEqualAll()).thenAnswer(invocation -> {
+            List<TaskDO> rows = List.of(allTask);
+            // The delete lands right after the scan read the rows: TaskDeleteProcessor removes the row, then
+            // stops the sub-tasks.
+            rowDeleted = true;
+            eventBus.post(new DeleteAllSubTaskEvent(allTask));
+            return rows;
+        });
+
+        thread.run();
+
+        assertEquals(List.of(), synced.stream().map(TaskDO::getServiceName).toList());
     }
 
     private void assertDeletedSubTaskOfSvcA() {

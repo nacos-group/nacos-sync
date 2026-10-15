@@ -32,6 +32,7 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.BatchTaskExecutor;
 import com.alibaba.nacossync.util.NacosUtils;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
+import com.alibaba.nacossync.util.TaskLocks;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import lombok.extern.slf4j.Slf4j;
@@ -99,8 +100,14 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
                     .filter(entry -> shouldDeleteSubTasks(entry, taskIdSet))
                     .forEach(entry -> postDeleteAllSubTaskEvent(entry.getKey()));
             
-            // Handle regular tasks
-            tasks.forEach(this::processTask);
+            // Handle regular tasks. The rows were read before: process a task only if it is still there. A delete
+            // removes the row and stops the sub-tasks under the same lock.
+            tasks.forEach(task -> TaskLocks.runLocked(task.getTaskId(), () -> {
+                TaskDO current = taskAccessService.findByTaskId(task.getTaskId());
+                if (current != null) {
+                    processTask(current);
+                }
+            }));
         } catch (Exception e) {
             log.warn("CheckRunningStatusThread Exception", e);
             metricsManager.recordError(MetricsStatisticsType.DISPATCHER_TASK);
