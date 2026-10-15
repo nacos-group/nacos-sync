@@ -1,6 +1,7 @@
 # E2E environment for nacos-sync. Registries and nacos-sync run in containers so that
 # `docker network disconnect` produces a real partition (dropped packets, not refused connections).
-# Example applications run on the host and reach the registries through the published ports.
+# Example applications run on the host and reach the registries through the published ports, which only listen on
+# 127.0.0.1: the nacos-sync API, Consul and ZooKeeper run without auth here.
 name: nacos-sync-e2e
 
 x-nacos-env: &nacos-env
@@ -39,20 +40,20 @@ services:
     image: nacos/nacos-server:${NACOS_A_VERSION}
     hostname: nacos-a
     environment: *nacos-env
-    ports: ["8848:8848", "9848:9848", "28080:8080"]
+    ports: ["127.0.0.1:8848:8848", "127.0.0.1:9848:9848", "127.0.0.1:28080:8080"]
     healthcheck: *nacos-health
 
   nacos-b:
     image: nacos/nacos-server:${NACOS_B_VERSION}
     hostname: nacos-b
     environment: *nacos-env
-    ports: ["18848:8848", "19848:9848", "28081:8080"]
+    ports: ["127.0.0.1:18848:8848", "127.0.0.1:19848:9848", "127.0.0.1:28081:8080"]
     healthcheck: *nacos-health
 
   eureka:
     image: nacos-sync-e2e/eureka-server:${SC_TRAIN}
     hostname: eureka
-    ports: ["18033:18033"]
+    ports: ["127.0.0.1:18033:18033"]
     environment:
       EUREKA_URI: http://localhost:18033/eureka
     healthcheck:
@@ -65,7 +66,7 @@ services:
     image: hashicorp/consul:1.20
     hostname: consul
     command: agent -dev -client=0.0.0.0 -log-level=warn
-    ports: ["8900:8500"]
+    ports: ["127.0.0.1:8900:8500"]
     healthcheck:
       test: ["CMD", "consul", "members"]
       interval: 3s
@@ -75,7 +76,7 @@ services:
   zookeeper:
     image: zookeeper:3.7.2-jre-17
     hostname: zookeeper
-    ports: ["2181:2181"]
+    ports: ["127.0.0.1:2181:2181"]
     environment:
       ZOO_4LW_COMMANDS_WHITELIST: ruok,srvr,stat
     healthcheck:
@@ -87,7 +88,7 @@ services:
   nacos-sync:
     image: nacos-sync-e2e/nacos-sync:local
     hostname: nacos-sync
-    ports: ["8083:8083"]
+    ports: ["127.0.0.1:8083:8083"]
     environment: &sync-env
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/nacos_sync?characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
@@ -107,7 +108,7 @@ services:
     image: nacos-sync-e2e/nacos-sync:old
     profiles: [upgrade]
     hostname: nacos-sync-old
-    ports: ["8084:8083"]
+    ports: ["127.0.0.1:8084:8083"]
     environment: *sync-env
     depends_on: *sync-depends
     healthcheck: *sync-health
@@ -117,5 +118,5 @@ services:
     profiles: [upgrade]
     hostname: nacos-v3
     environment: *nacos-env
-    ports: ["28848:8848"]
+    ports: ["127.0.0.1:28848:8848"]
     healthcheck: *nacos-health
