@@ -38,6 +38,11 @@ done
 shift $((OPTIND - 1))
 export SYNC_REPO=$REPO   # 07-upgrade builds the previous release from the same checkout
 . ./lib.sh   # -n / -s were exported above, so they win over .env
+# However the run ends, stop the apps it started on the host: started with & from a script, they ignore Ctrl-C and
+# would keep their ports for the next run.
+cleanup() { stop_all_apps; [ "$KEEP" = 1 ] || compose down -v >/dev/null 2>&1; }
+trap cleanup EXIT
+trap 'exit 130' INT TERM
 NACOS_LABEL=$NACOS_A_VERSION
 [ "$NACOS_B_VERSION" = "$NACOS_A_VERSION" ] || NACOS_LABEL="$NACOS_A_VERSION-$NACOS_B_VERSION"
 
@@ -99,6 +104,12 @@ docker build -q -t "nacos-sync-e2e/eureka-server:$SC_TRAIN" eureka-server >/dev/
 
 # ---------------------------------------------------------------- environment
 log "starting environment: $RUN_LABEL, nacos-sync $COMMIT"
+# Apps of a run that was killed outright: stop only processes started from this directory, as pids get reused.
+for f in "$OUT_DIR"/pids/*; do
+  [ -e "$f" ] || continue
+  ps -p "$(cat "$f")" -o args= 2>/dev/null | grep -qF "$E2E_DIR/" && stop_app "$(basename "$f")"
+  rm -f "$f"
+done
 compose down -v --remove-orphans >/dev/null 2>&1
 compose up -d --wait --wait-timeout 300 >/dev/null 2>&1 || { compose ps; log "environment did not become healthy"; exit 1; }
 init_registries || exit 1
@@ -132,5 +143,4 @@ REPORT="$OUT_DIR/report-$RUN_ID-${NACOS_LABEL}-sc${SC_TRAIN}.md"
 log "report: $REPORT"
 grep -E '^PASS [0-9]+, FAIL' "$REPORT" >&2
 
-[ "$KEEP" = 1 ] || compose down -v >/dev/null 2>&1
 awk -F'\t' -v l="$RUN_LABEL" '$1 == l && $3 == "FAIL" {f=1} END {exit f}' "$RESULTS"
