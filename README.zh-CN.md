@@ -16,9 +16,9 @@ nacos-sync 2.x 的示例在 nacos-sync-example 的 `2.0` 分支上，`master` �
 
 - 单元测试：`mvn test`
 - 在 Docker 中对接真实注册中心的集成测试（Testcontainers）：`mvn -Pit verify -pl nacossync-test -am`，默认用 Nacos
-  3.2.4，其他版本加 `-Dnacos.image.tag=v2.5.4`。Nacos 容器占用宿主机 40000-40999 的端口（`-Dit.nacos.port.min` /
-  `-Dit.nacos.port.max`）；在 Linux 上这一段落在默认的临时端口范围（32768-60999）内，如果启动时报端口被占用，把它移到
-  这个范围以下。
+  3.2.4，其他版本加 `-Dnacos.image.tag=v2.5.4`。Nacos 容器占用宿主机 40000-40999 的端口作为 HTTP 端口，再加 1000 即
+  41000-41999 作为 gRPC 端口（`-Dit.nacos.port.min` / `-Dit.nacos.port.max` 设置的是 HTTP 端口的范围）。在 Linux 上这两段
+  都落在默认的临时端口范围（32768-60999）内，如果启动时报端口被占用，把范围往下移，让上限加 1000 后仍小于 32768。
 - 使用示例应用的端到端测试，包括跨版本的 Nacos 到 Nacos 同步、Spring Cloud 各版本系列下的 Eureka 和从上一个
   发布版升级：见 [e2e/README.zh-CN.md](e2e/README.zh-CN.md)
 

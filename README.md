@@ -20,8 +20,9 @@ Upgrading from 0.5.0 to 2.0, moving to Nacos 3.x and the version compatibility: 
 - Unit tests: `mvn test`
 - Integration tests against real registries in Docker (Testcontainers): `mvn -Pit verify -pl nacossync-test -am`, on
   Nacos 3.2.4, or another tag with `-Dnacos.image.tag=v2.5.4`. The Nacos containers take host ports from 40000-40999
-  (`-Dit.nacos.port.min` / `-Dit.nacos.port.max`); on Linux that range lies within the default ephemeral ports
-  (32768-60999), so move it below them if a start fails on a port that is taken.
+  for HTTP and, 1000 higher, from 41000-41999 for gRPC (`-Dit.nacos.port.min` / `-Dit.nacos.port.max` set the HTTP
+  range). On Linux both lie within the default ephemeral ports (32768-60999), so if a start fails on a port that is
+  taken, move the range below them, with its top plus 1000 still under 32768.
 - End-to-end tests with the example applications, Nacos to Nacos across versions, Eureka across Spring Cloud trains
   and upgrades from the previous release: see [e2e/README.md](e2e/README.md)
 

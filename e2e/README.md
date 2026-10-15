@@ -49,7 +49,8 @@ Prerequisites:
 - JDK 17 (`JAVA_HOME`), Maven, `curl`, `jq`, `python3`, bash 4+.
 - For `07-upgrade` also bash 5+, a JDK 11 to build 0.5.0 (`OLD_JAVA_HOME`) and the `0.5.0` tag in this checkout
   (`git fetch --tags`). A run on Nacos 2.x without scenario names includes `07-upgrade`.
-- Free host ports for the example apps: 18032, 18035, 18042, 18045, 18080, 18081, 18088, 18089, 18098 and 18099.
+- Free host ports for the example apps: 18032, 18035, 18042, 18045, 18080, 18081, 18088, 18089, 18098, 18099, 32002
+  and 32012.
 - The first run downloads from GitHub, Docker Hub and Maven Central.
 
 ```bash
