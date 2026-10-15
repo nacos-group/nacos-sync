@@ -31,7 +31,6 @@ import com.alibaba.nacossync.event.SyncTaskEvent;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
-import com.alibaba.nacossync.util.BatchTaskExecutor;
 import com.alibaba.nacossync.util.NacosUtils;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
 import com.alibaba.nacossync.util.TaskLocks;
@@ -245,7 +244,10 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
      * @param serviceSet The set of services.
      */
     private void handleInsertion(List<TaskDO> servicesPendingInsertion, Set<String> serviceSet) {
-        BatchTaskExecutor.batchOperation(servicesPendingInsertion, t -> {
+        // One by one on this thread, so that every sub-task has started before the task lock is released: a start
+        // still running after that was unknown to a delete that came next, and outlived its parent. Running them in
+        // parallel would not be faster either, as the subscriber handles one sync at a time.
+        servicesPendingInsertion.forEach(t -> {
             eventBus.post(new SyncTaskEvent(t));
             serviceSet.add(t.getServiceName());
         });
@@ -257,7 +259,8 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
      * @param serviceSet The set of services.
      */
     private void handleRemoval(List<TaskDO> servicesPendingRemoval, Set<String> serviceSet) {
-        BatchTaskExecutor.batchOperation(servicesPendingRemoval, t -> {
+        // One by one on this thread, for the same reason as the insertion.
+        servicesPendingRemoval.forEach(t -> {
             eventBus.post(new DeleteTaskEvent(t));
             serviceSet.remove(t.getServiceName());
         });

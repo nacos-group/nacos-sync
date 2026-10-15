@@ -132,6 +132,32 @@ class CheckRunningStatusAllNacosThreadTest {
     }
 
     @Test
+    void subTasksHaveStartedWhenTheScanLetsADeleteIn() {
+        // Starting a sub-task can take a while, e.g. behind other syncs on a slow destination. A start that outlasted
+        // the scan was not known to the delete that came next, and brought the sub-task up after its parent was gone.
+        // The start below takes longer than the 5 s the scan used to wait for one, so this test takes a few seconds.
+        List<String> order = new CopyOnWriteArrayList<>();
+        eventBus.register(new Object() {
+            @Subscribe
+            public void onSync(SyncTaskEvent event) throws InterruptedException {
+                Thread.sleep(5_500);
+                order.add("sync " + event.getTaskDO().getServiceName());
+            }
+
+            @Subscribe
+            public void onDelete(DeleteTaskEvent event) {
+                order.add("delete " + event.getTaskDO().getServiceName());
+            }
+        });
+        when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask));
+
+        thread.run();
+        eventBus.post(new DeleteAllSubTaskEvent(allTask));
+
+        assertEquals(List.of("sync svc-a", "delete svc-a"), order);
+    }
+
+    @Test
     void failedServiceListKeepsTheSubTasks() throws Exception {
         // A failed call, e.g. while the source Nacos is unreachable, says nothing about which services are gone.
         when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask));
