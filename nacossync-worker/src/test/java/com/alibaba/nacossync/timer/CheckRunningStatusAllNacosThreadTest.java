@@ -101,7 +101,7 @@ class CheckRunningStatusAllNacosThreadTest {
         thread.run();
         assertEquals(List.of("svc-a"), synced.stream().map(TaskDO::getServiceName).toList());
 
-        // TaskDeleteProcessor posts this before removing the task row.
+        // TaskDeleteProcessor removes the task row, then posts this.
         eventBus.post(new DeleteAllSubTaskEvent(allTask));
 
         assertDeletedSubTaskOfSvcA();
@@ -111,7 +111,7 @@ class CheckRunningStatusAllNacosThreadTest {
     void subTasksOfAnAllTaskRemovedFromTheDatabaseAreDeletedWithTheirClusters() {
         when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask)).thenReturn(List.of());
         thread.run();
-        // The task row is gone, for example after a batch delete that posts no event.
+        // The task row is gone without the event reaching this node, e.g. deleted through another nacos-sync node.
         thread.run();
 
         assertDeletedSubTaskOfSvcA();

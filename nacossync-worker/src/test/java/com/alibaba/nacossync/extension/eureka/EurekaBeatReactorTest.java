@@ -18,7 +18,7 @@ class EurekaBeatReactorTest {
 
     private static final String APP = "SPRING-CLOUD-NACOS-CONSUMER";
 
-    private static final String ID = "192.168.31.92:spring-cloud-nacos-consumer:18035";
+    private static final String ID = "192.0.2.92:spring-cloud-nacos-consumer:18035";
 
     private final EurekaHttpClient eurekaHttpClient = mock(EurekaHttpClient.class);
 
@@ -27,7 +27,7 @@ class EurekaBeatReactorTest {
             mock(ScheduledExecutorService.class));
 
     private final InstanceInfo instance = InstanceInfo.Builder.newBuilder().setAppName(APP).setInstanceId(ID)
-            .setHostName("192.168.31.92").build();
+            .setHostName("192.0.2.92").build();
 
     @Test
     void instanceUnknownToEurekaIsRegisteredAgain() {

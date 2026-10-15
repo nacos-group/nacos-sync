@@ -10,6 +10,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -56,8 +57,12 @@ class SpecialSyncEventBusTest {
         try {
             Future<?> running = executor.submit(() -> listener.listenerSpecialSyncEvent(poll));
             assertTrue(polling.await(5, TimeUnit.SECONDS));
-            Future<?> unsubscribe = executor.submit(() -> specialSyncEventBus.unsubscribe(taskDO));
-            Thread.sleep(300);
+            AtomicReference<Thread> unsubscriber = new AtomicReference<>();
+            Future<?> unsubscribe = executor.submit(() -> {
+                unsubscriber.set(Thread.currentThread());
+                specialSyncEventBus.unsubscribe(taskDO);
+            });
+            awaitBlocked(unsubscriber);
             assertFalse(unsubscribe.isDone(), "unsubscribe returned while the poll was still registering");
 
             pollMayFinish.countDown();
@@ -81,5 +86,14 @@ class SpecialSyncEventBusTest {
         taskDO.setTaskId("task-id");
         taskDO.setServiceName("ELOAD-5");
         return taskDO;
+    }
+
+    /** Waits until the thread is blocked on a monitor, as unsubscribe is while the poll runs. */
+    private static void awaitBlocked(AtomicReference<Thread> thread) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (thread.get() == null || thread.get().getState() != Thread.State.BLOCKED) {
+            assertTrue(System.nanoTime() < deadline, "unsubscribe did not wait for the running poll");
+            Thread.sleep(10);
+        }
     }
 }

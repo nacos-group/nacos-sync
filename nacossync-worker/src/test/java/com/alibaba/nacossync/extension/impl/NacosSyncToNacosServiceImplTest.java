@@ -22,7 +22,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -72,7 +71,7 @@ public class NacosSyncToNacosServiceImplTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    public void testZookeeperSyncToNacos() throws Exception {
+    public void testNativeInstanceIsSyncedAndSyncedCopyIsNot() throws Exception {
         TaskDO taskDO = mock(TaskDO.class);
         mockSync(taskDO);
         Assert.assertTrue(nacosSyncToNacosService.sync(taskDO,null));
@@ -133,7 +132,7 @@ public class NacosSyncToNacosServiceImplTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    public void testCopiesListedByAnotherClientAreStillRegistered() throws Exception {
+    public void testCopiesTheDestinationAlreadyListsAreRegisteredAgain() throws Exception {
         // The destination already lists the copy, but another client holds it: the nacos-sync process this one
         // replaced, whose ephemeral instances only expire after it is gone. Skipping the register leaves the copy
         // missing from then until the next full sync, 300 s later.
@@ -149,7 +148,7 @@ public class NacosSyncToNacosServiceImplTest {
     }
 
     @Test
-    public void testPersistentCopiesListedByAnotherClientAreStillRegistered() throws Exception {
+    public void testPersistentCopiesTheDestinationAlreadyListsAreRegisteredAgain() throws Exception {
         TaskDO taskDO = mock(TaskDO.class);
         Instance source = buildInstance(8080, Maps.newHashMap());
         source.setEphemeral(false);
@@ -194,7 +193,7 @@ public class NacosSyncToNacosServiceImplTest {
                 .when(destNamingService).batchDeregisterInstance(anyString(), anyString(), anyList());
         Assert.assertFalse(nacosSyncToNacosService.delete(taskDO));
 
-        ReflectionTestUtils.invokeMethod(nacosSyncToNacosService, "executeSyncTasks");
+        nacosSyncToNacosService.executeSyncTasks();
 
         verify(destNamingService, times(1)).batchRegisterInstance(anyString(), anyString(), anyList());
     }

@@ -72,10 +72,11 @@ public class EurekaSyncToNacosServiceImplTest {
         mockSync(taskDO);
         Assert.assertTrue(eurekaSyncToNacosService.sync(taskDO,null));
 
-        // How non-UP instances are treated is not asserted here.
+        // Only the UP instance is synced; EurekaSyncToNacosInstanceStatusTest covers every status.
         ArgumentCaptor<List<Instance>> registered = ArgumentCaptor.forClass(List.class);
         verify(destNamingService).batchRegisterInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
                 registered.capture());
+        Assert.assertEquals(List.of(8080), registered.getValue().stream().map(Instance::getPort).toList());
         Instance instance = registered.getValue().stream().filter(i -> i.getPort() == 8080).findFirst()
                 .orElseThrow(() -> new AssertionError("UP instance was not registered"));
         Assert.assertEquals(TEST_INSTANCE_ADDRESS, instance.getIp());

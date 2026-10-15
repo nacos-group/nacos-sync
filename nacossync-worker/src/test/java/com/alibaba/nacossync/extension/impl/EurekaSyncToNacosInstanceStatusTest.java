@@ -82,7 +82,8 @@ class EurekaSyncToNacosInstanceStatusTest {
 
         assertTrue(eurekaSyncToNacosService.sync(taskDO, 0));
 
-        ArgumentCaptor<List> registered = ArgumentCaptor.forClass(List.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<Instance>> registered = ArgumentCaptor.forClass(List.class);
         verify(destNamingService).batchRegisterInstance(eq(SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
                 registered.capture());
         List<Instance> instances = registered.getValue();

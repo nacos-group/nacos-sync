@@ -133,7 +133,10 @@ public class NacosSyncToNacosServiceImpl implements SyncService, InitializingBea
         executorService.scheduleWithFixedDelay(this::executeSyncTasks, 0, 300, TimeUnit.SECONDS);
     }
     
-    private void executeSyncTasks() {
+    /**
+     * The full sync that runs every 300 s; package-private for tests.
+     */
+    void executeSyncTasks() {
         if (allSyncTaskMap.isEmpty()) {
             return;
         }
