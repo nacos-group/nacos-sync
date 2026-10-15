@@ -353,7 +353,13 @@ public class ZookeeperSyncToNacosServiceImpl implements SyncService {
             registerALLInstances0(taskDO, destNamingService, zk, taskDO.getServiceName());
         } else {
             // 同步全部
-            List<String> serviceList = zk.getChildren().forPath(DUBBO_ROOT_PATH);
+            List<String> serviceList;
+            try {
+                serviceList = zk.getChildren().forPath(DUBBO_ROOT_PATH);
+            } catch (KeeperException.NoNodeException e) {
+                // No Dubbo service has registered yet; the listener picks up the first one.
+                return;
+            }
             for (String serviceName : serviceList) {
                 registerALLInstances0(taskDO, destNamingService, zk, serviceName);
             }

@@ -262,6 +262,21 @@ public class ZookeeperSyncToNacosServiceImplTest {
     }
 
     @Test
+    public void testWildcardTaskOnAnEmptyZookeeperListensForServices() throws Exception {
+        // /dubbo only exists once the first Dubbo service has registered.
+        TaskDO taskDO = mock(TaskDO.class);
+        GetChildrenBuilder children = stubZookeeper(taskDO, DubboConstants.ALL_SERVICE_NAME_PATTERN);
+        doReturn(destNamingService).when(nacosServerHolder).get(TEST_DEST_CLUSTER_ID);
+        when(children.forPath(DubboConstants.DUBBO_ROOT_PATH))
+                .thenThrow(new KeeperException.NoNodeException(DubboConstants.DUBBO_ROOT_PATH));
+
+        Assert.assertTrue(zookeeperSyncToNacosService.sync(taskDO, null));
+
+        verify(destNamingService, never()).batchRegisterInstance(anyString(), anyString(), anyList());
+        verify(listenable).addListener(any());
+    }
+
+    @Test
     public void testSyncThatFailedToStartIsRetriedInFull() throws Exception {
         // The destination is not reachable when the task starts. The cache already exists by then; the next sync
         // must not take it as a started task, or the task never registers or listens.
