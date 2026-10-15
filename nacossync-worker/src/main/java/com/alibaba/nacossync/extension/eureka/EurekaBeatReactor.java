@@ -38,14 +38,20 @@ public class EurekaBeatReactor {
     private final EurekaHttpClient eurekaHttpClient;
 
     public EurekaBeatReactor(EurekaHttpClient eurekaHttpClient) {
-        this.eurekaHttpClient = eurekaHttpClient;
-        executorService = new ScheduledThreadPoolExecutor(30, r -> {
+        this(eurekaHttpClient, new ScheduledThreadPoolExecutor(30, r -> {
             Thread thread = new Thread(r);
             thread.setDaemon(true);
             thread.setName("com.alibaba.nacossync.eureka.beat.sender");
             return thread;
-        });
+        }));
+    }
 
+    /**
+     * Sends the beats on the given executor, so that a test can call {@link #beat} without the scheduled beats.
+     */
+    EurekaBeatReactor(EurekaHttpClient eurekaHttpClient, ScheduledExecutorService executorService) {
+        this.eurekaHttpClient = eurekaHttpClient;
+        this.executorService = executorService;
         executorService.schedule(new BeatProcessor(), 0, TimeUnit.SECONDS);
     }
 

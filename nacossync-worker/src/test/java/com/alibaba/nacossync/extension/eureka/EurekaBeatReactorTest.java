@@ -5,6 +5,8 @@ import com.netflix.discovery.shared.transport.EurekaHttpClient;
 import com.netflix.discovery.shared.transport.EurekaHttpResponse;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.ScheduledExecutorService;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -20,7 +22,9 @@ class EurekaBeatReactorTest {
 
     private final EurekaHttpClient eurekaHttpClient = mock(EurekaHttpClient.class);
 
-    private final EurekaBeatReactor beatReactor = new EurekaBeatReactor(eurekaHttpClient);
+    // A mock executor: the scheduled beats would call the client too, next to the beats the tests send.
+    private final EurekaBeatReactor beatReactor = new EurekaBeatReactor(eurekaHttpClient,
+            mock(ScheduledExecutorService.class));
 
     private final InstanceInfo instance = InstanceInfo.Builder.newBuilder().setAppName(APP).setInstanceId(ID)
             .setHostName("192.168.31.92").build();
