@@ -14,6 +14,8 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskDeleteRequest;
 import com.alibaba.nacossync.pojo.result.BaseResult;
 import com.alibaba.nacossync.template.processor.TaskDeleteProcessor;
+import com.alibaba.nacossync.util.TaskLocks;
+import com.alibaba.nacossync.util.ThreadWaits;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -25,6 +27,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -138,6 +141,16 @@ class CheckRunningStatusAllNacosThreadTest {
     }
 
     @Test
+    void aSubTaskThatFailsToStopDoesNotFailTheDeleteOfTheAllTask() {
+        // The task row is already gone: the delete request must not fail, nor a batch delete stop.
+        when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask));
+        thread.run();
+        doThrow(new IllegalStateException("test")).when(taskDispatcher).delete(any());
+
+        assertDoesNotThrow(() -> thread.deleteAllSubTasks(allTask));
+    }
+
+    @Test
     void subTaskThatFailedToStopIsStoppedAgain() throws Exception {
         // The service is gone from the source. Taken as stopped, the sub-task that failed to stop kept its copies.
         when(sourceNamingService.getServicesOfServer(anyInt(), anyInt(), eq("DEFAULT_GROUP")))
@@ -185,11 +198,14 @@ class CheckRunningStatusAllNacosThreadTest {
         // finds no sub-task to stop yet, and the scan then starts them for a task that is gone.
         CountDownLatch scanning = new CountDownLatch(1);
         CountDownLatch deleteDone = new CountDownLatch(1);
+        AtomicReference<Thread> deleter = new AtomicReference<>();
         doAnswer(invocation -> {
             synced.add(invocation.getArgument(0));
-            // Give a delete that does not wait for the scan the time to finish first.
+            // Let a delete that does not wait for the scan finish first.
             scanning.countDown();
-            deleteDone.await(300, TimeUnit.MILLISECONDS);
+            ThreadWaits.awaitUntil(() -> deleteDone.getCount() == 0
+                            || ThreadWaits.isWaitingIn(deleter.get(), TaskLocks.class, "runLocked"),
+                    "the delete neither finished nor waited for the task lock");
             return true;
         }).when(taskDispatcher).sync(any());
         doAnswer(invocation -> {
@@ -204,6 +220,7 @@ class CheckRunningStatusAllNacosThreadTest {
             Future<?> scan = executor.submit(thread);
             assertTrue(scanning.await(5, TimeUnit.SECONDS));
             Future<?> delete = executor.submit(() -> {
+                deleter.set(Thread.currentThread());
                 new TaskDeleteProcessor(taskAccessService, taskDispatcher, thread).process(request, new BaseResult());
                 deleteDone.countDown();
             });
@@ -225,7 +242,16 @@ class CheckRunningStatusAllNacosThreadTest {
             assertTrue(deleteMayFinish.await(5, TimeUnit.SECONDS));
             return null;
         }).when(taskAccessService).deleteTaskById("all-task");
-        when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask));
+        // Another ALL task after it, on another lock stripe, still has its sub-tasks started in this round.
+        TaskDO otherAllTask = new TaskDO();
+        otherAllTask.setTaskId("other-all-task");
+        otherAllTask.setServiceName("ALL");
+        otherAllTask.setGroupName("DEFAULT_GROUP");
+        otherAllTask.setSourceClusterId("source");
+        otherAllTask.setDestClusterId("other-dest");
+        otherAllTask.setTaskStatus(TaskStatusEnum.SYNC.getCode());
+        when(taskAccessService.findByTaskId("other-all-task")).thenReturn(otherAllTask);
+        when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask, otherAllTask));
         TaskDeleteRequest request = new TaskDeleteRequest();
         request.setTaskId("all-task");
         ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -243,7 +269,7 @@ class CheckRunningStatusAllNacosThreadTest {
             deleteMayFinish.countDown();
             executor.shutdownNow();
         }
-        assertEquals(List.of(), synced);
+        assertEquals(List.of("other-dest"), synced.stream().map(TaskDO::getDestClusterId).toList());
     }
 
     @Test

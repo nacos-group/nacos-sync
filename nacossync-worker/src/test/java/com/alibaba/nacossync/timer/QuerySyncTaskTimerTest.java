@@ -9,6 +9,8 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskDeleteRequest;
 import com.alibaba.nacossync.pojo.result.BaseResult;
 import com.alibaba.nacossync.template.processor.TaskDeleteProcessor;
+import com.alibaba.nacossync.util.TaskLocks;
+import com.alibaba.nacossync.util.ThreadWaits;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -24,6 +26,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -106,12 +109,15 @@ class QuerySyncTaskTimerTest {
         AtomicInteger reads = new AtomicInteger();
         CountDownLatch rowRead = new CountDownLatch(1);
         CountDownLatch deleteDone = new CountDownLatch(1);
+        AtomicReference<Thread> deleter = new AtomicReference<>();
         when(taskAccessService.findByTaskId(TASK_ID)).thenAnswer(invocation -> {
             TaskDO row = rowDeleted.get() ? null : task(TaskStatusEnum.SYNC);
             if (reads.getAndIncrement() == 0) {
-                // The timer has read the row: give a delete that does not wait for it the time to finish first.
+                // The timer has read the row: let a delete that does not wait for it finish first.
                 rowRead.countDown();
-                deleteDone.await(300, TimeUnit.MILLISECONDS);
+                ThreadWaits.awaitUntil(() -> deleteDone.getCount() == 0
+                                || ThreadWaits.isWaitingIn(deleter.get(), TaskLocks.class, "runLocked"),
+                        "the delete neither finished nor waited for the task lock");
             }
             return row;
         });
@@ -128,6 +134,7 @@ class QuerySyncTaskTimerTest {
             Future<?> check = executor.submit(checkTaskRows);
             assertTrue(rowRead.await(5, TimeUnit.SECONDS));
             Future<?> delete = executor.submit(() -> {
+                deleter.set(Thread.currentThread());
                 new TaskDeleteProcessor(taskAccessService, taskDispatcher, checkRunningStatusAllNacosThread)
                         .process(request, new BaseResult());
                 deleteDone.countDown();
@@ -145,7 +152,10 @@ class QuerySyncTaskTimerTest {
     void taskBeingDeletedIsSkippedRatherThanWaitedFor() throws Exception {
         // The timer goes through all tasks on one thread. Waiting for the lock of a task that is being deleted, or that
         // shares a lock stripe with a slow one, would hold up every task after it; the next round comes in 3 s.
+        TaskDO other = task("other-task-id", TaskStatusEnum.SYNC);
+        when(taskAccessService.findAllByServiceNameNotEqualAll()).thenReturn(List.of(task(TaskStatusEnum.SYNC), other));
         when(taskAccessService.findByTaskId(TASK_ID)).thenReturn(task(TaskStatusEnum.SYNC));
+        when(taskAccessService.findByTaskId("other-task-id")).thenReturn(other);
         CountDownLatch deleting = new CountDownLatch(1);
         CountDownLatch deleteMayFinish = new CountDownLatch(1);
         doAnswer(invocation -> {
@@ -170,12 +180,19 @@ class QuerySyncTaskTimerTest {
             deleteMayFinish.countDown();
             executor.shutdownNow();
         }
-        verify(taskDispatcher, never()).sync(any());
+        // The task after it, on another lock stripe, has started.
+        ArgumentCaptor<TaskDO> started = ArgumentCaptor.forClass(TaskDO.class);
+        verify(taskDispatcher).sync(started.capture());
+        assertEquals("other-task-id", started.getValue().getTaskId());
     }
 
     private static TaskDO task(TaskStatusEnum status) {
+        return task(TASK_ID, status);
+    }
+
+    private static TaskDO task(String taskId, TaskStatusEnum status) {
         TaskDO taskDO = new TaskDO();
-        taskDO.setTaskId(TASK_ID);
+        taskDO.setTaskId(taskId);
         taskDO.setServiceName("ELOAD-0");
         taskDO.setOperationId("operation-id");
         taskDO.setTaskStatus(status.getCode());

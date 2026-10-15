@@ -1,6 +1,7 @@
 package com.alibaba.nacossync.extension.event;
 
 import com.alibaba.nacossync.pojo.model.TaskDO;
+import com.alibaba.nacossync.util.ThreadWaits;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
@@ -8,8 +9,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -57,7 +58,8 @@ class SpecialSyncEventRegistryTest {
                 unsubscriber.set(Thread.currentThread());
                 specialSyncEventRegistry.unsubscribe(taskDO);
             });
-            awaitBlocked(unsubscriber);
+            ThreadWaits.awaitWaitingIn(unsubscriber, SpecialSyncEvent.class, "cancel",
+                    "unsubscribe did not wait for the running poll");
             assertFalse(unsubscribe.isDone(), "unsubscribe returned while the poll was still registering");
 
             pollMayFinish.countDown();
@@ -81,14 +83,5 @@ class SpecialSyncEventRegistryTest {
         taskDO.setTaskId("task-id");
         taskDO.setServiceName("ELOAD-5");
         return taskDO;
-    }
-
-    /** Waits until the thread is blocked on a monitor, as unsubscribe is while the poll runs. */
-    private static void awaitBlocked(AtomicReference<Thread> thread) throws InterruptedException {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        while (thread.get() == null || thread.get().getState() != Thread.State.BLOCKED) {
-            assertTrue(System.nanoTime() < deadline, "unsubscribe did not wait for the running poll");
-            Thread.sleep(10);
-        }
     }
 }
