@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -28,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -136,6 +138,37 @@ class QuerySyncTaskTimerTest {
         }
 
         assertEquals(List.of("sync", "delete"), order);
+    }
+
+    @Test
+    void taskBeingDeletedIsSkippedRatherThanWaitedFor() throws Exception {
+        // The timer goes through all tasks on one thread. Waiting for the lock of a task that is being deleted, or that
+        // shares a lock stripe with a slow one, would hold up every task after it; the next round comes in 3 s.
+        when(taskAccessService.findByTaskId(TASK_ID)).thenReturn(task(TaskStatusEnum.SYNC));
+        CountDownLatch deleting = new CountDownLatch(1);
+        CountDownLatch deleteMayFinish = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            deleting.countDown();
+            assertTrue(deleteMayFinish.await(5, TimeUnit.SECONDS));
+            return null;
+        }).when(taskAccessService).deleteTaskById(TASK_ID);
+        TaskDeleteRequest request = new TaskDeleteRequest();
+        request.setTaskId(TASK_ID);
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<?> delete = executor.submit(
+                    () -> new TaskDeleteProcessor(taskAccessService, eventBus).process(request, new BaseResult()));
+            assertTrue(deleting.await(5, TimeUnit.SECONDS));
+
+            assertTimeoutPreemptively(Duration.ofSeconds(1), checkTaskRows::run);
+
+            deleteMayFinish.countDown();
+            delete.get(5, TimeUnit.SECONDS);
+        } finally {
+            deleteMayFinish.countDown();
+            executor.shutdownNow();
+        }
+        verify(eventBus, never()).post(any(SyncTaskEvent.class));
     }
 
     private static TaskDO task(TaskStatusEnum status) {

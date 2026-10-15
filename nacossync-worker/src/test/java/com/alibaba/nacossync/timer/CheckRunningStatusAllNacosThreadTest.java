@@ -21,6 +21,7 @@ import com.google.common.eventbus.Subscribe;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -30,6 +31,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -177,6 +179,35 @@ class CheckRunningStatusAllNacosThreadTest {
         }
 
         assertDeletedSubTaskOfSvcA();
+    }
+
+    @Test
+    void taskBeingDeletedIsSkippedRatherThanWaitedFor() throws Exception {
+        CountDownLatch deleting = new CountDownLatch(1);
+        CountDownLatch deleteMayFinish = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            deleting.countDown();
+            assertTrue(deleteMayFinish.await(5, TimeUnit.SECONDS));
+            return null;
+        }).when(taskAccessService).deleteTaskById("all-task");
+        when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask));
+        TaskDeleteRequest request = new TaskDeleteRequest();
+        request.setTaskId("all-task");
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<?> delete = executor.submit(
+                    () -> new TaskDeleteProcessor(taskAccessService, eventBus).process(request, new BaseResult()));
+            assertTrue(deleting.await(5, TimeUnit.SECONDS));
+
+            assertTimeoutPreemptively(Duration.ofSeconds(1), thread::run);
+
+            deleteMayFinish.countDown();
+            delete.get(5, TimeUnit.SECONDS);
+        } finally {
+            deleteMayFinish.countDown();
+            executor.shutdownNow();
+        }
+        assertEquals(List.of(), synced);
     }
 
     @Test

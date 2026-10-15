@@ -22,12 +22,32 @@ import java.util.concurrent.locks.Lock;
  * lock, and the sync timer re-reads the row under the same lock before it starts the task. Without it the timer can
  * start a task from a row it read just before the delete, after the delete has stopped it, and the deleted task keeps
  * running.
+ * <p>
+ * The timers only try the lock and skip a task they cannot lock: they go through all tasks on one thread, and a task
+ * that is being deleted, or that shares a lock stripe with a slow one, would hold up every task after it. The next
+ * round comes a few seconds later.
  */
 public final class TaskLocks {
 
     private static final Striped<Lock> LOCKS = Striped.lock(64);
 
     private TaskLocks() {
+    }
+
+    /**
+     * Runs the action under the task's lock if it is free, and returns whether it ran.
+     */
+    public static boolean tryRunLocked(String taskId, Runnable action) {
+        Lock lock = LOCKS.get(taskId);
+        if (!lock.tryLock()) {
+            return false;
+        }
+        try {
+            action.run();
+        } finally {
+            lock.unlock();
+        }
+        return true;
     }
 
     public static void runLocked(String taskId, Runnable action) {

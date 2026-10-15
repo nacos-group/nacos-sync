@@ -110,13 +110,19 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
                     .forEach(entry -> postDeleteAllSubTaskEvent(entry.getKey()));
             
             // Handle regular tasks. The rows were read before: process a task only if it is still there. A delete
-            // removes the row and stops the sub-tasks under the same lock.
-            tasks.forEach(task -> TaskLocks.runLocked(task.getTaskId(), () -> {
-                TaskDO current = taskAccessService.findByTaskId(task.getTaskId());
-                if (current != null && hasNacosSource(current)) {
-                    processTask(current);
+            // removes the row and stops the sub-tasks under the same lock; a task whose lock is taken is left to the
+            // next round.
+            tasks.forEach(task -> {
+                boolean ran = TaskLocks.tryRunLocked(task.getTaskId(), () -> {
+                    TaskDO current = taskAccessService.findByTaskId(task.getTaskId());
+                    if (current != null && hasNacosSource(current)) {
+                        processTask(current);
+                    }
+                });
+                if (!ran) {
+                    log.debug("ALL task {} is locked, left to the next round", task.getTaskId());
                 }
-            }));
+            });
         } catch (Exception e) {
             log.warn("CheckRunningStatusThread Exception", e);
             metricsManager.recordError(MetricsStatisticsType.DISPATCHER_TASK);

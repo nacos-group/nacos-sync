@@ -101,14 +101,18 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
 
                     if (TaskStatusEnum.SYNC.getCode().equals(taskDO.getTaskStatus())) {
                         // The rows were read before: start the task only if it is still there and still
-                        // syncing. A delete removes the row and stops the task under the same lock.
-                        TaskLocks.runLocked(taskDO.getTaskId(), () -> {
+                        // syncing. A delete removes the row and stops the task under the same lock; a task whose
+                        // lock is taken is left to the next round.
+                        boolean ran = TaskLocks.tryRunLocked(taskDO.getTaskId(), () -> {
                             TaskDO current = taskAccessService.findByTaskId(taskDO.getTaskId());
                             if (current != null && TaskStatusEnum.SYNC.getCode().equals(current.getTaskStatus())) {
                                 eventBus.post(new SyncTaskEvent(current));
                                 log.debug("从数据库中查询到一个同步任务，发出一个同步事件:{}", current);
                             }
                         });
+                        if (!ran) {
+                            log.debug("task {} is locked, left to the next round", taskDO.getTaskId());
+                        }
                     }
 
                     if (TaskStatusEnum.DELETE.getCode().equals(taskDO.getTaskStatus())) {
