@@ -77,7 +77,7 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
                 TimeUnit.MILLISECONDS);
         
         scheduledExecutorService.scheduleWithFixedDelay(new CheckRunningStatusAllNacosThread(metricsManager,
-                taskAccessService, nacosServerHolder, eventBus), INITIAL_DELAY, DELAY,
+                taskAccessService, nacosServerHolder, skyWalkerCacheServices, eventBus), INITIAL_DELAY, DELAY,
                 TimeUnit.MILLISECONDS);
         log.info("QuerySyncTaskTimer has started successfully");
     }

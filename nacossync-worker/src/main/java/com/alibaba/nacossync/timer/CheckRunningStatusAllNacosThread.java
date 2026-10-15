@@ -20,6 +20,8 @@ package com.alibaba.nacossync.timer;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.ListView;
 import com.alibaba.nacos.common.utils.CollectionUtils;
+import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
+import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.TaskAccessService;
@@ -59,20 +61,28 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
      */
     private final Map<String, TaskDO> allTasks = new ConcurrentHashMap<>();
     
+    /**
+     * ALL tasks skipped because their source is not Nacos, so that each is warned about once.
+     */
+    private final Set<String> skippedTasks = ConcurrentHashMap.newKeySet();
+    
     private final MetricsManager metricsManager;
     
     private final TaskAccessService taskAccessService;
     
     private final NacosServerHolder nacosServerHolder;
     
+    private final SkyWalkerCacheServices skyWalkerCacheServices;
+    
     private final EventBus eventBus;
     
     
     public CheckRunningStatusAllNacosThread(MetricsManager metricsManager, TaskAccessService taskAccessService,
-            NacosServerHolder nacosServerHolder, EventBus eventBus) {
+            NacosServerHolder nacosServerHolder, SkyWalkerCacheServices skyWalkerCacheServices, EventBus eventBus) {
         this.metricsManager = metricsManager;
         this.taskAccessService = taskAccessService;
         this.nacosServerHolder = nacosServerHolder;
+        this.skyWalkerCacheServices = skyWalkerCacheServices;
         this.eventBus = eventBus;
         // Created with new by QuerySyncTaskTimer rather than as a bean, so it registers itself.
         eventBus.register(this);
@@ -104,7 +114,7 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
             // removes the row and stops the sub-tasks under the same lock.
             tasks.forEach(task -> TaskLocks.runLocked(task.getTaskId(), () -> {
                 TaskDO current = taskAccessService.findByTaskId(task.getTaskId());
-                if (current != null) {
+                if (current != null && hasNacosSource(current)) {
                     processTask(current);
                 }
             }));
@@ -112,6 +122,22 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
             log.warn("CheckRunningStatusThread Exception", e);
             metricsManager.recordError(MetricsStatisticsType.DISPATCHER_TASK);
         }
+    }
+    
+    /**
+     * Only a Nacos source can list its services. ALL tasks from other sources are rejected when added, but older
+     * ones can still be in the database: skip them rather than treat the address of another registry as Nacos.
+     */
+    private boolean hasNacosSource(TaskDO task) {
+        ClusterTypeEnum sourceType = skyWalkerCacheServices.getClusterType(task.getSourceClusterId());
+        if (ClusterTypeEnum.NACOS == sourceType) {
+            return true;
+        }
+        if (skippedTasks.add(task.getTaskId())) {
+            log.warn("ALL task {} is skipped: its source cluster {} is {}, not Nacos. Delete the task.",
+                    task.getTaskId(), task.getSourceClusterId(), sourceType);
+        }
+        return false;
     }
     
     /**

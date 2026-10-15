@@ -3,6 +3,8 @@ package com.alibaba.nacossync.timer;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.ListView;
+import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
+import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.TaskAccessService;
 import com.alibaba.nacossync.event.DeleteAllSubTaskEvent;
@@ -20,9 +22,12 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class CheckRunningStatusAllNacosThreadTest {
@@ -32,6 +37,8 @@ class CheckRunningStatusAllNacosThreadTest {
     private final NacosServerHolder nacosServerHolder = mock(NacosServerHolder.class);
 
     private final NamingService sourceNamingService = mock(NamingService.class);
+
+    private final SkyWalkerCacheServices skyWalkerCacheServices = mock(SkyWalkerCacheServices.class);
 
     private final EventBus eventBus = new EventBus();
 
@@ -68,11 +75,12 @@ class CheckRunningStatusAllNacosThreadTest {
         allTask.setTaskStatus(TaskStatusEnum.SYNC.getCode());
         when(taskAccessService.findByTaskId("all-task")).thenAnswer(invocation -> rowDeleted ? null : allTask);
         when(nacosServerHolder.get("source")).thenReturn(sourceNamingService);
+        when(skyWalkerCacheServices.getClusterType("source")).thenReturn(ClusterTypeEnum.NACOS);
         ListView<String> services = new ListView<>();
         services.setData(List.of("svc-a"));
         when(sourceNamingService.getServicesOfServer(anyInt(), anyInt(), eq("DEFAULT_GROUP"))).thenReturn(services);
         thread = new CheckRunningStatusAllNacosThread(mock(MetricsManager.class), taskAccessService, nacosServerHolder,
-                eventBus);
+                skyWalkerCacheServices, eventBus);
     }
 
     @Test
@@ -145,6 +153,19 @@ class CheckRunningStatusAllNacosThreadTest {
         thread.run();
 
         assertEquals(List.of(), deleted);
+    }
+
+    @Test
+    void allTaskFromAnotherRegistryIsSkipped() {
+        // Rejected when added since 2.0, but older rows can still be in the database. Only a Nacos source can
+        // list its services; no Nacos client is created for the address of another registry.
+        when(skyWalkerCacheServices.getClusterType("source")).thenReturn(ClusterTypeEnum.EUREKA);
+        when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask));
+
+        thread.run();
+
+        assertEquals(List.of(), synced);
+        verify(nacosServerHolder, never()).get(any());
     }
 
     private void assertDeletedSubTaskOfSvcA() {
