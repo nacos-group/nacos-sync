@@ -126,7 +126,8 @@ probe() { # probe <name>: "<healthy> <total>" synced copies at that destination
       '[.[] | select(.metadata.sourceClusterId == $c)] | "\(map(select(.status == "UP")) | length) \(length)"' ;;
     nacos-consul) consul_instances $NP | jq -r --arg c "$NACOS_A_ID" \
       '[.[] | select(any(.tags[]?; . == "sourceClusterId=" + $c))] | "\(map(select(.passing)) | length) \(length)"' ;;
-    nacos-zk) n=$(zk_providers $IFACE | grep 'group=nacos' | grep -c "sourceClusterId=$NACOS_A_ID"); echo "$n $n" ;;
+    nacos-zk) n=$(zk_providers $IFACE) || return 1
+      n=$(grep 'group=nacos' <<<"$n" | grep -c "sourceClusterId=$NACOS_A_ID"); echo "$n $n" ;;
     created-by-new) nacos_copies $NACOS_B $NC DEFAULT_GROUP "$NACOS_A_ID" ;;
   esac
 }
@@ -143,7 +144,8 @@ synced_once() { # every probe sees exactly the expected number of copies, all he
 converge() { # converge <timeout> <description>
   eventually "$1" "$2" synced_once || record INFO "$2: still $(synced_once)"
 }
-copies_gone() { local h n; read -r h n <<<"$(probe "$1")"; [ "${n:-0}" -eq 0 ]; }
+# A destination that cannot be asked prints nothing: that is not 0 copies.
+copies_gone() { local h n; read -r h n <<<"$(probe "$1")"; [ -n "$n" ] && [ "$n" -eq 0 ]; }
 zk_native_ok() { [ "$(zk_providers $IFACE | grep -c group=zk)" -eq 1 ]; }
 nacos_native_ok() { nacos_has_port $NACOS_A $NC 18035 && nacos_has_port $NACOS_A $NP 18088 && nacos_count $NACOS_A $PS 2; }
 v3() { local NACOS_VERSION=v3.2.4; "$@"; }   # v3 <lib helper...>: query the Nacos 3.x server

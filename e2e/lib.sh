@@ -204,13 +204,14 @@ nacos_set_instance() { # nacos_set_instance <port> <service> <ip> <port> <enable
 }
 
 # ---------------------------------------------------------------- Eureka / Consul / Zookeeper
-eureka_instances() { # eureka_instances <app>: JSON array of {ip,port,status,metadata}
-  local app
+eureka_instances() { # eureka_instances <app>: JSON array of {ip,port,status,metadata}; fails if Eureka cannot be asked
+  local app body
   app=$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]')
   # -s: Eureka 1.x (Spring Cloud 2021.0) answers an app without instances with an empty 404 body, which plain jq
-  # turns into no output at all instead of [].
-  registry_get '' -H 'Accept: application/json' "$EUREKA_URL/apps/$app" |
-    jq -cs '[(.[0].application.instance // []) | (if type == "array" then .[] else . end)
+  # turns into no output at all instead of []. It also turns no input into [], so a failed request must not get
+  # that far: in a pipe its failure would be lost.
+  body=$(registry_get '' -H 'Accept: application/json' "$EUREKA_URL/apps/$app") || return 1
+  printf '%s' "$body" | jq -cs '[(.[0].application.instance // []) | (if type == "array" then .[] else . end)
             | {id: .instanceId, ip: .ipAddr, port: (.port["$"] | tonumber), status, metadata: (.metadata // {})}]' 2>/dev/null
 }
 
