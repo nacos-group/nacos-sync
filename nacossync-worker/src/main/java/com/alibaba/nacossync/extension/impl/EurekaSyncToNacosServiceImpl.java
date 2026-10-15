@@ -23,7 +23,7 @@ import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.extension.eureka.EurekaNamingService;
-import com.alibaba.nacossync.extension.event.SpecialSyncEventBus;
+import com.alibaba.nacossync.extension.event.SpecialSyncEventRegistry;
 import com.alibaba.nacossync.extension.holder.EurekaServerHolder;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
@@ -57,16 +57,16 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
     
     private final NacosServerHolder nacosServerHolder;
     
-    private final SpecialSyncEventBus specialSyncEventBus;
+    private final SpecialSyncEventRegistry specialSyncEventRegistry;
     
     @Autowired
     public EurekaSyncToNacosServiceImpl(EurekaServerHolder eurekaServerHolder,
             SkyWalkerCacheServices skyWalkerCacheServices, NacosServerHolder nacosServerHolder,
-            SpecialSyncEventBus specialSyncEventBus, MetricsManager metricsManager) {
+            SpecialSyncEventRegistry specialSyncEventRegistry, MetricsManager metricsManager) {
         this.eurekaServerHolder = eurekaServerHolder;
         this.skyWalkerCacheServices = skyWalkerCacheServices;
         this.nacosServerHolder = nacosServerHolder;
-        this.specialSyncEventBus = specialSyncEventBus;
+        this.specialSyncEventRegistry = specialSyncEventRegistry;
         this.metricsManager = metricsManager;
     }
     
@@ -74,7 +74,7 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
     public boolean delete(TaskDO taskDO) {
         
         try {
-            specialSyncEventBus.unsubscribe(taskDO);
+            specialSyncEventRegistry.unsubscribe(taskDO);
             
             EurekaNamingService eurekaNamingService = eurekaServerHolder.get(taskDO.getSourceClusterId());
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
@@ -97,7 +97,7 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
         }
         // Poll from now on. A poll only re-syncs and never subscribes, so a poll that is still running when the
         // task is deleted cannot subscribe the deleted task again.
-        specialSyncEventBus.subscribe(taskDO, this::syncInstances);
+        specialSyncEventRegistry.subscribe(taskDO, this::syncInstances);
         return true;
     }
     

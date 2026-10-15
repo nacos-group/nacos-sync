@@ -6,7 +6,7 @@ import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.extension.eureka.EurekaNamingService;
 import com.alibaba.nacossync.extension.event.SpecialSyncEvent;
-import com.alibaba.nacossync.extension.event.SpecialSyncEventBus;
+import com.alibaba.nacossync.extension.event.SpecialSyncEventRegistry;
 import com.alibaba.nacossync.extension.holder.ConsulServerHolder;
 import com.alibaba.nacossync.extension.holder.EurekaServerHolder;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
@@ -27,14 +27,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Eureka and Consul sources are polled through {@link SpecialSyncEventBus}. A poll that is still running when its
+ * Eureka and Consul sources are polled through {@link SpecialSyncEventRegistry}. A poll that is still running when its
  * task is deleted must not subscribe the task again, or the deleted task keeps registering instances forever.
  */
 class PolledSyncDeleteRaceTest {
 
     private static final String SERVICE_NAME = "e2e-service";
 
-    private final SpecialSyncEventBus specialSyncEventBus = new SpecialSyncEventBus();
+    private final SpecialSyncEventRegistry specialSyncEventRegistry = new SpecialSyncEventRegistry();
 
     private final NamingService destNamingService = mock(NamingService.class);
 
@@ -63,7 +63,7 @@ class PolledSyncDeleteRaceTest {
         when(eurekaNamingService.getApplications(SERVICE_NAME)).thenReturn(List.of());
         when(skyWalkerCacheServices.getClusterType("source")).thenReturn(ClusterTypeEnum.EUREKA);
         EurekaSyncToNacosServiceImpl service = new EurekaSyncToNacosServiceImpl(eurekaServerHolder,
-                skyWalkerCacheServices, nacosServerHolder, specialSyncEventBus, mock(MetricsManager.class));
+                skyWalkerCacheServices, nacosServerHolder, specialSyncEventRegistry, mock(MetricsManager.class));
 
         assertTrue(service.sync(taskDO, 0));
         assertPollDuringDeleteLeavesNoSubscription(() -> service.delete(taskDO));
@@ -77,20 +77,20 @@ class PolledSyncDeleteRaceTest {
         when(consulClient.getHealthServices(SERVICE_NAME, true, QueryParams.DEFAULT))
                 .thenReturn(new Response<List<HealthService>>(List.of(), 0L, true, 0L));
         ConsulSyncToNacosServiceImpl service = new ConsulSyncToNacosServiceImpl(consulServerHolder,
-                skyWalkerCacheServices, nacosServerHolder, specialSyncEventBus, mock(MetricsManager.class));
+                skyWalkerCacheServices, nacosServerHolder, specialSyncEventRegistry, mock(MetricsManager.class));
 
         assertTrue(service.sync(taskDO, 0));
         assertPollDuringDeleteLeavesNoSubscription(() -> service.delete(taskDO));
     }
 
     private void assertPollDuringDeleteLeavesNoSubscription(Runnable delete) {
-        assertEquals(1, specialSyncEventBus.getAllSpecialSyncEvent().size());
-        SpecialSyncEvent poll = specialSyncEventBus.getAllSpecialSyncEvent().iterator().next();
+        assertEquals(1, specialSyncEventRegistry.getAllSpecialSyncEvent().size());
+        SpecialSyncEvent poll = specialSyncEventRegistry.getAllSpecialSyncEvent().iterator().next();
 
         delete.run();
         // The poll that SpecialSyncEventTimer had already started finishes after the delete.
         poll.getSyncAction().accept(poll.getTaskDO());
 
-        assertTrue(specialSyncEventBus.getAllSpecialSyncEvent().isEmpty());
+        assertTrue(specialSyncEventRegistry.getAllSpecialSyncEvent().isEmpty());
     }
 }

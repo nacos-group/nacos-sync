@@ -7,7 +7,7 @@ import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.extension.eureka.EurekaNamingService;
-import com.alibaba.nacossync.extension.event.SpecialSyncEventBus;
+import com.alibaba.nacossync.extension.event.SpecialSyncEventRegistry;
 import com.alibaba.nacossync.extension.holder.EurekaServerHolder;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
@@ -63,7 +63,7 @@ class EurekaSyncToNacosInstanceStatusTest {
         when(skyWalkerCacheServices.getClusterType(SOURCE_CLUSTER_ID)).thenReturn(ClusterTypeEnum.EUREKA);
 
         eurekaSyncToNacosService = new EurekaSyncToNacosServiceImpl(eurekaServerHolder, skyWalkerCacheServices,
-                nacosServerHolder, mock(SpecialSyncEventBus.class), mock(MetricsManager.class));
+                nacosServerHolder, mock(SpecialSyncEventRegistry.class), mock(MetricsManager.class));
 
         taskDO = new TaskDO();
         taskDO.setTaskId("task-id");

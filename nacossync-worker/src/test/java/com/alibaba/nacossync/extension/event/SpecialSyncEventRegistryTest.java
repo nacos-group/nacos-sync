@@ -19,9 +19,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * A delete unsubscribes the task and then removes the instances it synced. A poll of that task must not register them
  * again afterwards.
  */
-class SpecialSyncEventBusTest {
+class SpecialSyncEventRegistryTest {
 
-    private final SpecialSyncEventBus specialSyncEventBus = new SpecialSyncEventBus();
+    private final SpecialSyncEventRegistry specialSyncEventRegistry = new SpecialSyncEventRegistry();
 
     private final TaskDO taskDO = task();
 
@@ -29,10 +29,10 @@ class SpecialSyncEventBusTest {
     void pollAfterUnsubscribeDoesNothing() {
         // The timer took the poll from the registry just before the delete unsubscribed the task.
         AtomicInteger polls = new AtomicInteger();
-        specialSyncEventBus.subscribe(taskDO, task -> polls.incrementAndGet());
-        SpecialSyncEvent poll = specialSyncEventBus.getAllSpecialSyncEvent().iterator().next();
+        specialSyncEventRegistry.subscribe(taskDO, task -> polls.incrementAndGet());
+        SpecialSyncEvent poll = specialSyncEventRegistry.getAllSpecialSyncEvent().iterator().next();
 
-        specialSyncEventBus.unsubscribe(taskDO);
+        specialSyncEventRegistry.unsubscribe(taskDO);
         poll.sync();
 
         assertEquals(0, polls.get());
@@ -43,11 +43,11 @@ class SpecialSyncEventBusTest {
         // E2E: a poll of ELOAD-5 registered its instances while the delete was removing them, so they stayed.
         CountDownLatch polling = new CountDownLatch(1);
         CountDownLatch pollMayFinish = new CountDownLatch(1);
-        specialSyncEventBus.subscribe(taskDO, task -> {
+        specialSyncEventRegistry.subscribe(taskDO, task -> {
             polling.countDown();
             await(pollMayFinish);
         });
-        SpecialSyncEvent poll = specialSyncEventBus.getAllSpecialSyncEvent().iterator().next();
+        SpecialSyncEvent poll = specialSyncEventRegistry.getAllSpecialSyncEvent().iterator().next();
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
             Future<?> running = executor.submit(() -> poll.sync());
@@ -55,7 +55,7 @@ class SpecialSyncEventBusTest {
             AtomicReference<Thread> unsubscriber = new AtomicReference<>();
             Future<?> unsubscribe = executor.submit(() -> {
                 unsubscriber.set(Thread.currentThread());
-                specialSyncEventBus.unsubscribe(taskDO);
+                specialSyncEventRegistry.unsubscribe(taskDO);
             });
             awaitBlocked(unsubscriber);
             assertFalse(unsubscribe.isDone(), "unsubscribe returned while the poll was still registering");

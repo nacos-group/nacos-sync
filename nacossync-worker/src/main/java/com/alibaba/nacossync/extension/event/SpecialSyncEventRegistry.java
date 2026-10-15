@@ -20,28 +20,30 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
+ * The Eureka and Consul tasks that {@link com.alibaba.nacossync.timer.SpecialSyncEventTimer} polls, one entry per task.
+ *
  * @author paderlol
  * @date 2019-01-12 22:42
  */
 @Service
-public class SpecialSyncEventBus {
-    private final ConcurrentHashMap<String, SpecialSyncEvent> specialSyncEventRegistry = new ConcurrentHashMap<>();
+public class SpecialSyncEventRegistry {
+    private final ConcurrentHashMap<String, SpecialSyncEvent> events = new ConcurrentHashMap<>();
 
     public void subscribe(TaskDO taskDO, Consumer<TaskDO> syncAction) {
         SpecialSyncEvent specialSyncEvent = new SpecialSyncEvent();
         specialSyncEvent.setTaskDO(taskDO);
         specialSyncEvent.setSyncAction(syncAction);
-        specialSyncEventRegistry.putIfAbsent(taskDO.getTaskId(), specialSyncEvent);
+        events.putIfAbsent(taskDO.getTaskId(), specialSyncEvent);
     }
 
     public void unsubscribe(TaskDO taskDO) {
-        SpecialSyncEvent specialSyncEvent = specialSyncEventRegistry.remove(taskDO.getTaskId());
+        SpecialSyncEvent specialSyncEvent = events.remove(taskDO.getTaskId());
         if (specialSyncEvent != null) {
             specialSyncEvent.cancel();
         }
     }
 
     public Collection<SpecialSyncEvent> getAllSpecialSyncEvent() {
-        return specialSyncEventRegistry.values();
+        return events.values();
     }
 }

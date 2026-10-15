@@ -16,7 +16,7 @@ import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.extension.eureka.EurekaNamingService;
-import com.alibaba.nacossync.extension.event.SpecialSyncEventBus;
+import com.alibaba.nacossync.extension.event.SpecialSyncEventRegistry;
 import com.alibaba.nacossync.extension.holder.EurekaServerHolder;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
@@ -58,7 +58,7 @@ public class EurekaSyncToNacosServiceImplTest {
     private SkyWalkerCacheServices skyWalkerCacheServices;
 
     @Mock
-    private SpecialSyncEventBus specialSyncEventBus;
+    private SpecialSyncEventRegistry specialSyncEventRegistry;
     @Mock
     private MetricsManager metricsManager;
     @InjectMocks
@@ -89,7 +89,7 @@ public class EurekaSyncToNacosServiceImplTest {
         verify(destNamingService).deregisterInstance(TEST_SERVICE_NAME, Constants.DEFAULT_GROUP,
                 TEST_INSTANCE_ADDRESS, 8082);
         verify(destNamingService, never()).deregisterInstance(anyString(), anyString(), anyString(), eq(8080));
-        verify(specialSyncEventBus).subscribe(eq(taskDO), any());
+        verify(specialSyncEventRegistry).subscribe(eq(taskDO), any());
     }
 
 
@@ -100,7 +100,7 @@ public class EurekaSyncToNacosServiceImplTest {
         mockDelete(taskDO);
         Assert.assertTrue(eurekaSyncToNacosService.delete(taskDO));
 
-        verify(specialSyncEventBus).unsubscribe(taskDO);
+        verify(specialSyncEventRegistry).unsubscribe(taskDO);
         // Only the instance owned by Eureka is deregistered, not the one Eureka itself got from a sync.
         ArgumentCaptor<Instance> deregistered = ArgumentCaptor.forClass(Instance.class);
         verify(destNamingService).deregisterInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),

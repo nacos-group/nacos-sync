@@ -15,7 +15,7 @@ import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
-import com.alibaba.nacossync.extension.event.SpecialSyncEventBus;
+import com.alibaba.nacossync.extension.event.SpecialSyncEventRegistry;
 import com.alibaba.nacossync.extension.holder.ConsulServerHolder;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
@@ -62,7 +62,7 @@ public class ConsulSyncToNacosServiceImplTest {
     @Mock
     private SkyWalkerCacheServices skyWalkerCacheServices;
     @Mock
-    private SpecialSyncEventBus specialSyncEventBus;
+    private SpecialSyncEventRegistry specialSyncEventRegistry;
     @Mock
     private MetricsManager metricsManager;
 
@@ -94,7 +94,7 @@ public class ConsulSyncToNacosServiceImplTest {
         verify(destNamingService).deregisterInstance(TEST_SERVICE_NAME, Constants.DEFAULT_GROUP,
                 TEST_INSTANCE_ADDRESS, 8082);
         verify(destNamingService, never()).deregisterInstance(anyString(), anyString(), anyString(), eq(8080));
-        verify(specialSyncEventBus).subscribe(eq(taskDO), any());
+        verify(specialSyncEventRegistry).subscribe(eq(taskDO), any());
     }
 
     @Test
@@ -103,7 +103,7 @@ public class ConsulSyncToNacosServiceImplTest {
         mockDelete(taskDO);
         Assert.assertTrue(consulSyncToNacosService.delete(taskDO));
 
-        verify(specialSyncEventBus).unsubscribe(taskDO);
+        verify(specialSyncEventRegistry).unsubscribe(taskDO);
         verify(destNamingService).deregisterInstance(TEST_SERVICE_NAME, Constants.DEFAULT_GROUP,
                 TEST_INSTANCE_ADDRESS, 8080);
         // Instances not synced from this source cluster are left alone.
