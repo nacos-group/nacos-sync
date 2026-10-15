@@ -2,9 +2,12 @@ package com.alibaba.nacossync.it.infra;
 
 import com.alibaba.nacos.api.naming.NamingService;
 import com.ecwid.consul.v1.ConsulClient;
+import com.ecwid.consul.v1.ConsulRawClient;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.ExponentialBackoffRetry;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
@@ -84,7 +87,10 @@ public final class SharedInfrastructure {
 
         namingA = nacosA.newNamingService();
         namingB = nacosB.newNamingService();
-        consulClient = new ConsulClient(consul.getHost(), consul.getMappedPort(CONSUL_PORT));
+        // consul-api waits up to 10 min for an answer by default: time out like the other clients of the ITs.
+        RequestConfig timeouts = RequestConfig.custom().setConnectTimeout(5_000).setSocketTimeout(30_000).build();
+        consulClient = new ConsulClient(new ConsulRawClient(consul.getHost(), consul.getMappedPort(CONSUL_PORT),
+                HttpClientBuilder.create().setDefaultRequestConfig(timeouts).build()));
         curator = CuratorFrameworkFactory.newClient(zookeeperAddress(), new ExponentialBackoffRetry(500, 5));
         curator.start();
         if (!curator.blockUntilConnected(60, TimeUnit.SECONDS)) {
