@@ -43,11 +43,8 @@ shift $((OPTIND - 1))
 cd "$E2E"
 export SYNC_REPO=$REPO   # 07-upgrade builds the previous release from the same checkout
 . ./lib.sh   # -n / -s were exported above, so they win over .env
-# However the run ends, stop the apps it started on the host: started with & from a script, they ignore Ctrl-C and
-# would keep their ports for the next run.
-cleanup() { stop_all_apps; [ "$KEEP" = 1 ] || compose down -v >/dev/null 2>&1; }
-trap cleanup EXIT
-trap 'exit 130' INT TERM
+trap 'exit 130' INT
+trap 'exit 143' TERM
 NACOS_LABEL=$NACOS_A_VERSION
 [ "$NACOS_B_VERSION" = "$NACOS_A_VERSION" ] || NACOS_LABEL="$NACOS_A_VERSION-$NACOS_B_VERSION"
 
@@ -112,12 +109,23 @@ docker build -q -t "nacos-sync-e2e/eureka-server:$SC_TRAIN" eureka-server >/dev/
 
 # ---------------------------------------------------------------- environment
 log "starting environment: $RUN_LABEL, nacos-sync $COMMIT"
-# Apps of a run that was killed outright: stop only processes started from this directory, as pids get reused.
+# Apps of a run that was killed outright: stop only processes started from here, as pids get reused.
 for f in "$OUT_DIR"/pids/*; do
   [ -e "$f" ] || continue
-  ps -p "$(cat "$f")" -o args= 2>/dev/null | grep -qF "$E2E_DIR/" && stop_app "$(basename "$f")"
+  ps -p "$(cat "$f")" -o args= 2>/dev/null | grep -qF -e "$E2E_DIR/" -e "$OUT_DIR/" && stop_app "$(basename "$f")"
   rm -f "$f"
 done
+# From here on, however the run ends, stop what it started: apps started with & from a script ignore Ctrl-C and would
+# keep their ports for the next run. A scenario still running is stopped first, with the command it waits for, so
+# that its own cleanup runs before its apps are stopped. Not earlier: an early exit, e.g. on an unknown -s, has
+# started nothing, and must neither stop processes named by stale pid files nor take down an environment kept with -k.
+cleanup() {
+  if [ -n "${SCENARIO_PID:-}" ]; then
+    kill "$SCENARIO_PID" 2>/dev/null; pkill -P "$SCENARIO_PID" 2>/dev/null; wait "$SCENARIO_PID" 2>/dev/null
+  fi
+  stop_all_apps; [ "$KEEP" = 1 ] || compose down -v >/dev/null 2>&1
+}
+trap cleanup EXIT
 compose down -v --remove-orphans >/dev/null 2>&1
 compose up -d --wait --wait-timeout 300 > "$OUT_DIR/logs/compose-up.log" 2>&1 || {
   compose ps; tail -20 "$OUT_DIR/logs/compose-up.log" >&2
@@ -131,9 +139,13 @@ if [ $# -eq 0 ]; then set -- $(ls scenarios | sed 's/\.sh$//'); fi
 for s in "$@"; do
   log "=== scenario $s"
   if [ ! -f "scenarios/$s.sh" ]; then SCENARIO=$s record FAIL "no such scenario: scenarios/$s.sh"; continue; fi
-  RUN_LABEL=$RUN_LABEL bash "scenarios/$s.sh" 2>&1 | tee "$OUT_DIR/logs/scenario-$s.log" >&2
+  # In the background: bash runs a trap only once the command in the foreground has finished, so a TERM to run.sh
+  # would otherwise wait for the whole scenario.
+  RUN_LABEL=$RUN_LABEL bash "scenarios/$s.sh" > >(tee "$OUT_DIR/logs/scenario-$s.log" >&2) 2>&1 &
+  SCENARIO_PID=$!
+  wait "$SCENARIO_PID"; rc=$?
+  SCENARIO_PID=
   # A scenario that stops early, e.g. because an app did not start, has run fewer checks without failing one.
-  rc=${PIPESTATUS[0]}
   [ "$rc" = 0 ] || SCENARIO=$s record FAIL "scenario stopped early (exit $rc), see logs/scenario-$s.log"
   stop_all_apps; delete_all_tasks
   compose logs nacos-sync > "$OUT_DIR/logs/nacos-sync-$s.log" 2>&1
