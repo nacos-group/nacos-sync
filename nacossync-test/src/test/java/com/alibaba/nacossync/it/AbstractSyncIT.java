@@ -9,6 +9,7 @@ import com.alibaba.nacossync.it.infra.SharedInfrastructure;
 import com.netflix.eureka.registry.PeerAwareInstanceRegistry;
 import org.awaitility.Awaitility;
 import org.awaitility.core.ConditionFactory;
+import org.awaitility.core.ThrowingRunnable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.Logger;
@@ -193,10 +194,25 @@ abstract class AbstractSyncIT {
         return Awaitility.await().atMost(SYNC_TIMEOUT).pollInterval(Duration.ofMillis(500)).ignoreExceptions();
     }
 
-    /** The assertion has to hold continuously for {@link #STABLE_PERIOD}. */
-    protected static ConditionFactory stable() {
-        return Awaitility.await().during(STABLE_PERIOD).atMost(STABLE_PERIOD.plusSeconds(15))
-                .pollInterval(Duration.ofSeconds(1));
+    /**
+     * Checks the assertion now and then every second for {@link #STABLE_PERIOD}; every check has to pass. Awaitility's
+     * {@code during()} starts its period again after a failed check, so a single echo or drop early on went unnoticed.
+     */
+    protected static void assertStable(ThrowingRunnable assertion) throws InterruptedException {
+        long end = System.nanoTime() + STABLE_PERIOD.toNanos();
+        while (true) {
+            try {
+                assertion.run();
+            } catch (AssertionError | RuntimeException e) {
+                throw e;
+            } catch (Throwable e) {
+                throw new AssertionError("stable check failed", e);
+            }
+            if (System.nanoTime() >= end) {
+                return;
+            }
+            Thread.sleep(1000);
+        }
     }
 
     protected static void assertSyncMarkers(Map<String, String> metadata, String sourceClusterId,

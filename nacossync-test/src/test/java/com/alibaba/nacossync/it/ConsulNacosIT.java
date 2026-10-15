@@ -75,7 +75,7 @@ class ConsulNacosIT extends AbstractSyncIT {
         secondApp.deregisterInstance(service, DEFAULT_GROUP, leavingIp, PORT);
 
         eventually().untilAsserted(() -> assertThat(consulAddresses(service)).containsExactly(stayingIp));
-        stable().untilAsserted(() -> assertThat(consulAddresses(service)).containsExactly(stayingIp));
+        assertStable(() -> assertThat(consulAddresses(service)).containsExactly(stayingIp));
     }
 
     @Test
@@ -89,7 +89,7 @@ class ConsulNacosIT extends AbstractSyncIT {
         addTask(cluster.nacosA(), cluster.consul(), service, DEFAULT_GROUP);
 
         eventually().untilAsserted(() -> assertOneNativeAndOneCopyEachSide(service, consulIp, nacosIp));
-        stable().untilAsserted(() -> assertOneNativeAndOneCopyEachSide(service, consulIp, nacosIp));
+        assertStable(() -> assertOneNativeAndOneCopyEachSide(service, consulIp, nacosIp));
     }
 
     private void assertOneNativeAndOneCopyEachSide(String service, String consulIp, String nacosIp)

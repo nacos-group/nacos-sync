@@ -128,7 +128,7 @@ class EurekaNacosIT extends AbstractSyncIT {
         addTask(cluster.nacosA(), cluster.eureka(), service, DEFAULT_GROUP);
 
         eventually().untilAsserted(() -> assertOneNativeAndOneCopyEachSide(service, eurekaIp, nacosIp));
-        stable().untilAsserted(() -> assertOneNativeAndOneCopyEachSide(service, eurekaIp, nacosIp));
+        assertStable(() -> assertOneNativeAndOneCopyEachSide(service, eurekaIp, nacosIp));
     }
 
     private void assertOneNativeAndOneCopyEachSide(String service, String eurekaIp, String nacosIp) throws Exception {

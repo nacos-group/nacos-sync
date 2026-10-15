@@ -46,7 +46,7 @@ class NacosNacosIT extends AbstractSyncIT {
         addTask(cluster.nacosA(), cluster.nacosB(), service, DEFAULT_GROUP);
         eventually().untilAsserted(() -> requireNacos(infra.namingB(), service, DEFAULT_GROUP, ip, PORT));
 
-        stable().untilAsserted(() -> requireNacos(infra.namingB(), service, DEFAULT_GROUP, ip, PORT));
+        assertStable(() -> requireNacos(infra.namingB(), service, DEFAULT_GROUP, ip, PORT));
     }
 
     @Test
@@ -67,10 +67,10 @@ class NacosNacosIT extends AbstractSyncIT {
         eventually().untilAsserted(
                 () -> assertThat(nacosInstances(infra.namingB(), service, DEFAULT_GROUP)).extracting(Instance::getIp)
                         .containsExactly(stayingIp));
-        // Whether the peer stays put is syncedInstanceStaysRegisteredWhileTaskRuns; here: the leaver stays gone.
-        stable().untilAsserted(
+        // The leaver stays gone and the peer stays put.
+        assertStable(
                 () -> assertThat(nacosInstances(infra.namingB(), service, DEFAULT_GROUP)).extracting(Instance::getIp)
-                        .doesNotContain(leavingIp));
+                        .containsExactly(stayingIp));
     }
 
     @Test
@@ -84,7 +84,7 @@ class NacosNacosIT extends AbstractSyncIT {
         addTask(cluster.nacosB(), cluster.nacosA(), service, DEFAULT_GROUP);
 
         eventually().untilAsserted(() -> assertOneNativeAndOneCopyEachSide(service, ipInA, ipInB));
-        stable().untilAsserted(() -> assertNothingEchoedBack(service, ipInA, ipInB));
+        assertStable(() -> assertOneNativeAndOneCopyEachSide(service, ipInA, ipInB));
     }
 
     @Test
@@ -136,23 +136,6 @@ class NacosNacosIT extends AbstractSyncIT {
         eventually().untilAsserted(() -> assertThat(
                 requireNacos(infra.namingB(), service, DEFAULT_GROUP, ip, PORT).getMetadata()).containsEntry("version",
                 "v2"));
-    }
-
-    /**
-     * An echo would add a second copy (duplicate ip) or mark a native instance. Whether the copy itself stays
-     * registered is covered by {@link #syncedInstanceStaysRegisteredWhileTaskRuns()}, so it may be absent here.
-     */
-    private void assertNothingEchoedBack(String service, String ipInA, String ipInB) throws Exception {
-        assertNativeKeptAndNoEcho(infra.namingA(), service, ipInA, ipInB, cluster.nacosB(), cluster.nacosA());
-        assertNativeKeptAndNoEcho(infra.namingB(), service, ipInB, ipInA, cluster.nacosA(), cluster.nacosB());
-    }
-
-    private static void assertNativeKeptAndNoEcho(NamingService naming, String service, String nativeIp,
-            String copiedIp, String copiedFrom, String copiedTo) throws Exception {
-        List<Instance> instances = nacosInstances(naming, service, DEFAULT_GROUP);
-        assertThat(instances).extracting(Instance::getIp).contains(nativeIp).doesNotHaveDuplicates()
-                .isSubsetOf(nativeIp, copiedIp);
-        assertMarkers(instances, nativeIp, copiedFrom, copiedTo);
     }
 
     private void assertOneNativeAndOneCopyEachSide(String service, String ipInA, String ipInB) throws Exception {

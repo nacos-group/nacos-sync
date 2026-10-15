@@ -72,7 +72,7 @@ class ZookeeperNacosIT extends AbstractSyncIT {
         String providers = "first provider " + firstIp + ", second provider " + secondIp;
         eventually().untilAsserted(() -> assertThat(nacosInstances(infra.namingA(), nacosService, dubboGroup))
                 .extracting(Instance::getIp).as(providers).containsExactlyInAnyOrder(firstIp, secondIp));
-        stable().untilAsserted(() -> assertThat(nacosInstances(infra.namingA(), nacosService, dubboGroup))
+        assertStable(() -> assertThat(nacosInstances(infra.namingA(), nacosService, dubboGroup))
                 .extracting(Instance::getIp).as(providers).containsExactlyInAnyOrder(firstIp, secondIp));
     }
 
