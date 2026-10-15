@@ -99,6 +99,10 @@ redundancy, run one active node.
 - An `ALL` task without a group syncs the services of `DEFAULT_GROUP`, as a task for one service does.
 - An `ALL` task keeps its copies when the services of its source cannot be listed, e.g. while the source is
   unreachable, instead of taking every service as gone.
+- An `ALL` task tries a service again in the next round when it failed to start or stop syncing it, e.g. while the
+  destination was unreachable, as a task for one service does.
+- A request that deletes an `ALL` task returns once all its services have stopped syncing, which takes longer for a
+  source with many services.
 - Adding a task named `ALL` (in any case) is rejected unless the source cluster is Nacos: only a Nacos source can list
   its services, and such a task used to be added and then never synced. To sync every Dubbo service from ZooKeeper,
   use `*`. Tasks of that kind already in the database still do nothing, and nacos-sync logs a warning once for
