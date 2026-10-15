@@ -26,6 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -34,6 +35,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -118,6 +120,21 @@ class CheckRunningStatusAllNacosThreadTest {
         thread.run();
 
         verify(taskDispatcher, times(2)).sync(any());
+    }
+
+    @Test
+    void anErrorFromASubTaskDoesNotStopTheScan() {
+        // The scan runs on a fixed-delay schedule, which stops for good, without a word, once a run throws. Starting
+        // the sub-tasks on a pool used to keep an Error, e.g. a NoClassDefFoundError from a client library, away
+        // from it.
+        doThrow(new NoClassDefFoundError("test")).doAnswer(invocation -> synced.add(invocation.getArgument(0)))
+                .when(taskDispatcher).sync(any());
+        when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask));
+
+        assertDoesNotThrow(thread::run);
+        thread.run();
+
+        assertEquals(List.of("svc-a"), synced.stream().map(TaskDO::getServiceName).toList());
     }
 
     @Test

@@ -120,7 +120,9 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
                     log.debug("ALL task {} is locked, left to the next round", task.getTaskId());
                 }
             });
-        } catch (Exception e) {
+        } catch (Throwable e) {
+            // Throwable: the sub-tasks start on this thread, and anything escaping a run cancels the fixed-delay
+            // schedule of the scan for good, without a word.
             log.warn("CheckRunningStatusThread Exception", e);
             metricsManager.recordError(MetricsStatisticsType.DISPATCHER_TASK);
         }
