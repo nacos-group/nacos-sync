@@ -43,8 +43,9 @@ Testcontainers IT 把固定的 Nacos 端口对限制在 40000-41999。
 
 前置条件：
 
-- Docker 和 Compose v2（`docker compose up --wait`），容器约需 4.5 GB 内存：在 01-06 期间实测，每个 Nacos 约 1.25 GB。
-  `07-upgrade` 还要再起一个 Nacos 和旧版 nacos-sync，约多 2 GB。
+- Docker 和 Compose v2（`docker compose up --wait`），容器约需 4.5 GB 内存。实测峰值是 4.3 GB：对 Nacos 3.2.4 运行时
+  每个 Nacos 约 1.25 GB；`07-upgrade` 运行在 Nacos 2.5.4 上（每个约 0.75 GB），同时还有旧版 nacos-sync，最后还会起一个
+  Nacos 3.2.4，峰值也是这么多。
 - JDK 17（`JAVA_HOME`）、Maven、`curl`、`jq`、`python3`、bash 4+。
 - 跑 `07-upgrade` 还需要 bash 5+、用来构建 0.5.0 的 JDK 11（`OLD_JAVA_HOME`），以及当前仓库里的 `0.5.0` tag
   （`git fetch --tags`）。对 Nacos 2.x 运行且不指定场景时会包含 `07-upgrade`。

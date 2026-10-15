@@ -43,8 +43,9 @@ All fixed host ports stay below 32768, so they never clash with Docker's random 
 
 Prerequisites:
 
-- Docker with Compose v2 (`docker compose up --wait`), with about 4.5 GB of memory for the containers: measured during
-  01-06, each Nacos takes about 1.25 GB. `07-upgrade` adds a third Nacos and the old nacos-sync, about 2 GB more.
+- Docker with Compose v2 (`docker compose up --wait`), with about 4.5 GB of memory for the containers. The measured
+  peak was 4.3 GB, both in a run on Nacos 3.2.4, where each Nacos takes about 1.25 GB, and in `07-upgrade`, which runs
+  on Nacos 2.5.4 (about 0.75 GB each) next to the old nacos-sync and, at the end, a Nacos 3.2.4.
 - JDK 17 (`JAVA_HOME`), Maven, `curl`, `jq`, `python3`, bash 4+.
 - For `07-upgrade` also bash 5+, a JDK 11 to build 0.5.0 (`OLD_JAVA_HOME`) and the `0.5.0` tag in this checkout
   (`git fetch --tags`). A run on Nacos 2.x without scenario names includes `07-upgrade`.
