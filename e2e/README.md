@@ -41,7 +41,7 @@ All fixed host ports stay below 32768, so they never clash with Docker's random 
 
 ## Running
 
-Prerequisites: Docker, JDK 17 (`JAVA_HOME`), Maven, `curl`, `jq`, `python3`, bash 4+.
+Prerequisites: Docker, JDK 17 (`JAVA_HOME`), Maven, `curl`, `jq`, `python3`, bash 4+ (`07-upgrade`: bash 5+).
 
 ```bash
 # all scenarios against Nacos 3.2.4 and Eureka from Spring Cloud 2024.0, run from e2e/

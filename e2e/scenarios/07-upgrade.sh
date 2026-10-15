@@ -33,8 +33,14 @@ if nacos_is_v3; then
   exit 0
 fi
 
+# The gaps are measured with EPOCHREALTIME, which bash has since 5.0; its decimal separator follows the locale.
+if ((BASH_VERSINFO[0] < 5)); then
+  record FAIL "needs bash 5 or later to measure the gaps, this is bash $BASH_VERSION"
+  exit 0
+fi
+
 ucompose() { compose --profile upgrade "$@"; }
-now_ms() { local t=${EPOCHREALTIME/./}; echo "${t:0:13}"; }
+now_ms() { local t=${EPOCHREALTIME/[.,]/}; echo "${t:0:13}"; }
 since() { echo $((($(now_ms) - $1) / 1000)); }
 wait_until() { while (($(now_ms) < $1)); do sleep 1; done; }
 on() { # on old|new <command...>: run a nacos-sync API helper against one of the two versions

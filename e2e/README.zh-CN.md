@@ -41,7 +41,7 @@ Testcontainers IT 把固定的 Nacos 端口对限制在 40000-41999。
 
 ## 运行
 
-前置条件：Docker、JDK 17（`JAVA_HOME`）、Maven、`curl`、`jq`、`python3`、bash 4+。
+前置条件：Docker、JDK 17（`JAVA_HOME`）、Maven、`curl`、`jq`、`python3`、bash 4+（`07-upgrade` 需要 bash 5+）。
 
 ```bash
 # 在 e2e/ 目录下，对 Nacos 3.2.4 和 Spring Cloud 2024.0 的 Eureka 跑全部场景
