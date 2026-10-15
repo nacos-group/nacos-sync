@@ -44,6 +44,18 @@ compose() { docker compose -f "$E2E_DIR/docker-compose.yml" --env-file "$E2E_DIR
 curl() { command curl --max-time 30 "$@"; }
 log() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
 
+mvn_build() { # mvn_build <dir> <log> [mvn args...]: a quiet build without tests, tried once more if a download failed
+  local dir=$1 out=$2 try; shift 2
+  for try in 1 2; do
+    (cd "$dir" && mvn -B -q -DskipTests "$@") > "$out" 2>&1 && return 0
+    # e.g. a connection reset from Maven Central, with many CI runners downloading at once; any other failure
+    # would only fail again
+    grep -q 'Could not transfer artifact' "$out" || return 1
+    [ "$try" = 2 ] || log "a download failed while building $dir, building it again"
+  done
+  return 1
+}
+
 # ---------------------------------------------------------------- results
 record() { # record PASS|FAIL|INFO <description>
   printf '%s\t%s\t%s\t%s\n' "$RUN_LABEL" "$SCENARIO" "$1" "$2" >> "$RESULTS"

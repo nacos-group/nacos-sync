@@ -56,7 +56,7 @@ build_old_image() {
   if [ "$(cat "$src/.commit" 2>/dev/null)" != "$commit" ]; then
     log "building nacos-sync $OLD_REF ($commit) with ${OLD_JAVA_HOME:-the default JDK}"
     rm -rf "$src" && mkdir -p "$src" && git -C "$SYNC_REPO" archive "$OLD_REF" | tar -x -C "$src" || return 1
-    (cd "$src" && JAVA_HOME=$OLD_JAVA_HOME mvn -B -q -DskipTests package) > "$OUT_DIR/logs/build-old.log" 2>&1 ||
+    JAVA_HOME=$OLD_JAVA_HOME mvn_build "$src" "$OUT_DIR/logs/build-old.log" package ||
       { log "build of $OLD_REF failed, see $OUT_DIR/logs/build-old.log"; return 1; }
     echo "$commit" > "$src/.commit"
   fi

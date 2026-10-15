@@ -61,7 +61,9 @@ sc_versions() { # <train> -> "<spring-boot.version> <spring-cloud.version>"
 sc=$(sc_versions "$SC_TRAIN") || { log "unknown Spring Cloud train $SC_TRAIN"; exit 2; }
 read -r SB_VERSION SC_VERSION <<<"$sc"
 
-mvn_q() { (cd "$1" && shift && mvn -B -q -DskipTests "$@") > "$OUT_DIR/logs/build.log" 2>&1 || { log "build failed in $1, see $OUT_DIR/logs/build.log"; exit 1; }; }
+mvn_q() {
+  mvn_build "$1" "$OUT_DIR/logs/build.log" "${@:2}" || { log "build failed in $1, see $OUT_DIR/logs/build.log"; exit 1; }
+}
 
 # ---------------------------------------------------------------- build
 SRC="$OUT_DIR/nacos-sync-src"
