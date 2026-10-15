@@ -18,14 +18,13 @@ package com.alibaba.nacossync.template.processor;
 
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.dao.TaskAccessService;
-import com.alibaba.nacossync.event.DeleteAllSubTaskEvent;
-import com.alibaba.nacossync.event.DeleteTaskEvent;
+import com.alibaba.nacossync.extension.TaskDispatcher;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskDeleteInBatchRequest;
 import com.alibaba.nacossync.pojo.result.BaseResult;
 import com.alibaba.nacossync.template.Processor;
+import com.alibaba.nacossync.timer.CheckRunningStatusAllNacosThread;
 import com.alibaba.nacossync.util.TaskLocks;
-import com.google.common.eventbus.EventBus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -41,11 +40,15 @@ public class TaskDeleteInBatchProcessor implements Processor<TaskDeleteInBatchRe
 
     private final TaskAccessService taskAccessService;
     
-    private final EventBus eventBus;
+    private final TaskDispatcher taskDispatcher;
     
-    public TaskDeleteInBatchProcessor(TaskAccessService taskAccessService, EventBus eventBus) {
+    private final CheckRunningStatusAllNacosThread checkRunningStatusAllNacosThread;
+    
+    public TaskDeleteInBatchProcessor(TaskAccessService taskAccessService, TaskDispatcher taskDispatcher,
+            CheckRunningStatusAllNacosThread checkRunningStatusAllNacosThread) {
         this.taskAccessService = taskAccessService;
-        this.eventBus = eventBus;
+        this.taskDispatcher = taskDispatcher;
+        this.checkRunningStatusAllNacosThread = checkRunningStatusAllNacosThread;
     }
     
     @Override
@@ -62,9 +65,9 @@ public class TaskDeleteInBatchProcessor implements Processor<TaskDeleteInBatchRe
             TaskLocks.runLocked(taskId, () -> {
                 taskAccessService.deleteTaskById(taskId);
                 if (SkyWalkerConstants.NACOS_ALL_SERVICE_NAME.equalsIgnoreCase(taskDO.getServiceName())) {
-                    eventBus.post(new DeleteAllSubTaskEvent(taskDO));
+                    checkRunningStatusAllNacosThread.deleteAllSubTasks(taskDO);
                 } else {
-                    eventBus.post(new DeleteTaskEvent(taskDO));
+                    taskDispatcher.delete(taskDO);
                 }
             });
         }

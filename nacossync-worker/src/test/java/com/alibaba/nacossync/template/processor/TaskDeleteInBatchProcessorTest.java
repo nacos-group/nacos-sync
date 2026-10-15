@@ -1,20 +1,16 @@
 package com.alibaba.nacossync.template.processor;
 
 import com.alibaba.nacossync.dao.TaskAccessService;
-import com.alibaba.nacossync.event.DeleteAllSubTaskEvent;
-import com.alibaba.nacossync.event.DeleteTaskEvent;
+import com.alibaba.nacossync.extension.TaskDispatcher;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskDeleteInBatchRequest;
 import com.alibaba.nacossync.pojo.result.BaseResult;
-import com.google.common.eventbus.EventBus;
+import com.alibaba.nacossync.timer.CheckRunningStatusAllNacosThread;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -25,14 +21,18 @@ class TaskDeleteInBatchProcessorTest {
 
     private final TaskAccessService taskAccessService = mock(TaskAccessService.class);
 
-    private final EventBus eventBus = mock(EventBus.class);
+    private final TaskDispatcher taskDispatcher = mock(TaskDispatcher.class);
 
-    private final TaskDeleteInBatchProcessor processor = new TaskDeleteInBatchProcessor(taskAccessService, eventBus);
+    private final CheckRunningStatusAllNacosThread checkRunningStatusAllNacosThread =
+            mock(CheckRunningStatusAllNacosThread.class);
+
+    private final TaskDeleteInBatchProcessor processor = new TaskDeleteInBatchProcessor(taskAccessService,
+            taskDispatcher, checkRunningStatusAllNacosThread);
 
     @Test
     void batchDeleteRemovesEachRowAndThenStopsItsTask() throws Exception {
-        // Like a single delete: without the events the syncs keep running and their instances stay synced. The row
-        // goes first, or the sync timer starts the task again from the row once the delete has stopped it.
+        // Like a single delete: without stopping the tasks the syncs keep running and their instances stay synced.
+        // The row goes first, or the sync timer starts the task again from the row once the delete has stopped it.
         TaskDO single = task("single-task", "spring-cloud-eureka-provider");
         TaskDO all = task("all-task", "ALL");
         when(taskAccessService.findByTaskId("single-task")).thenReturn(single);
@@ -42,17 +42,14 @@ class TaskDeleteInBatchProcessorTest {
 
         processor.process(request, new BaseResult());
 
-        ArgumentCaptor<Object> events = ArgumentCaptor.forClass(Object.class);
-        InOrder order = inOrder(eventBus, taskAccessService);
+        InOrder order = inOrder(taskAccessService, taskDispatcher, checkRunningStatusAllNacosThread);
         order.verify(taskAccessService).deleteTaskById("single-task");
-        order.verify(eventBus).post(events.capture());
+        order.verify(taskDispatcher).delete(single);
         order.verify(taskAccessService).deleteTaskById("all-task");
-        order.verify(eventBus).post(events.capture());
+        order.verify(checkRunningStatusAllNacosThread).deleteAllSubTasks(all);
         verify(taskAccessService, never()).deleteTaskById("missing-task");
-        assertEquals(DeleteTaskEvent.class, events.getAllValues().get(0).getClass());
-        assertSame(single, ((DeleteTaskEvent) events.getAllValues().get(0)).getTaskDO());
-        assertEquals(DeleteAllSubTaskEvent.class, events.getAllValues().get(1).getClass());
-        assertSame(all, ((DeleteAllSubTaskEvent) events.getAllValues().get(1)).getTaskDO());
+        verify(taskDispatcher, never()).delete(all);
+        verify(checkRunningStatusAllNacosThread, never()).deleteAllSubTasks(single);
     }
 
     private static TaskDO task(String taskId, String serviceName) {

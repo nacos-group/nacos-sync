@@ -25,19 +25,16 @@ import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.TaskAccessService;
-import com.alibaba.nacossync.event.DeleteAllSubTaskEvent;
-import com.alibaba.nacossync.event.DeleteTaskEvent;
-import com.alibaba.nacossync.event.SyncTaskEvent;
+import com.alibaba.nacossync.extension.TaskDispatcher;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.util.NacosUtils;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
 import com.alibaba.nacossync.util.TaskLocks;
-import com.google.common.eventbus.EventBus;
-import com.google.common.eventbus.Subscribe;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
@@ -51,6 +48,7 @@ import java.util.stream.Collectors;
  * task.
  */
 @Slf4j
+@Service
 public class CheckRunningStatusAllNacosThread implements Runnable {
     
     private final Map<String, Set<String>> subTaskService = new ConcurrentHashMap<>();
@@ -73,18 +71,17 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
     
     private final SkyWalkerCacheServices skyWalkerCacheServices;
     
-    private final EventBus eventBus;
+    private final TaskDispatcher taskDispatcher;
     
     
     public CheckRunningStatusAllNacosThread(MetricsManager metricsManager, TaskAccessService taskAccessService,
-            NacosServerHolder nacosServerHolder, SkyWalkerCacheServices skyWalkerCacheServices, EventBus eventBus) {
+            NacosServerHolder nacosServerHolder, SkyWalkerCacheServices skyWalkerCacheServices,
+            TaskDispatcher taskDispatcher) {
         this.metricsManager = metricsManager;
         this.taskAccessService = taskAccessService;
         this.nacosServerHolder = nacosServerHolder;
         this.skyWalkerCacheServices = skyWalkerCacheServices;
-        this.eventBus = eventBus;
-        // Created with new by QuerySyncTaskTimer rather than as a bean, so it registers itself.
-        eventBus.register(this);
+        this.taskDispatcher = taskDispatcher;
     }
     
     /**
@@ -107,7 +104,7 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
             // but sub-tasks still exist.
             subTaskService.entrySet().stream()
                     .filter(entry -> shouldDeleteSubTasks(entry, taskIdSet))
-                    .forEach(entry -> postDeleteAllSubTaskEvent(entry.getKey()));
+                    .forEach(entry -> deleteSubTasksOfRemovedTask(entry.getKey()));
             
             // Handle regular tasks. The rows were read before: process a task only if it is still there. A delete
             // removes the row and stops the sub-tasks under the same lock; a task whose lock is taken is left to the
@@ -146,35 +143,38 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
     }
     
     /**
-     * Listens for the event of deleting all sub-tasks and handles the delete operation.
+     * Deletes all sub-tasks of an ALL task.
+     * <p>
+     * One call at a time, and a failure is logged rather than thrown, as when this ran as a Guava EventBus subscriber:
+     * the task row is already gone, and the delete request that called this must not fail, nor a batch delete stop.
      *
-     * @param deleteAllSubTaskEvent The event object containing the task information to be deleted.
+     * @param task The ALL task whose sub-tasks are deleted.
      */
-    @Subscribe
-    public void listenerDeleteAllTaskEvent(DeleteAllSubTaskEvent deleteAllSubTaskEvent) {
-        // Retrieve the task object
-        TaskDO task = deleteAllSubTaskEvent.getTaskDO();
-        
-        // Retrieve the task ID
-        String taskId = task.getTaskId();
-        
-        // Remove the set of service names corresponding to the task ID from subTaskService
-        Set<String> serviceNameSet = subTaskService.remove(taskId);
-        allTasks.remove(taskId);
-        skippedTasks.remove(taskId);
-        
-        // If the set of service names is empty, return immediately
-        if (CollectionUtils.isEmpty(serviceNameSet)) {
-            return;
+    public synchronized void deleteAllSubTasks(TaskDO task) {
+        try {
+            // Retrieve the task ID
+            String taskId = task.getTaskId();
+            
+            // Remove the set of service names corresponding to the task ID from subTaskService
+            Set<String> serviceNameSet = subTaskService.remove(taskId);
+            allTasks.remove(taskId);
+            skippedTasks.remove(taskId);
+            
+            // If the set of service names is empty, return immediately
+            if (CollectionUtils.isEmpty(serviceNameSet)) {
+                return;
+            }
+            
+            // Build the list of sub-tasks pending removal
+            List<TaskDO> servicesPendingRemoval = serviceNameSet.stream()
+                    .map(serviceName -> buildSubTaskDO(task, serviceName))
+                    .toList();
+            
+            // Handle the removal of the pending sub-tasks
+            handleRemoval(servicesPendingRemoval, serviceNameSet);
+        } catch (Exception e) {
+            log.error("Failed to delete the sub-tasks of task {}", task.getTaskId(), e);
         }
-        
-        // Build the list of sub-tasks pending removal
-        List<TaskDO> servicesPendingRemoval = serviceNameSet.stream()
-                .map(serviceName -> buildSubTaskDO(task, serviceName))
-                .toList();
-        
-        // Handle the removal of the pending sub-tasks
-        handleRemoval(servicesPendingRemoval, serviceNameSet);
     }
     
     
@@ -182,14 +182,14 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
         return !taskIdSet.contains(entry.getKey()) && !entry.getValue().isEmpty();
     }
     
-    private void postDeleteAllSubTaskEvent(String taskId) {
+    private void deleteSubTasksOfRemovedTask(String taskId) {
         // The sub-tasks are built from the task's clusters and group, so the task id alone is not enough.
         TaskDO taskDO = allTasks.remove(taskId);
         if (taskDO == null) {
             taskDO = new TaskDO();
             taskDO.setTaskId(taskId);
         }
-        eventBus.post(new DeleteAllSubTaskEvent(taskDO));
+        deleteAllSubTasks(taskDO);
     }
     
     /**
@@ -254,9 +254,9 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
     private void handleInsertion(List<TaskDO> servicesPendingInsertion, Set<String> serviceSet) {
         // One by one on this thread, so that every sub-task has started before the task lock is released: a start
         // still running after that was unknown to a delete that came next, and outlived its parent. Running them in
-        // parallel would not be faster either, as the subscriber handles one sync at a time.
+        // parallel would not be faster either, as TaskDispatcher handles one sync at a time.
         servicesPendingInsertion.forEach(t -> {
-            eventBus.post(new SyncTaskEvent(t));
+            taskDispatcher.sync(t);
             serviceSet.add(t.getServiceName());
         });
     }
@@ -269,7 +269,7 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
     private void handleRemoval(List<TaskDO> servicesPendingRemoval, Set<String> serviceSet) {
         // One by one on this thread, for the same reason as the insertion.
         servicesPendingRemoval.forEach(t -> {
-            eventBus.post(new DeleteTaskEvent(t));
+            taskDispatcher.delete(t);
             serviceSet.remove(t.getServiceName());
         });
     }

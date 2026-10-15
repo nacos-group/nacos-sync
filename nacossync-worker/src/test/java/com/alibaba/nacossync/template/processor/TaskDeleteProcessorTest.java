@@ -1,12 +1,12 @@
 package com.alibaba.nacossync.template.processor;
 
 import com.alibaba.nacossync.dao.TaskAccessService;
-import com.alibaba.nacossync.event.DeleteTaskEvent;
 import com.alibaba.nacossync.exception.SkyWalkerException;
+import com.alibaba.nacossync.extension.TaskDispatcher;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskDeleteRequest;
 import com.alibaba.nacossync.pojo.result.BaseResult;
-import com.google.common.eventbus.EventBus;
+import com.alibaba.nacossync.timer.CheckRunningStatusAllNacosThread;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
@@ -22,9 +22,13 @@ class TaskDeleteProcessorTest {
 
     private final TaskAccessService taskAccessService = mock(TaskAccessService.class);
 
-    private final EventBus eventBus = mock(EventBus.class);
+    private final TaskDispatcher taskDispatcher = mock(TaskDispatcher.class);
 
-    private final TaskDeleteProcessor processor = new TaskDeleteProcessor(taskAccessService, eventBus);
+    private final CheckRunningStatusAllNacosThread checkRunningStatusAllNacosThread =
+            mock(CheckRunningStatusAllNacosThread.class);
+
+    private final TaskDeleteProcessor processor = new TaskDeleteProcessor(taskAccessService, taskDispatcher,
+            checkRunningStatusAllNacosThread);
 
     @Test
     void unknownTaskIsRejectedLikeDetailAndUpdate() {
@@ -34,7 +38,8 @@ class TaskDeleteProcessorTest {
 
         assertThrows(SkyWalkerException.class, () -> processor.process(request, new BaseResult()));
 
-        verify(eventBus, never()).post(any());
+        verify(taskDispatcher, never()).delete(any());
+        verify(checkRunningStatusAllNacosThread, never()).deleteAllSubTasks(any());
         verify(taskAccessService, never()).deleteTaskById(any());
     }
 
@@ -51,8 +56,8 @@ class TaskDeleteProcessorTest {
 
         processor.process(request, new BaseResult());
 
-        InOrder order = inOrder(taskAccessService, eventBus);
+        InOrder order = inOrder(taskAccessService, taskDispatcher);
         order.verify(taskAccessService).deleteTaskById("task-id");
-        order.verify(eventBus).post(any(DeleteTaskEvent.class));
+        order.verify(taskDispatcher).delete(taskDO);
     }
 }

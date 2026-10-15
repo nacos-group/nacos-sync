@@ -7,17 +7,13 @@ import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.TaskAccessService;
-import com.alibaba.nacossync.event.DeleteAllSubTaskEvent;
-import com.alibaba.nacossync.event.DeleteTaskEvent;
-import com.alibaba.nacossync.event.SyncTaskEvent;
+import com.alibaba.nacossync.extension.TaskDispatcher;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskDeleteRequest;
 import com.alibaba.nacossync.pojo.result.BaseResult;
 import com.alibaba.nacossync.template.processor.TaskDeleteProcessor;
-import com.google.common.eventbus.EventBus;
-import com.google.common.eventbus.Subscribe;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -52,7 +48,7 @@ class CheckRunningStatusAllNacosThreadTest {
 
     private final SkyWalkerCacheServices skyWalkerCacheServices = mock(SkyWalkerCacheServices.class);
 
-    private final EventBus eventBus = new EventBus();
+    private final TaskDispatcher taskDispatcher = mock(TaskDispatcher.class);
 
     private final List<TaskDO> synced = new CopyOnWriteArrayList<>();
 
@@ -67,17 +63,8 @@ class CheckRunningStatusAllNacosThreadTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        eventBus.register(new Object() {
-            @Subscribe
-            public void onSync(SyncTaskEvent event) {
-                synced.add(event.getTaskDO());
-            }
-
-            @Subscribe
-            public void onDelete(DeleteTaskEvent event) {
-                deleted.add(event.getTaskDO());
-            }
-        });
+        doAnswer(invocation -> synced.add(invocation.getArgument(0))).when(taskDispatcher).sync(any());
+        doAnswer(invocation -> deleted.add(invocation.getArgument(0))).when(taskDispatcher).delete(any());
         allTask = new TaskDO();
         allTask.setTaskId("all-task");
         allTask.setServiceName("ALL");
@@ -92,7 +79,7 @@ class CheckRunningStatusAllNacosThreadTest {
         services.setData(List.of("svc-a"));
         when(sourceNamingService.getServicesOfServer(anyInt(), anyInt(), eq("DEFAULT_GROUP"))).thenReturn(services);
         thread = new CheckRunningStatusAllNacosThread(mock(MetricsManager.class), taskAccessService, nacosServerHolder,
-                skyWalkerCacheServices, eventBus);
+                skyWalkerCacheServices, taskDispatcher);
     }
 
     @Test
@@ -101,8 +88,8 @@ class CheckRunningStatusAllNacosThreadTest {
         thread.run();
         assertEquals(List.of("svc-a"), synced.stream().map(TaskDO::getServiceName).toList());
 
-        // TaskDeleteProcessor removes the task row, then posts this.
-        eventBus.post(new DeleteAllSubTaskEvent(allTask));
+        // TaskDeleteProcessor removes the task row, then calls this.
+        thread.deleteAllSubTasks(allTask);
 
         assertDeletedSubTaskOfSvcA();
     }
@@ -111,7 +98,7 @@ class CheckRunningStatusAllNacosThreadTest {
     void subTasksOfAnAllTaskRemovedFromTheDatabaseAreDeletedWithTheirClusters() {
         when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask)).thenReturn(List.of());
         thread.run();
-        // The task row is gone without the event reaching this node, e.g. deleted through another nacos-sync node.
+        // The task row is gone without the delete reaching this node, e.g. deleted through another nacos-sync node.
         thread.run();
 
         assertDeletedSubTaskOfSvcA();
@@ -134,7 +121,7 @@ class CheckRunningStatusAllNacosThreadTest {
             // The delete lands right after the scan read the rows: TaskDeleteProcessor removes the row, then
             // stops the sub-tasks.
             rowDeleted = true;
-            eventBus.post(new DeleteAllSubTaskEvent(allTask));
+            thread.deleteAllSubTasks(allTask);
             return rows;
         });
 
@@ -149,14 +136,13 @@ class CheckRunningStatusAllNacosThreadTest {
         // finds no sub-task to stop yet, and the scan then starts them for a task that is gone.
         CountDownLatch scanning = new CountDownLatch(1);
         CountDownLatch deleteDone = new CountDownLatch(1);
-        eventBus.register(new Object() {
-            @Subscribe
-            public void onSync(SyncTaskEvent event) throws InterruptedException {
-                // Give a delete that does not wait for the scan the time to finish first.
-                scanning.countDown();
-                deleteDone.await(300, TimeUnit.MILLISECONDS);
-            }
-        });
+        doAnswer(invocation -> {
+            synced.add(invocation.getArgument(0));
+            // Give a delete that does not wait for the scan the time to finish first.
+            scanning.countDown();
+            deleteDone.await(300, TimeUnit.MILLISECONDS);
+            return null;
+        }).when(taskDispatcher).sync(any());
         doAnswer(invocation -> {
             rowDeleted = true;
             return null;
@@ -169,7 +155,7 @@ class CheckRunningStatusAllNacosThreadTest {
             Future<?> scan = executor.submit(thread);
             assertTrue(scanning.await(5, TimeUnit.SECONDS));
             Future<?> delete = executor.submit(() -> {
-                new TaskDeleteProcessor(taskAccessService, eventBus).process(request, new BaseResult());
+                new TaskDeleteProcessor(taskAccessService, taskDispatcher, thread).process(request, new BaseResult());
                 deleteDone.countDown();
             });
             scan.get(5, TimeUnit.SECONDS);
@@ -196,7 +182,8 @@ class CheckRunningStatusAllNacosThreadTest {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
             Future<?> delete = executor.submit(
-                    () -> new TaskDeleteProcessor(taskAccessService, eventBus).process(request, new BaseResult()));
+                    () -> new TaskDeleteProcessor(taskAccessService, taskDispatcher, thread).process(request,
+                            new BaseResult()));
             assertTrue(deleting.await(5, TimeUnit.SECONDS));
 
             assertTimeoutPreemptively(Duration.ofSeconds(1), thread::run);
@@ -216,22 +203,17 @@ class CheckRunningStatusAllNacosThreadTest {
         // the scan was not known to the delete that came next, and brought the sub-task up after its parent was gone.
         // The start below takes longer than the 5 s the scan used to wait for one, so this test takes a few seconds.
         List<String> order = new CopyOnWriteArrayList<>();
-        eventBus.register(new Object() {
-            @Subscribe
-            public void onSync(SyncTaskEvent event) throws InterruptedException {
-                Thread.sleep(5_500);
-                order.add("sync " + event.getTaskDO().getServiceName());
-            }
-
-            @Subscribe
-            public void onDelete(DeleteTaskEvent event) {
-                order.add("delete " + event.getTaskDO().getServiceName());
-            }
-        });
+        doAnswer(invocation -> {
+            Thread.sleep(5_500);
+            order.add("sync " + invocation.<TaskDO>getArgument(0).getServiceName());
+            return null;
+        }).when(taskDispatcher).sync(any());
+        doAnswer(invocation -> order.add("delete " + invocation.<TaskDO>getArgument(0).getServiceName()))
+                .when(taskDispatcher).delete(any());
         when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask));
 
         thread.run();
-        eventBus.post(new DeleteAllSubTaskEvent(allTask));
+        thread.deleteAllSubTasks(allTask);
 
         assertEquals(List.of("sync svc-a", "delete svc-a"), order);
     }

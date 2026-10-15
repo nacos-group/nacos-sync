@@ -3,15 +3,12 @@ package com.alibaba.nacossync.timer;
 import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.TaskAccessService;
-import com.alibaba.nacossync.event.DeleteTaskEvent;
-import com.alibaba.nacossync.event.SyncTaskEvent;
-import com.alibaba.nacossync.extension.holder.NacosServerHolder;
+import com.alibaba.nacossync.extension.TaskDispatcher;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskDeleteRequest;
 import com.alibaba.nacossync.pojo.result.BaseResult;
 import com.alibaba.nacossync.template.processor.TaskDeleteProcessor;
-import com.google.common.eventbus.EventBus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -52,7 +49,10 @@ class QuerySyncTaskTimerTest {
 
     private final TaskAccessService taskAccessService = mock(TaskAccessService.class);
 
-    private final EventBus eventBus = mock(EventBus.class);
+    private final TaskDispatcher taskDispatcher = mock(TaskDispatcher.class);
+
+    private final CheckRunningStatusAllNacosThread checkRunningStatusAllNacosThread =
+            mock(CheckRunningStatusAllNacosThread.class);
 
     private final ScheduledExecutorService scheduledExecutorService = mock(ScheduledExecutorService.class);
 
@@ -60,8 +60,8 @@ class QuerySyncTaskTimerTest {
 
     @BeforeEach
     void setUp() {
-        new QuerySyncTaskTimer(mock(MetricsManager.class), skyWalkerCacheServices, taskAccessService, eventBus,
-                scheduledExecutorService, mock(NacosServerHolder.class)).run();
+        new QuerySyncTaskTimer(mock(MetricsManager.class), skyWalkerCacheServices, taskAccessService,
+                taskDispatcher, scheduledExecutorService, checkRunningStatusAllNacosThread).run();
         ArgumentCaptor<Runnable> scheduled = ArgumentCaptor.forClass(Runnable.class);
         verify(scheduledExecutorService, times(2)).scheduleWithFixedDelay(scheduled.capture(), anyLong(), anyLong(),
                 any(TimeUnit.class));
@@ -75,7 +75,7 @@ class QuerySyncTaskTimerTest {
     void taskDeletedAfterTheRowsWereReadIsNotStarted() {
         checkTaskRows.run();
 
-        verify(eventBus, never()).post(any(SyncTaskEvent.class));
+        verify(taskDispatcher, never()).sync(any());
     }
 
     @Test
@@ -84,7 +84,7 @@ class QuerySyncTaskTimerTest {
 
         checkTaskRows.run();
 
-        verify(eventBus, never()).post(any(SyncTaskEvent.class));
+        verify(taskDispatcher, never()).sync(any());
     }
 
     @Test
@@ -93,7 +93,7 @@ class QuerySyncTaskTimerTest {
 
         checkTaskRows.run();
 
-        verify(eventBus).post(any(SyncTaskEvent.class));
+        verify(taskDispatcher).sync(any());
     }
 
     @Test
@@ -119,8 +119,8 @@ class QuerySyncTaskTimerTest {
             rowDeleted.set(true);
             return null;
         }).when(taskAccessService).deleteTaskById(TASK_ID);
-        doAnswer(invocation -> order.add("sync")).when(eventBus).post(any(SyncTaskEvent.class));
-        doAnswer(invocation -> order.add("delete")).when(eventBus).post(any(DeleteTaskEvent.class));
+        doAnswer(invocation -> order.add("sync")).when(taskDispatcher).sync(any());
+        doAnswer(invocation -> order.add("delete")).when(taskDispatcher).delete(any());
         TaskDeleteRequest request = new TaskDeleteRequest();
         request.setTaskId(TASK_ID);
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -128,7 +128,8 @@ class QuerySyncTaskTimerTest {
             Future<?> check = executor.submit(checkTaskRows);
             assertTrue(rowRead.await(5, TimeUnit.SECONDS));
             Future<?> delete = executor.submit(() -> {
-                new TaskDeleteProcessor(taskAccessService, eventBus).process(request, new BaseResult());
+                new TaskDeleteProcessor(taskAccessService, taskDispatcher, checkRunningStatusAllNacosThread)
+                        .process(request, new BaseResult());
                 deleteDone.countDown();
             });
             check.get(5, TimeUnit.SECONDS);
@@ -157,7 +158,8 @@ class QuerySyncTaskTimerTest {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
             Future<?> delete = executor.submit(
-                    () -> new TaskDeleteProcessor(taskAccessService, eventBus).process(request, new BaseResult()));
+                    () -> new TaskDeleteProcessor(taskAccessService, taskDispatcher, checkRunningStatusAllNacosThread)
+                            .process(request, new BaseResult()));
             assertTrue(deleting.await(5, TimeUnit.SECONDS));
 
             assertTimeoutPreemptively(Duration.ofSeconds(1), checkTaskRows::run);
@@ -168,7 +170,7 @@ class QuerySyncTaskTimerTest {
             deleteMayFinish.countDown();
             executor.shutdownNow();
         }
-        verify(eventBus, never()).post(any(SyncTaskEvent.class));
+        verify(taskDispatcher, never()).sync(any());
     }
 
     private static TaskDO task(TaskStatusEnum status) {
