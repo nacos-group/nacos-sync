@@ -108,7 +108,11 @@ record INFO "environment up: nacos-sync $COMMIT, examples $EXAMPLES_COMMIT, $RUN
 if [ $# -eq 0 ]; then set -- $(ls scenarios | sed 's/\.sh$//'); fi
 for s in "$@"; do
   log "=== scenario $s"
+  if [ ! -f "scenarios/$s.sh" ]; then SCENARIO=$s record FAIL "no such scenario: scenarios/$s.sh"; continue; fi
   RUN_LABEL=$RUN_LABEL bash "scenarios/$s.sh" 2>&1 | tee "$OUT_DIR/logs/scenario-$s.log" >&2
+  # A scenario that stops early, e.g. because an app did not start, has run fewer checks without failing one.
+  rc=${PIPESTATUS[0]}
+  [ "$rc" = 0 ] || SCENARIO=$s record FAIL "scenario stopped early (exit $rc), see logs/scenario-$s.log"
   stop_all_apps; delete_all_tasks
   compose logs nacos-sync > "$OUT_DIR/logs/nacos-sync-$s.log" 2>&1
 done
