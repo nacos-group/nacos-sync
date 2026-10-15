@@ -25,6 +25,8 @@ Upgrading from 0.5.0 to 2.0, moving to Nacos 3.x and the version compatibility: 
   taken, move the range below them, with its top plus 1000 still under 32768.
 - End-to-end tests with the example applications, Nacos to Nacos across versions, Eureka across Spring Cloud trains
   and upgrades from the previous release: see [e2e/README.md](e2e/README.md)
+- GitHub Actions runs the unit tests and the integration tests on every pull request to `sync-2.x`, and the end-to-end
+  tests, except the Eureka trains, on those that change more than docs or the integration tests (about 45 minutes)
 
 ## Function
 

@@ -21,6 +21,8 @@ nacos-sync 2.x 的示例在 nacos-sync-example 的 `2.0` 分支上，`master` �
   都落在默认的临时端口范围（32768-60999）内，如果启动时报端口被占用，把范围往下移，让上限加 1000 后仍小于 32768。
 - 使用示例应用的端到端测试，包括跨版本的 Nacos 到 Nacos 同步、Spring Cloud 各版本系列下的 Eureka 和从上一个
   发布版升级：见 [e2e/README.zh-CN.md](e2e/README.zh-CN.md)
+- GitHub Actions 会对每个提交到 `sync-2.x` 的 PR 跑单元测试和集成测试；PR 改动的不只是文档或集成测试时，再跑端到端
+  测试（不含 Eureka 各版本系列，约 45 分钟）
 
 ## 功能
 

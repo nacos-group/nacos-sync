@@ -1,0 +1,84 @@
+# The E2E suite with the example applications, see e2e/README.md: every scenario on Nacos 3.2.4, and on 2.5.4 where
+# it includes the upgrade from 0.5.0, and Nacos to Nacos between the two versions in both directions. Each run gets a
+# runner of its own, as the suite takes fixed host ports. The longest run takes about 45 minutes.
+name: "E2E"
+
+on:
+  push:
+    branches: [ sync-2.x ]
+    paths-ignore: [ '**.md', 'nacossync-test/**', '.github/workflows/ci.yml' ]
+  pull_request:
+    branches: [ sync-2.x ]
+    paths-ignore: [ '**.md', 'nacossync-test/**', '.github/workflows/ci.yml' ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  e2e:
+    name: E2E (${{ matrix.run.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        run:
+          - name: Nacos 3.2.4
+            args: -n v3.2.4 -s 2024.0
+          - name: Nacos 2.5.4, upgrade from 0.5.0
+            args: -n v2.5.4 -s 2024.0
+          - name: Nacos 2.5.4 to 3.2.4
+            nacos-b: v3.2.4
+            args: -n v2.5.4 -s 2024.0 04-nacos-nacos 05-batch 06-interrupt
+          - name: Nacos 3.2.4 to 2.5.4
+            nacos-b: v2.5.4
+            args: -n v3.2.4 -s 2024.0 04-nacos-nacos 05-batch 06-interrupt
+    steps:
+      # run.sh builds the checked-out commit with git archive, and 07-upgrade builds 0.5.0 from the same checkout.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch 0.5.0 when the checkout lacks it, as in a fork
+        run: |
+          git rev-parse -q --verify refs/tags/0.5.0 >/dev/null ||
+            git fetch --no-tags https://github.com/nacos-group/nacos-sync.git refs/tags/0.5.0:refs/tags/0.5.0
+      # JDK 17 runs nacos-sync and the example apps, JDK 11 builds 0.5.0. The last one listed is the default.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            11
+            17
+          cache: maven
+          # The example apps are built from the commit pinned in run.sh.
+          cache-dependency-path: |
+            **/pom.xml
+            e2e/run.sh
+      - name: Run the E2E suite
+        working-directory: e2e
+        env:
+          NACOS_B: ${{ matrix.run.nacos-b }}
+          ARGS: ${{ matrix.run.args }}
+        run: |
+          export OLD_JAVA_HOME=$JAVA_HOME_11_X64
+          # Nacos B runs the tag of Nacos A unless the run asks for another one.
+          if [ -n "$NACOS_B" ]; then export NACOS_B_VERSION=$NACOS_B; fi
+          ./run.sh $ARGS
+      - name: Summary
+        if: always()
+        working-directory: e2e
+        run: cat out/report-*.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-${{ strategy.job-index }}
+          path: |
+            e2e/out/report-*.md
+            e2e/out/runs/
+            e2e/out/logs/
+            e2e/out/upgrade/
+          if-no-files-found: ignore
