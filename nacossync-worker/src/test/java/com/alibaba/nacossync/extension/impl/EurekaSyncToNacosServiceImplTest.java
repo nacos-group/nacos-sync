@@ -77,8 +77,7 @@ public class EurekaSyncToNacosServiceImplTest {
         verify(destNamingService).batchRegisterInstance(eq(TEST_SERVICE_NAME), eq(Constants.DEFAULT_GROUP),
                 registered.capture());
         Assert.assertEquals(List.of(8080), registered.getValue().stream().map(Instance::getPort).toList());
-        Instance instance = registered.getValue().stream().filter(i -> i.getPort() == 8080).findFirst()
-                .orElseThrow(() -> new AssertionError("UP instance was not registered"));
+        Instance instance = registered.getValue().get(0);
         Assert.assertEquals(TEST_INSTANCE_ADDRESS, instance.getIp());
         Map<String, String> metadata = instance.getMetadata();
         Assert.assertEquals(TEST_SOURCE_CLUSTER_ID, metadata.get(SkyWalkerConstants.SOURCE_CLUSTER_ID_KEY));

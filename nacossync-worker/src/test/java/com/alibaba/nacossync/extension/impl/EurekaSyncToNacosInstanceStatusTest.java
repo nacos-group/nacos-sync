@@ -78,7 +78,7 @@ class EurekaSyncToNacosInstanceStatusTest {
         when(eurekaNamingService.getApplications(SERVICE_NAME)).thenReturn(
                 List.of(eurekaInstance(8080, InstanceStatus.UP), eurekaInstance(8081, InstanceStatus.DOWN),
                         eurekaInstance(8082, InstanceStatus.OUT_OF_SERVICE),
-                        eurekaInstance(8083, InstanceStatus.STARTING)));
+                        eurekaInstance(8083, InstanceStatus.STARTING), eurekaInstance(8084, InstanceStatus.UNKNOWN)));
 
         assertTrue(eurekaSyncToNacosService.sync(taskDO, 0));
 

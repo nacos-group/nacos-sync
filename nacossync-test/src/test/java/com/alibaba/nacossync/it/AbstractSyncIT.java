@@ -195,8 +195,9 @@ abstract class AbstractSyncIT {
     }
 
     /**
-     * Checks the assertion now and then every second for {@link #STABLE_PERIOD}; every check has to pass. Awaitility's
-     * {@code during()} starts its period again after a failed check, so a single echo or drop early on went unnoticed.
+     * Checks the assertion right away and then every second for {@link #STABLE_PERIOD}; every check has to pass.
+     * Awaitility's {@code during()} starts its period again after a failed check, so a single echo or drop early on
+     * went unnoticed.
      */
     protected static void assertStable(ThrowingRunnable assertion) throws InterruptedException {
         long end = System.nanoTime() + STABLE_PERIOD.toNanos();
