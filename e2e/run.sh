@@ -15,19 +15,23 @@
 #   -k  keep the environment running afterwards
 #   scenario  names from scenarios/, e.g. 01-eureka-nacos (default: all)
 set -uo pipefail
-cd "$(dirname "$0")"
-REPO=$(git rev-parse --show-toplevel) || exit 1
+E2E=$(cd "$(dirname "$0")" && pwd)
+REPO=$(git -C "$E2E" rev-parse --show-toplevel) || exit 1
 REF=HEAD
 EXAMPLES=https://github.com/paderlol/nacos-sync-example.git
 # The scenarios rely on fixes in the examples (runnable jars, a Eureka server that does not replicate to itself),
 # so they run against a fixed commit rather than a branch.
 EXAMPLES_REF=4fc95a5a7bf004db64ac3a2c4f644ffb03514531
 KEEP=0
+# Paths in the options are relative to the directory run.sh is called from.
 while getopts r:b:e:E:n:s:k opt; do
   case $opt in
-    r) REPO=$(cd "$OPTARG" && pwd) ;;
+    r) [ -d "$OPTARG" ] && REPO=$(git -C "$OPTARG" rev-parse --show-toplevel 2>/dev/null) ||
+         { echo "-r: not a git checkout: $OPTARG" >&2; exit 2; } ;;
     b) REF=$OPTARG ;;
-    e) EXAMPLES=$OPTARG ;;
+    e) if [ -d "$OPTARG" ]; then EXAMPLES=$(cd "$OPTARG" && pwd)
+       elif [[ $OPTARG == *://* || $OPTARG == *@*:* ]]; then EXAMPLES=$OPTARG
+       else echo "-e: neither a directory nor a git URL: $OPTARG" >&2; exit 2; fi ;;
     E) EXAMPLES_REF=$OPTARG ;;
     n) export NACOS_VERSION=$OPTARG ;;
     s) export SC_TRAIN=$OPTARG ;;
@@ -36,6 +40,7 @@ while getopts r:b:e:E:n:s:k opt; do
   esac
 done
 shift $((OPTIND - 1))
+cd "$E2E"
 export SYNC_REPO=$REPO   # 07-upgrade builds the previous release from the same checkout
 . ./lib.sh   # -n / -s were exported above, so they win over .env
 # However the run ends, stop the apps it started on the host: started with & from a script, they ignore Ctrl-C and
@@ -56,7 +61,8 @@ sc_versions() { # <train> -> "<spring-boot.version> <spring-cloud.version>"
     *) return 1 ;;
   esac
 }
-read -r SB_VERSION SC_VERSION <<<"$(sc_versions "$SC_TRAIN")" || { log "unknown Spring Cloud train $SC_TRAIN"; exit 2; }
+sc=$(sc_versions "$SC_TRAIN") || { log "unknown Spring Cloud train $SC_TRAIN"; exit 2; }
+read -r SB_VERSION SC_VERSION <<<"$sc"
 
 mvn_q() { (cd "$1" && shift && mvn -B -q -DskipTests "$@") > "$OUT_DIR/logs/build.log" 2>&1 || { log "build failed in $1, see $OUT_DIR/logs/build.log"; exit 1; }; }
 
@@ -82,6 +88,8 @@ if [ -d "$EXAMPLES" ]; then
 else
   EXAMPLES_GIT="$OUT_DIR/cache/nacos-sync-example.git"
   [ -d "$EXAMPLES_GIT" ] || git clone -q --bare "$EXAMPLES" "$EXAMPLES_GIT" || exit 1
+  # The cache keeps the commits of every URL it was given; fetch from the one given now.
+  git -C "$EXAMPLES_GIT" remote set-url origin "$EXAMPLES"
   git -C "$EXAMPLES_GIT" cat-file -e "$EXAMPLES_REF^{commit}" 2>/dev/null ||
     git -C "$EXAMPLES_GIT" fetch -q origin '+refs/heads/*:refs/heads/*' || exit 1
 fi
@@ -94,8 +102,8 @@ if [ "$(cat "$EXAMPLES_DIR/.commit" 2>/dev/null)" != "$EXAMPLES_COMMIT" ]; then
   echo "$EXAMPLES_COMMIT" > "$EXAMPLES_DIR/.commit"
 fi
 log "building examples $EXAMPLES_COMMIT (Eureka apps on Spring Cloud $SC_VERSION / Boot $SB_VERSION)"
-[ -f "$EXAMPLES_DIR"/cloud-consul/consul-provider-cloud/target/consul-provider-cloud-1.0-SNAPSHOT.jar ] ||
-  mvn_q "$EXAMPLES_DIR" package
+# A full build that failed half way leaves some jars and not others, so it is only skipped once it got to the end.
+[ -f "$EXAMPLES_DIR/.built" ] || { mvn_q "$EXAMPLES_DIR" package; touch "$EXAMPLES_DIR/.built"; }
 mvn_q "$EXAMPLES_DIR" package -pl cloud-eureka/eureka-server,cloud-eureka/eureka-provider -am \
   -Dspring-boot.version="$SB_VERSION" -Dspring-cloud.version="$SC_VERSION"
 cp "$EXAMPLES_DIR"/cloud-eureka/eureka-server/target/eureka-server-1.0-SNAPSHOT.jar eureka-server/app.jar
@@ -111,7 +119,10 @@ for f in "$OUT_DIR"/pids/*; do
   rm -f "$f"
 done
 compose down -v --remove-orphans >/dev/null 2>&1
-compose up -d --wait --wait-timeout 300 >/dev/null 2>&1 || { compose ps; log "environment did not become healthy"; exit 1; }
+compose up -d --wait --wait-timeout 300 > "$OUT_DIR/logs/compose-up.log" 2>&1 || {
+  compose ps; tail -20 "$OUT_DIR/logs/compose-up.log" >&2
+  log "environment did not become healthy, see $OUT_DIR/logs/compose-up.log"; exit 1
+}
 init_registries || exit 1
 record INFO "environment up: nacos-sync $COMMIT, examples $EXAMPLES_COMMIT, $RUN_LABEL (Boot $SB_VERSION, Cloud $SC_VERSION)"
 

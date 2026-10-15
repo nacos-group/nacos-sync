@@ -9,11 +9,14 @@ EXAMPLES_DIR=$OUT_DIR/examples-src
 mkdir -p "$OUT_DIR/logs" "$OUT_DIR/pids" "$OUT_DIR/cache"
 [ -f "$E2E_DIR/.env" ] || cp "$E2E_DIR/.env.example" "$E2E_DIR/.env"
 # .env only provides defaults: variables already exported (e.g. by run.sh -n/-s) win.
-while IFS='=' read -r _k _v; do
-  [[ $_k =~ ^[A-Z_][A-Z0-9_]*$ ]] || continue
+# Read like docker compose does: the value is everything after the first =, without surrounding quotes.
+while IFS= read -r _line || [ -n "$_line" ]; do
+  _k=${_line%%=*}; _v=${_line#*=}
+  [[ $_line == *=* && $_k =~ ^[A-Z_][A-Z0-9_]*$ ]] || continue
+  [[ $_v == \"*\" || $_v == \'*\' ]] && _v=${_v:1:${#_v}-2}
   [ -n "${!_k+x}" ] || export "$_k=$_v"
 done < "$E2E_DIR/.env"
-unset _k _v
+unset _line _k _v
 # Nacos A and B run the same tag unless NACOS_A_VERSION / NACOS_B_VERSION differ, e.g. to test 2.x -> 3.x sync.
 export NACOS_A_VERSION=${NACOS_A_VERSION:-$NACOS_VERSION} NACOS_B_VERSION=${NACOS_B_VERSION:-$NACOS_VERSION}
 
