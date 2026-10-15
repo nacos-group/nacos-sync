@@ -33,8 +33,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -75,9 +77,8 @@ class CheckRunningStatusAllNacosThreadTest {
         when(taskAccessService.findByTaskId("all-task")).thenAnswer(invocation -> rowDeleted ? null : allTask);
         when(nacosServerHolder.get("source")).thenReturn(sourceNamingService);
         when(skyWalkerCacheServices.getClusterType("source")).thenReturn(ClusterTypeEnum.NACOS);
-        ListView<String> services = new ListView<>();
-        services.setData(List.of("svc-a"));
-        when(sourceNamingService.getServicesOfServer(anyInt(), anyInt(), eq("DEFAULT_GROUP"))).thenReturn(services);
+        when(sourceNamingService.getServicesOfServer(anyInt(), anyInt(), eq("DEFAULT_GROUP")))
+                .thenReturn(services("svc-a"));
         thread = new CheckRunningStatusAllNacosThread(mock(MetricsManager.class), taskAccessService, nacosServerHolder,
                 skyWalkerCacheServices, taskDispatcher);
     }
@@ -102,6 +103,37 @@ class CheckRunningStatusAllNacosThreadTest {
         thread.run();
 
         assertDeletedSubTaskOfSvcA();
+    }
+
+    @Test
+    void subTaskThatFailedToStartIsStartedAgain() {
+        // A start that failed, e.g. while the destination was down, is tried again in the next round, as for any
+        // other task. Taken as started, it never was: a Nacos to ZooKeeper sub-task, with no full sync behind it,
+        // never synced.
+        doReturn(false).doReturn(true).when(taskDispatcher).sync(any());
+        when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask));
+
+        thread.run();
+        thread.run();
+        thread.run();
+
+        verify(taskDispatcher, times(2)).sync(any());
+    }
+
+    @Test
+    void subTaskThatFailedToStopIsStoppedAgain() throws Exception {
+        // The service is gone from the source. Taken as stopped, the sub-task that failed to stop kept its copies.
+        when(sourceNamingService.getServicesOfServer(anyInt(), anyInt(), eq("DEFAULT_GROUP")))
+                .thenReturn(services("svc-a")).thenReturn(services());
+        doReturn(false).doReturn(true).when(taskDispatcher).delete(any());
+        when(taskAccessService.findAllByServiceNameEqualAll()).thenReturn(List.of(allTask));
+
+        thread.run();
+        thread.run();
+        thread.run();
+        thread.run();
+
+        verify(taskDispatcher, times(2)).delete(any());
     }
 
     @Test
@@ -141,7 +173,7 @@ class CheckRunningStatusAllNacosThreadTest {
             // Give a delete that does not wait for the scan the time to finish first.
             scanning.countDown();
             deleteDone.await(300, TimeUnit.MILLISECONDS);
-            return null;
+            return true;
         }).when(taskDispatcher).sync(any());
         doAnswer(invocation -> {
             rowDeleted = true;
@@ -206,7 +238,7 @@ class CheckRunningStatusAllNacosThreadTest {
         doAnswer(invocation -> {
             Thread.sleep(5_500);
             order.add("sync " + invocation.<TaskDO>getArgument(0).getServiceName());
-            return null;
+            return true;
         }).when(taskDispatcher).sync(any());
         doAnswer(invocation -> order.add("delete " + invocation.<TaskDO>getArgument(0).getServiceName()))
                 .when(taskDispatcher).delete(any());
@@ -253,6 +285,12 @@ class CheckRunningStatusAllNacosThreadTest {
 
         assertEquals(List.of(), synced);
         verify(nacosServerHolder, never()).get(any());
+    }
+
+    private static ListView<String> services(String... names) {
+        ListView<String> services = new ListView<>();
+        services.setData(List.of(names));
+        return services;
     }
 
     private void assertDeletedSubTaskOfSvcA() {

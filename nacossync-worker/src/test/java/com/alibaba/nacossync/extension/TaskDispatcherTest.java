@@ -6,6 +6,7 @@ import com.alibaba.nacossync.pojo.model.TaskDO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -73,6 +74,21 @@ class TaskDispatcherTest {
         executor.submit(() -> taskDispatcher.delete(task("b"))).get(2, TimeUnit.SECONDS);
         release.countDown();
         sync.get(5, TimeUnit.SECONDS);
+    }
+
+    @Test
+    void tellsWhetherATaskStartedOrStopped() throws Exception {
+        // The ALL scan tries a sub-task again in the next round when it did not start or stop.
+        when(syncManagerService.sync(any(), any())).thenReturn(true, false)
+                .thenThrow(new IllegalStateException("test"));
+        when(syncManagerService.delete(any())).thenReturn(true, false)
+                .thenThrow(new IllegalStateException("test"));
+        TaskDO a = task("a");
+
+        assertEquals(List.of(true, false, false),
+                List.of(taskDispatcher.sync(a), taskDispatcher.sync(a), taskDispatcher.sync(a)));
+        assertEquals(List.of(true, false, false),
+                List.of(taskDispatcher.delete(a), taskDispatcher.delete(a), taskDispatcher.delete(a)));
     }
 
     private static TaskDO task(String taskId) {

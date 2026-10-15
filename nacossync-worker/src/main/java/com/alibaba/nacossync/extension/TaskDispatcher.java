@@ -56,39 +56,46 @@ public class TaskDispatcher {
         this.skyWalkerCacheServices = skyWalkerCacheServices;
     }
     
-    public void sync(TaskDO taskDO) {
+    /**
+     * @return whether the task was started; a failure is logged, not thrown
+     */
+    public boolean sync(TaskDO taskDO) {
         synchronized (syncLock) {
-            
+
             try {
-                
+
                 Stopwatch stopwatch = Stopwatch.createStarted();
                 if (syncManagerService.sync(taskDO, null)) {
                     skyWalkerCacheServices.addFinishedTask(taskDO);
                     metricsManager.record(MetricsStatisticsType.SYNC_TASK_RT, stopwatch.elapsed().toMillis());
-                } else {
-                    log.warn("syncTaskEvent process error");
+                    return true;
                 }
+                log.warn("syncTaskEvent process error");
             } catch (Exception e) {
                 log.warn("syncTaskEvent process error", e);
             }
-            
+            return false;
         }
     }
-    
-    public void delete(TaskDO taskDO) {
+
+    /**
+     * @return whether the task was stopped; a failure is logged, not thrown
+     */
+    public boolean delete(TaskDO taskDO) {
         synchronized (deleteLock) {
-            
+
             try {
                 Stopwatch stopwatch = Stopwatch.createStarted();
                 if (syncManagerService.delete(taskDO)) {
                     skyWalkerCacheServices.removeFinishedTask(taskDO.getOperationId());
                     metricsManager.record(MetricsStatisticsType.DELETE_TASK_RT, stopwatch.elapsed().toMillis());
-                } else {
-                    log.warn("deleteTaskEvent delete failure");
+                    return true;
                 }
+                log.warn("deleteTaskEvent delete failure");
             } catch (Exception e) {
                 log.warn("deleteTaskEvent delete failure.", e);
             }
+            return false;
         }
     }
 }

@@ -254,10 +254,12 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
     private void handleInsertion(List<TaskDO> servicesPendingInsertion, Set<String> serviceSet) {
         // One by one on this thread, so that every sub-task has started before the task lock is released: a start
         // still running after that was unknown to a delete that came next, and outlived its parent. Running them in
-        // parallel would not be faster either, as TaskDispatcher handles one sync at a time.
+        // parallel would not be faster either, as TaskDispatcher handles one sync at a time. A sub-task that did not
+        // start is left out of the set, so that the next round tries again, as the timer does for any other task.
         servicesPendingInsertion.forEach(t -> {
-            taskDispatcher.sync(t);
-            serviceSet.add(t.getServiceName());
+            if (taskDispatcher.sync(t)) {
+                serviceSet.add(t.getServiceName());
+            }
         });
     }
     /**
@@ -267,10 +269,12 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
      * @param serviceSet The set of services.
      */
     private void handleRemoval(List<TaskDO> servicesPendingRemoval, Set<String> serviceSet) {
-        // One by one on this thread, for the same reason as the insertion.
+        // One by one on this thread, for the same reason as the insertion. A sub-task that did not stop stays in the
+        // set and is tried again in the next round while its service is gone from the source.
         servicesPendingRemoval.forEach(t -> {
-            taskDispatcher.delete(t);
-            serviceSet.remove(t.getServiceName());
+            if (taskDispatcher.delete(t)) {
+                serviceSet.remove(t.getServiceName());
+            }
         });
     }
     /**
