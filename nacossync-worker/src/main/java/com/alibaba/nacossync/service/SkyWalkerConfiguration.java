@@ -23,19 +23,12 @@ import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import com.google.common.eventbus.EventBus;
-
 /**
  * @author NacosSync
  * @version $Id: SkyWalkerConfiguration.java, v 0.1 2018-09-27 AM1:20 NacosSync Exp $$
  */
 @Configuration
 public class SkyWalkerConfiguration {
-
-    @Bean
-    public EventBus eventBus() {
-        return new EventBus();
-    }
 
     @Bean
     public ScheduledExecutorService executorService() {

@@ -1,8 +1,6 @@
 package com.alibaba.nacossync.extension.event;
 
-import com.alibaba.nacossync.extension.event.listener.SpecialSyncEventListener;
 import com.alibaba.nacossync.pojo.model.TaskDO;
-import com.google.common.eventbus.EventBus;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
@@ -16,7 +14,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
 
 /**
  * A delete unsubscribes the task and then removes the instances it synced. A poll of that task must not register them
@@ -25,8 +22,6 @@ import static org.mockito.Mockito.mock;
 class SpecialSyncEventBusTest {
 
     private final SpecialSyncEventBus specialSyncEventBus = new SpecialSyncEventBus();
-
-    private final SpecialSyncEventListener listener = new SpecialSyncEventListener(mock(EventBus.class));
 
     private final TaskDO taskDO = task();
 
@@ -38,7 +33,7 @@ class SpecialSyncEventBusTest {
         SpecialSyncEvent poll = specialSyncEventBus.getAllSpecialSyncEvent().iterator().next();
 
         specialSyncEventBus.unsubscribe(taskDO);
-        listener.listenerSpecialSyncEvent(poll);
+        poll.sync();
 
         assertEquals(0, polls.get());
     }
@@ -55,7 +50,7 @@ class SpecialSyncEventBusTest {
         SpecialSyncEvent poll = specialSyncEventBus.getAllSpecialSyncEvent().iterator().next();
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
-            Future<?> running = executor.submit(() -> listener.listenerSpecialSyncEvent(poll));
+            Future<?> running = executor.submit(() -> poll.sync());
             assertTrue(polling.await(5, TimeUnit.SECONDS));
             AtomicReference<Thread> unsubscriber = new AtomicReference<>();
             Future<?> unsubscribe = executor.submit(() -> {

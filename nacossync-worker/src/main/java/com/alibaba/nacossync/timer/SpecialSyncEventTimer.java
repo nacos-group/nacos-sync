@@ -15,7 +15,6 @@ package com.alibaba.nacossync.timer;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.extension.event.SpecialSyncEvent;
 import com.alibaba.nacossync.extension.event.SpecialSyncEventBus;
-import com.google.common.eventbus.EventBus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Service;
@@ -34,14 +33,11 @@ public class SpecialSyncEventTimer implements CommandLineRunner {
 
     private final SpecialSyncEventBus specialSyncEventBus;
 
-    private final EventBus eventBus;
-
     private final ScheduledExecutorService scheduledExecutorService;
     
-    public SpecialSyncEventTimer(SpecialSyncEventBus specialSyncEventBus, EventBus eventBus,
+    public SpecialSyncEventTimer(SpecialSyncEventBus specialSyncEventBus,
             ScheduledExecutorService scheduledExecutorService) {
         this.specialSyncEventBus = specialSyncEventBus;
-        this.eventBus = eventBus;
         this.scheduledExecutorService = scheduledExecutorService;
     }
     
@@ -62,7 +58,7 @@ public class SpecialSyncEventTimer implements CommandLineRunner {
                 allSpecialSyncEvent.stream()
                         .filter(specialSyncEvent -> TaskStatusEnum.SYNC.getCode()
                                 .equals(specialSyncEvent.getTaskDO().getTaskStatus()))
-                        .forEach(eventBus::post);
+                        .forEach(SpecialSyncEvent::sync);
             } catch (Exception e) {
                log.error("Exception occurred while processing special sync events", e);
 
