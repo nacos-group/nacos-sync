@@ -79,7 +79,8 @@ public class TaskDispatcher {
     }
 
     /**
-     * @return whether the task was stopped; a failure is logged, not thrown
+     * @return whether the task was stopped; a failure is logged, not thrown. e2e/scenarios/04-nacos-nacos.sh counts
+     * the warning: keep its text.
      */
     public boolean delete(TaskDO taskDO) {
         synchronized (deleteLock) {

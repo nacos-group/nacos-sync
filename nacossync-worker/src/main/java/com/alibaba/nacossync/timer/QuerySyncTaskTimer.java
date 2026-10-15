@@ -104,7 +104,7 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
                             TaskDO current = taskAccessService.findByTaskId(taskDO.getTaskId());
                             if (current != null && TaskStatusEnum.SYNC.getCode().equals(current.getTaskStatus())) {
                                 taskDispatcher.sync(current);
-                                log.debug("从数据库中查询到一个同步任务，发出一个同步事件:{}", current);
+                                log.debug("从数据库中查询到一个同步任务，开始同步:{}", current);
                             }
                         });
                         if (!ran) {
@@ -115,7 +115,7 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
                     if (TaskStatusEnum.DELETE.getCode().equals(taskDO.getTaskStatus())) {
 
                         taskDispatcher.delete(taskDO);
-                        log.debug("从数据库中查询到一个删除事件，发出一个同步事件:{}", taskDO);
+                        log.debug("从数据库中查询到一个删除状态的任务，停止同步:{}", taskDO);
                     }
                 });
 

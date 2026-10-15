@@ -66,7 +66,7 @@ public class TaskDeleteProcessor implements Processor<TaskDeleteRequest, BaseRes
             } else {
                 taskDispatcher.delete(taskDO);
             }
-            log.info("删除同步任务数据之后，发出一个同步事件:{}", taskDO);
+            log.info("删除同步任务数据之后，停止同步:{}", taskDO);
         });
     }
     
