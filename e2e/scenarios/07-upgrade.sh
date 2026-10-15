@@ -379,7 +379,10 @@ done
 sample_stop
 gap_report overlap "Case 2a: both versions running for ${OVERLAP}s (T0 = new version start)" "$T0" "$T_READY" "$T_END"
 check_out "overlap: no synced copy went missing (no flapping) while both versions ran ${OVERLAP}s" no_flaps overlap
-check_out "overlap: no duplicate copies while both versions ran" no_dups overlap
+# Each version registers its own copy of every ip:port, so Nacos lists it twice until one of them stops: the
+# trade-off of starting the new version first (UPGRADE.md, way B). Recorded, not checked.
+if o=$(no_dups overlap); then record INFO "overlap: never more copies than expected while both versions ran"
+else record INFO "overlap: copies listed twice while both versions ran, as UPGRADE.md describes: $(echo $o)"; fi
 record INFO "overlap: ERROR lines logged while both ran: new $(compose logs --no-log-prefix --since "$(((T0 / 1000)))" nacos-sync 2>&1 | grep -c ' ERROR '), $OLD_REF $(ucompose logs --no-log-prefix --since "$(((T0 / 1000)))" nacos-sync-old 2>&1 | grep -c ' ERROR ')"
 
 # A task deleted on one node during the overlap: the other node never learns about it (it only reads the rows
