@@ -10,7 +10,10 @@ ZK_SVC="providers:$IFACE:1.0.0:zk"        # how ZK -> Nacos names the zookeeper-
 NACOS_SVC="providers:$IFACE:1.0.0:nacos"  # nacos-provider registers this in Nacos A, DEFAULT_GROUP
 # The example main classes do not pass args to SpringApplication.run, and Dubbo binds dubbo.* by prefix, which
 # misses plain env overrides. SPRING_APPLICATION_JSON gives a real dotted property source that wins over the yaml.
-dubbo_json() { jq -nc --arg a "$1" '{dubbo: {registry: {address: $a}, "metadata-report": {address: $a}, application: {"qos-enable": false}}}'; }
+dubbo_json() { # dubbo_json <registry address> [Dubbo group of the example service]
+  jq -nc --arg a "$1" --arg g "${2:-}" '{dubbo: {registry: {address: $a}, "metadata-report": {address: $a}, application: {"qos-enable": false}}}
+    + (if $g == "" then {} else {demo: {service: {group: $g}}} end)'
+}
 ZK_ARGS=(SPRING_APPLICATION_JSON="$(dubbo_json zookeeper://127.0.0.1:2181)")
 NACOS_ARGS=(SPRING_APPLICATION_JSON="$(dubbo_json "$(dubbo_nacos_url)")")
 zk_count() { [ "$(zk_providers $IFACE | grep -c "group=$1")" -eq "$2" ]; }
@@ -79,5 +82,15 @@ stop_app "zookeeper-provider#2" TERM
 eventually $WAIT "zk->nacos (*): stopped provider removed from Nacos" nacos_count $NACOS_A "$ZK_SVC" 1 zk
 delete_task "$T_ZALL"
 eventually $WAIT "zk->nacos (*): task delete removes the synced provider" nacos_count $NACOS_A "$ZK_SVC" 0 zk
+
+# --- a task without group or version takes the providers of every group; each group keeps its own Nacos service
+ZK2_SVC="providers:$IFACE:1.0.0:zk2"
+start_app "zookeeper-provider#zk2" "log:is ready" SPRING_APPLICATION_JSON="$(dubbo_json zookeeper://127.0.0.1:2181 zk2)"
+T_ZANY=$(add_task "$ZK_ID" "$NACOS_A_ID" $IFACE "")
+eventually $WAIT "zk->nacos (no group): group zk provider in its own Nacos service" nacos_count $NACOS_A "$ZK_SVC" 1
+eventually $WAIT "zk->nacos (no group): group zk2 provider in its own Nacos service" nacos_count $NACOS_A "$ZK2_SVC" 1
+delete_task "$T_ZANY"
+eventually $WAIT "zk->nacos (no group): task delete cleans up both services" bash -c ". '$E2E_DIR/lib.sh'; nacos_count $NACOS_A '$ZK_SVC' 0 && nacos_count $NACOS_A '$ZK2_SVC' 0"
+stop_app "zookeeper-provider#zk2"
 
 stop_app nacos-consumer; stop_app zookeeper-consumer; stop_app zookeeper-provider; stop_app nacos-provider
