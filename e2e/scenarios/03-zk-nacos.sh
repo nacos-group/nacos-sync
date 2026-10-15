@@ -16,8 +16,8 @@ dubbo_json() { # dubbo_json <registry address> [Dubbo group of the example servi
 }
 ZK_ARGS=(SPRING_APPLICATION_JSON="$(dubbo_json zookeeper://127.0.0.1:2181)")
 NACOS_ARGS=(SPRING_APPLICATION_JSON="$(dubbo_json "$(dubbo_nacos_url)")")
-zk_count() { [ "$(zk_providers $IFACE | grep -c "group=$1")" -eq "$2" ]; }
-zk_synced() { zk_providers $IFACE | grep "group=$1" | grep -q "sourceClusterId=$2"; }
+zk_count() { local p; p=$(zk_providers $IFACE) && [ "$(grep -c "group=$1" <<<"$p")" -eq "$2" ]; }
+zk_synced() { local p; p=$(zk_providers $IFACE) && grep "group=$1" <<<"$p" | grep -q "sourceClusterId=$2"; }
 
 # --- one-way, both directions. For a ZK source the task group is the Dubbo group and the Nacos group.
 # The ZK -> Nacos task starts before its provider, while Zookeeper has no node for the service yet.

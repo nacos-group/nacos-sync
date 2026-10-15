@@ -10,7 +10,10 @@ NE=${BATCH_NACOS_TO_EUREKA:-20}                                   # how many Nac
 
 nacos_total() { # nacos_total <port> <prefix> <services>: total instances of prefix-0..prefix-(n-1)
   local port=$1 prefix=$2 n=$3 s total=0 c
-  for ((s = 0; s < n; s++)); do c=$(nacos_instances "$port" "$prefix-$s" | jq length); total=$((total + c)); done
+  for ((s = 0; s < n; s++)); do
+    c=$(nacos_instances "$port" "$prefix-$s" | jq length) && [ -n "$c" ] || return 1
+    total=$((total + c))
+  done
   echo $total
 }
 nacos_total_eq() { [ "$(nacos_total "$1" "$2" "$3")" -eq "$4" ]; }

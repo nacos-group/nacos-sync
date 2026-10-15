@@ -123,6 +123,20 @@ delete_all_tasks() {
 }
 
 # ---------------------------------------------------------------- Nacos
+# Prints the body of a 200 answer, or <404 body> for a 404, which the registries give for a service they do not have.
+# Anything else, e.g. a 403 or a registry that does not answer, prints nothing and fails: the predicates below then
+# fail too, instead of reading the failed query as "no instances" and passing a check that something is gone.
+registry_get() { # registry_get <404 body> <curl args...>
+  local missing=$1 out code; shift
+  out=$(curl -s -w '\n%{http_code}' "$@") || return 1
+  code=${out##*$'\n'}; out=${out%$'\n'*}
+  case $code in
+    200) printf '%s' "$out" ;;
+    404) printf '%s' "$missing" ;;
+    *) return 1 ;;
+  esac
+}
+
 nacos_init_admin() { # nacos_init_admin <port>: sets the admin password on a fresh 2.4+/3.x server
   local port=$1
   curl -s -X POST "localhost:$port/nacos/v3/auth/user/admin" --data-urlencode "password=$NACOS_PASSWORD" | grep -q '"code":0' && return
@@ -149,13 +163,13 @@ nacos_instances() { # nacos_instances <port> <service> [group]: JSON array of {i
   local port=$1 svc=$2 grp=${3:-DEFAULT_GROUP} tok resp
   tok=$(nacos_token "$port")
   if nacos_is_v3 "$port"; then
-    resp=$(curl -s -G -H "accessToken: $tok" "localhost:$port/nacos/v3/admin/ns/instance/list" \
-      --data-urlencode "serviceName=$svc" --data-urlencode "groupName=$grp" --data-urlencode "namespaceId=public")
-    jq -c 'if (.data|type) == "array" then [.data[] | {ip, port, healthy, enabled, metadata}] else [] end' <<<"$resp" 2>/dev/null || echo '[]'
+    resp=$(registry_get '{"data": []}' -G -H "accessToken: $tok" "localhost:$port/nacos/v3/admin/ns/instance/list" \
+      --data-urlencode "serviceName=$svc" --data-urlencode "groupName=$grp" --data-urlencode "namespaceId=public") || return 1
+    jq -c '[.data[] | {ip, port, healthy, enabled, metadata}]' <<<"$resp" 2>/dev/null
   else
-    resp=$(curl -s -G "localhost:$port/nacos/v1/ns/instance/list" --data-urlencode "serviceName=$svc" \
-      --data-urlencode "groupName=$grp" --data-urlencode "namespaceId=public" --data-urlencode "accessToken=$tok")
-    jq -c '[(.hosts // [])[] | {ip, port, healthy, enabled, metadata}]' <<<"$resp" 2>/dev/null || echo '[]'
+    resp=$(registry_get '{"hosts": []}' -G "localhost:$port/nacos/v1/ns/instance/list" --data-urlencode "serviceName=$svc" \
+      --data-urlencode "groupName=$grp" --data-urlencode "namespaceId=public" --data-urlencode "accessToken=$tok") || return 1
+    jq -c '[.hosts[] | {ip, port, healthy, enabled, metadata}]' <<<"$resp" 2>/dev/null
   fi
 }
 
@@ -163,12 +177,12 @@ nacos_services() { # nacos_services <port> [group]: JSON array of service names
   local port=$1 grp=${2:-DEFAULT_GROUP} tok
   tok=$(nacos_token "$port")
   if nacos_is_v3 "$port"; then
-    curl -s -G -H "accessToken: $tok" "localhost:$port/nacos/v3/admin/ns/service/list" --data-urlencode "namespaceId=public" \
-      --data-urlencode "groupNameParam=$grp" --data-urlencode "pageNo=1" --data-urlencode "pageSize=1000" |
-      jq -c '[.data.pageItems[]? | .name]' 2>/dev/null || echo '[]'
+    registry_get '{"data": {"pageItems": []}}' -G -H "accessToken: $tok" "localhost:$port/nacos/v3/admin/ns/service/list" \
+      --data-urlencode "namespaceId=public" --data-urlencode "groupNameParam=$grp" --data-urlencode "pageNo=1" \
+      --data-urlencode "pageSize=1000" | jq -c '[.data.pageItems[] | .name]' 2>/dev/null
   else
-    curl -s -G "localhost:$port/nacos/v1/ns/service/list" --data-urlencode "groupName=$grp" --data-urlencode "pageNo=1" \
-      --data-urlencode "pageSize=1000" --data-urlencode "accessToken=$tok" | jq -c '.doms // []' 2>/dev/null || echo '[]'
+    registry_get '{"doms": []}' -G "localhost:$port/nacos/v1/ns/service/list" --data-urlencode "groupName=$grp" \
+      --data-urlencode "pageNo=1" --data-urlencode "pageSize=1000" --data-urlencode "accessToken=$tok" | jq -c '.doms' 2>/dev/null
   fi
 }
 
@@ -192,9 +206,9 @@ eureka_instances() { # eureka_instances <app>: JSON array of {ip,port,status,met
   app=$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]')
   # -s: Eureka 1.x (Spring Cloud 2021.0) answers an app without instances with an empty 404 body, which plain jq
   # turns into no output at all instead of [].
-  curl -s -H 'Accept: application/json' "$EUREKA_URL/apps/$app" |
+  registry_get '' -H 'Accept: application/json' "$EUREKA_URL/apps/$app" |
     jq -cs '[(.[0].application.instance // []) | (if type == "array" then .[] else . end)
-            | {id: .instanceId, ip: .ipAddr, port: (.port["$"] | tonumber), status, metadata: (.metadata // {})}]' 2>/dev/null || echo '[]'
+            | {id: .instanceId, ip: .ipAddr, port: (.port["$"] | tonumber), status, metadata: (.metadata // {})}]' 2>/dev/null
 }
 
 eureka_set_status() { # eureka_set_status <app> <instanceId> <UP|OUT_OF_SERVICE|DOWN>
@@ -208,15 +222,18 @@ eureka_set_metadata() { # eureka_set_metadata <app> <instanceId> <key> <value>
 }
 
 consul_instances() { # consul_instances <service>: JSON array of {id,ip,port,passing,tags}
-  curl -s "$CONSUL_URL/v1/health/service/$1" |
+  registry_get '[]' "$CONSUL_URL/v1/health/service/$1" |
     jq -c '[.[] | {id: .Service.ID, ip: .Service.Address, port: .Service.Port, tags: .Service.Tags,
-                   passing: all(.Checks[]; .Status == "passing")}]' 2>/dev/null || echo '[]'
+                   passing: all(.Checks[]; .Status == "passing")}]' 2>/dev/null
 }
 
-zk_providers() { # zk_providers <dubbo interface>: provider URLs (decoded), one per line
+zk_providers() { # zk_providers <dubbo interface>: provider URLs (decoded), one per line; fails if ZooKeeper cannot be asked
+  local out list
+  out=$(compose exec -T zookeeper zkCli.sh -server localhost:2181 ls "/dubbo/$1/providers" 2>&1)
+  grep -q 'Node does not exist' <<<"$out" && return 0   # no provider has registered yet
   # zkCli also logs to stdout; the child list is the line starting with "[".
-  compose exec -T zookeeper zkCli.sh -server localhost:2181 ls "/dubbo/$1/providers" 2>/dev/null |
-    grep '^\[' | tail -1 | tr -d '[]' | tr ',' '\n' | sed 's/^ *//' | grep -v '^$' |
+  list=$(grep '^\[' <<<"$out" | tail -1) && [ -n "$list" ] || return 1
+  tr -d '[]' <<<"$list" | tr ',' '\n' | sed 's/^ *//' | grep -v '^$' |
     python3 -c 'import sys,urllib.parse; [print(urllib.parse.unquote(l.strip())) for l in sys.stdin]'
 }
 
