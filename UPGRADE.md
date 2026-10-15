@@ -97,6 +97,9 @@ redundancy, run one active node.
   `mapping` and `metadata` under `/dubbo`. A task created before its providers picks them up when they register, and
   a task whose first sync fails, e.g. while the destination is unreachable, starts over on the next round.
 - An `ALL` task without a group syncs the services of `DEFAULT_GROUP`, as a task for one service does.
+- An `ALL` task keeps its copies when the services of its source cannot be listed, e.g. while the source is
+  unreachable, instead of taking every service as gone.
 - Adding a task named `ALL` (in any case) is rejected unless the source cluster is Nacos: only a Nacos source can list
   its services, and such a task used to be added and then never synced. To sync every Dubbo service from ZooKeeper,
-  use `*`. Tasks of that kind already in the database still do nothing; delete them.
+  use `*`. Tasks of that kind already in the database still do nothing, and nacos-sync logs a warning once for
+  each; delete them.
