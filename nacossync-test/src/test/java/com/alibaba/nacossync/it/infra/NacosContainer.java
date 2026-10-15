@@ -79,21 +79,39 @@ public final class NacosContainer extends GenericContainer<NacosContainer> {
 
     /**
      * Starts a server on a free pair from the reserved range, retrying with the next pair if another process grabbed
-     * one of the ports first.
+     * one of the ports first. Any other failure, e.g. a missing image or a server that does not get ready, is thrown at
+     * once.
      */
     static NacosContainer startNew(String imageTag) {
-        RuntimeException lastFailure = null;
+        RuntimeException failure = null;
         for (int attempt = 0; attempt < 3; attempt++) {
             NacosContainer container = new NacosContainer(imageTag, HostPorts.freeNacosPortPair(GRPC_PORT_OFFSET));
             try {
                 container.start();
                 return container;
             } catch (RuntimeException e) {
-                lastFailure = e;
                 container.stop();
+                if (failure != null) {
+                    e.addSuppressed(failure);
+                }
+                failure = e;
+                if (!isPortTaken(e)) {
+                    throw e;
+                }
             }
         }
-        throw lastFailure;
+        throw failure;
+    }
+
+    /** Docker could not bind a host port: another process took it after it was picked. */
+    private static boolean isPortTaken(Throwable failure) {
+        for (Throwable t = failure; t != null; t = t.getCause()) {
+            String message = t.getMessage() == null ? "" : t.getMessage().toLowerCase();
+            if (message.contains("port is already allocated") || message.contains("address already in use")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Address in the form nacos-client and the nacos-sync cluster config expect. */

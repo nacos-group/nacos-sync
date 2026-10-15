@@ -1,5 +1,6 @@
 package com.alibaba.nacossync.it;
 
+import java.time.Duration;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,6 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.util.DigestUtils;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -22,7 +24,7 @@ import java.util.List;
  */
 final class NacosSyncApi {
 
-    private final RestTemplate rest = new RestTemplate();
+    private final RestTemplate rest = new RestTemplate(timeouts());
 
     private final ObjectMapper json = new ObjectMapper();
 
@@ -123,5 +125,13 @@ final class NacosSyncApi {
 
     private static String md5(String value) {
         return DigestUtils.md5DigestAsHex(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** Without them a call to a server that stops answering would hold up the whole test run. */
+    private static SimpleClientHttpRequestFactory timeouts() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(5));
+        factory.setReadTimeout(Duration.ofSeconds(30));
+        return factory;
     }
 }

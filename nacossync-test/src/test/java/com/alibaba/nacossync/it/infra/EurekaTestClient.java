@@ -1,5 +1,6 @@
 package com.alibaba.nacossync.it.infra;
 
+import java.time.Duration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -8,6 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
@@ -23,7 +25,7 @@ public final class EurekaTestClient {
     // Long enough that test instances are never evicted for lack of heartbeats.
     private static final int LEASE_DURATION_SECONDS = 600;
 
-    private final RestTemplate rest = new RestTemplate();
+    private final RestTemplate rest = new RestTemplate(timeouts());
 
     private final ObjectMapper json = new ObjectMapper();
 
@@ -113,5 +115,13 @@ public final class EurekaTestClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
         return headers;
+    }
+
+    /** Without them a call to a server that stops answering would hold up the whole test run. */
+    private static SimpleClientHttpRequestFactory timeouts() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(5));
+        factory.setReadTimeout(Duration.ofSeconds(30));
+        return factory;
     }
 }
