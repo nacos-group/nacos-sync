@@ -12,7 +12,7 @@
  */
 package com.alibaba.nacossync.util;
 
-import com.alibaba.nacos.client.naming.utils.CollectionUtils;
+import com.alibaba.nacos.common.utils.CollectionUtils;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import org.apache.commons.lang3.StringUtils;

@@ -20,12 +20,10 @@ import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
 import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.TaskAccessService;
-import com.alibaba.nacossync.event.DeleteTaskEvent;
-import com.alibaba.nacossync.event.SyncTaskEvent;
-import com.alibaba.nacossync.extension.holder.NacosServerHolder;
+import com.alibaba.nacossync.extension.TaskDispatcher;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
-import com.google.common.eventbus.EventBus;
+import com.alibaba.nacossync.util.TaskLocks;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Service;
@@ -52,21 +50,22 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
 
     private final TaskAccessService taskAccessService;
 
-    private final EventBus eventBus;
+    private final TaskDispatcher taskDispatcher;
 
     private final ScheduledExecutorService scheduledExecutorService;
     
-    private final NacosServerHolder nacosServerHolder;
+    private final CheckRunningStatusAllNacosThread checkRunningStatusAllNacosThread;
     
     public QuerySyncTaskTimer(MetricsManager metricsManager, SkyWalkerCacheServices skyWalkerCacheServices,
-            TaskAccessService taskAccessService, EventBus eventBus, ScheduledExecutorService scheduledExecutorService,
-            NacosServerHolder nacosServerHolder) {
+            TaskAccessService taskAccessService, TaskDispatcher taskDispatcher,
+            ScheduledExecutorService scheduledExecutorService,
+            CheckRunningStatusAllNacosThread checkRunningStatusAllNacosThread) {
         this.metricsManager = metricsManager;
         this.skyWalkerCacheServices = skyWalkerCacheServices;
         this.taskAccessService = taskAccessService;
-        this.eventBus = eventBus;
+        this.taskDispatcher = taskDispatcher;
         this.scheduledExecutorService = scheduledExecutorService;
-        this.nacosServerHolder = nacosServerHolder;
+        this.checkRunningStatusAllNacosThread = checkRunningStatusAllNacosThread;
     }
     
     @Override
@@ -75,8 +74,7 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
         scheduledExecutorService.scheduleWithFixedDelay(new CheckRunningStatusThread(), INITIAL_DELAY, DELAY,
                 TimeUnit.MILLISECONDS);
         
-        scheduledExecutorService.scheduleWithFixedDelay(new CheckRunningStatusAllNacosThread(metricsManager,
-                taskAccessService, nacosServerHolder, eventBus), INITIAL_DELAY, DELAY,
+        scheduledExecutorService.scheduleWithFixedDelay(checkRunningStatusAllNacosThread, INITIAL_DELAY, DELAY,
                 TimeUnit.MILLISECONDS);
         log.info("QuerySyncTaskTimer has started successfully");
     }
@@ -99,15 +97,25 @@ public class QuerySyncTaskTimer implements CommandLineRunner {
                     }
 
                     if (TaskStatusEnum.SYNC.getCode().equals(taskDO.getTaskStatus())) {
-
-                        eventBus.post(new SyncTaskEvent(taskDO));
-                        log.debug("从数据库中查询到一个同步任务，发出一个同步事件:{}", taskDO);
+                        // The rows were read before: start the task only if it is still there and still
+                        // syncing. A delete removes the row and stops the task under the same lock; a task whose
+                        // lock is taken is left to the next round.
+                        boolean ran = TaskLocks.tryRunLocked(taskDO.getTaskId(), () -> {
+                            TaskDO current = taskAccessService.findByTaskId(taskDO.getTaskId());
+                            if (current != null && TaskStatusEnum.SYNC.getCode().equals(current.getTaskStatus())) {
+                                taskDispatcher.sync(current);
+                                log.debug("从数据库中查询到一个同步任务，开始同步:{}", current);
+                            }
+                        });
+                        if (!ran) {
+                            log.debug("task {} is locked, left to the next round", taskDO.getTaskId());
+                        }
                     }
 
                     if (TaskStatusEnum.DELETE.getCode().equals(taskDO.getTaskStatus())) {
 
-                        eventBus.post(new DeleteTaskEvent(taskDO));
-                        log.debug("从数据库中查询到一个删除事件，发出一个同步事件:{}", taskDO);
+                        taskDispatcher.delete(taskDO);
+                        log.debug("从数据库中查询到一个删除状态的任务，停止同步:{}", taskDO);
                     }
                 });
 

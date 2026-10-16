@@ -57,6 +57,15 @@ public class NacosSyncToEurekaServiceImpl extends AbstractNacosSync {
         return ip + ":" + port;
     }
     
+    /**
+     * Synced instances are registered and heartbeated as UP, so unhealthy or disabled Nacos instances are kept out
+     * of Eureka rather than advertised as routable.
+     */
+    @Override
+    protected boolean isSyncable(Instance instance) {
+        return instance.isHealthy() && instance.isEnabled();
+    }
+    
     @Override
     public void register(TaskDO taskDO, Instance instance) {
         EurekaNamingService destNamingService = eurekaServerHolder.get(taskDO.getDestClusterId());

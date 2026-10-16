@@ -1,0 +1,71 @@
+# The unit tests on JDK 17 and 21, and the Testcontainers ITs against Nacos 3.2.4 and 2.5.4.
+name: "Continuous Integration"
+
+on:
+  push:
+    branches: [ sync-2.x ]
+  pull_request:
+    branches: [ sync-2.x ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  unit:
+    name: Unit tests (JDK ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ '17', '21' ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+          cache-dependency-path: |
+            pom.xml
+            nacossync-console/pom.xml
+            nacossync-worker/pom.xml
+      - run: mvn -B test -pl nacossync-worker -am
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: unit-${{ strategy.job-index }}
+          path: nacossync-worker/target/surefire-reports
+          if-no-files-found: ignore
+
+  it:
+    name: Integration tests (Nacos ${{ matrix.nacos }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        nacos: [ v3.2.4, v2.5.4 ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: |
+            pom.xml
+            nacossync-console/pom.xml
+            nacossync-worker/pom.xml
+            nacossync-test/pom.xml
+      - run: mvn -B -Pit verify -pl nacossync-test -am -Dnacos.image.tag=${{ matrix.nacos }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: it-${{ strategy.job-index }}
+          path: nacossync-test/target/failsafe-reports
+          if-no-files-found: ignore

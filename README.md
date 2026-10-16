@@ -1,10 +1,32 @@
 # Nacos Sync
 
+English | [简体中文](README.zh-CN.md)
+
 Nacos Sync is a tool for synchronizing service registration information between different registries. It is designed to
 help users migrate from one registry to another. It is also a tool for synchronizing service registration information
 between different registries. It is designed to help users migrate from one registry to another.
 
-## [Example](https://github.com/paderlol/nacos-sync-example)
+## [Example](https://github.com/paderlol/nacos-sync-example/tree/2.0)
+
+The examples for nacos-sync 2.x are on the `2.0` branch of nacos-sync-example; its `master` branch holds the examples for 0.x.
+
+## Upgrading
+
+Upgrading from 0.5.0 to 2.0, moving to Nacos 3.x and the version compatibility: see [UPGRADE.md](UPGRADE.md)
+([简体中文](UPGRADE.zh-CN.md)).
+
+## Testing
+
+- Unit tests: `mvn test`
+- Integration tests against real registries in Docker (Testcontainers): `mvn -Pit verify -pl nacossync-test -am`, on
+  Nacos 3.2.4, or another tag with `-Dnacos.image.tag=v2.5.4`. The Nacos containers take host ports from 40000-40999
+  for HTTP and, 1000 higher, from 41000-41999 for gRPC (`-Dit.nacos.port.min` / `-Dit.nacos.port.max` set the HTTP
+  range). On Linux both lie within the default ephemeral ports (32768-60999), so if a start fails on a port that is
+  taken, move the range below them, with its top plus 1000 still under 32768.
+- End-to-end tests with the example applications, Nacos to Nacos across versions, Eureka across Spring Cloud trains
+  and upgrades from the previous release: see [e2e/README.md](e2e/README.md)
+- GitHub Actions runs the unit tests and the integration tests on every pull request to `sync-2.x`, and the end-to-end
+  tests, except the Eureka trains, on those that change more than docs or the integration tests (about 45 minutes)
 
 ## Function
 
@@ -44,7 +66,8 @@ Info |      +------------+                   ^
 - Multiple NacosSync instances will perform the same job.
     - Multiple NacosSync instances ensure high availability.
     - Multiple NacosSync instances performing the same job ensure the simplicity.
-    - NacosCluster target will dedup the synchronization information from Nacos.
+    - How several nodes behave and why one active node is recommended: see
+      [UPGRADE.md](UPGRADE.md#running-several-nodes).
 
 ## Quick Start:
 
@@ -58,7 +81,7 @@ Info |      +------------+                   ^
 
 | Source    | Target    | Support | Note                                                                                                              |
 |-----------|-----------|---------|-------------------------------------------------------------------------------------------------------------------|
-| Nacos     | Nacos     | Yes     | Only supports the same version of Nacos migration,**especially** the version of **0.8** migrates to 1.0 or above. |
+| Nacos     | Nacos     | Yes     | Nacos 2.x and 3.x, tested on 2.5.4 and 3.2.4, also from one version to the other in both directions              |
 | Nacos     | Zookeeper | Yes     | Only support registery center of **Dubbo**                                                                        |
 | Nacos     | Consul    | Yes     | Only support  registery center of **Spring Cloud**                                                                |
 | Nacos     | Eureka    | Yes     | Only support  registery center of **Spring Cloud**                                                                |
@@ -73,7 +96,7 @@ Info |      +------------+                   ^
 | Java Jdk         | 17       |
 | Spring Boot      | 3.4.0    |
 | Spring Cloud     | 2024.0.0 |
-| Nacos Client     | 2.3.4    |
+| Nacos Client     | 3.2.4    |
 | Zookeeper Client | 3.7.2    |
 | Consul Client    | 1.4.5    |
 | Eureka Client    | 2.0.4    |
@@ -89,9 +112,9 @@ Info |      +------------+                   ^
 Before you begin, install the following:
 
 - 64bit OS: Linux/Unix/Mac/Windows supported, Linux/Unix/Mac recommended.
-- 64bit JDK 1.8+: downloads, JAVA_HOME settings.
+- 64bit JDK 17+: downloads, JAVA_HOME settings.
 - Maven 3.5.2+: [downloads](https://maven.apache.org/download.cgi), [settings](https://maven.apache.org/settings.html).
-- MySql 5.6.+
+- MySQL 8 (tested with 8.4)
 
 ## Download & Build From Release
 
@@ -111,7 +134,7 @@ The path to the target file:
 
 ``` xml
 
-nacos-sync/nacossync-distribution/target/nacos-sync-0.5.0.tar.gz
+nacos-sync/nacossync-distribution/target/nacos-sync-2.0.0.tar.gz
 
 ```
 
@@ -145,7 +168,7 @@ The default is Mysql database, which can support other relational databases
 
 ## DB Configuration
 
-In the bin folder, application.properties:
+In the conf folder, application.properties:
 
 ``` xml
 
@@ -183,7 +206,8 @@ Nacos, but only when using Dubbo.
 
 ### Full Synchronization from Nacos to Nacos
 
-When “All” is entered in the “Service Name” field of this form, it will automatically synchronize all registered
-services within the **default group** of the current cluster.
+When “ALL” is entered in the “Service Name” field of this form, every service of the source cluster in the task's group
+is synchronized, or in `DEFAULT_GROUP` when no group is entered. `ALL` works only with a Nacos source cluster; for
+ZooKeeper, use “*”.
 
 ![img_2.png](img_2.png)

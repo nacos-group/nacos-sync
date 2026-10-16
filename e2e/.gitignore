@@ -1,0 +1,4 @@
+.env
+out/
+nacos-sync/dist/
+eureka-server/app.jar

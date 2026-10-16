@@ -14,7 +14,9 @@ package com.alibaba.nacossync.extension.eureka;
 
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.discovery.shared.transport.EurekaHttpClient;
+import com.netflix.discovery.shared.transport.EurekaHttpResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,14 +38,20 @@ public class EurekaBeatReactor {
     private final EurekaHttpClient eurekaHttpClient;
 
     public EurekaBeatReactor(EurekaHttpClient eurekaHttpClient) {
-        this.eurekaHttpClient = eurekaHttpClient;
-        executorService = new ScheduledThreadPoolExecutor(30, r -> {
+        this(eurekaHttpClient, new ScheduledThreadPoolExecutor(30, r -> {
             Thread thread = new Thread(r);
             thread.setDaemon(true);
             thread.setName("com.alibaba.nacossync.eureka.beat.sender");
             return thread;
-        });
+        }));
+    }
 
+    /**
+     * Sends the beats on the given executor, so that a test can call {@link #beat} without the scheduled beats.
+     */
+    EurekaBeatReactor(EurekaHttpClient eurekaHttpClient, ScheduledExecutorService executorService) {
+        this.eurekaHttpClient = eurekaHttpClient;
+        this.executorService = executorService;
         executorService.schedule(new BeatProcessor(), 0, TimeUnit.SECONDS);
     }
 
@@ -56,6 +64,19 @@ public class EurekaBeatReactor {
         this.eurekaBeat.remove(key);
     }
 
+    void beat(InstanceInfo instanceInfo) {
+        log.debug("[BEAT] adding beat: {} to beat map.", instanceInfo.getId());
+        EurekaHttpResponse<InstanceInfo> response = eurekaHttpClient.sendHeartBeat(instanceInfo.getAppName(),
+                instanceInfo.getId(), instanceInfo, InstanceInfo.InstanceStatus.UP);
+        // Eureka answers 404 when it no longer knows the instance, e.g. after a restart; register it again as
+        // DiscoveryClient does. Skip instances deregistered meanwhile so a late heartbeat cannot bring them back.
+        if (response != null && response.getStatusCode() == HttpStatus.NOT_FOUND.value()
+                && eurekaBeat.containsKey(instanceInfo.getId())) {
+            log.info("[BEAT] {} is unknown to Eureka, registering it again", instanceInfo.getId());
+            eurekaHttpClient.register(instanceInfo);
+        }
+    }
+
     class BeatProcessor implements Runnable {
 
         @Override
@@ -63,10 +84,7 @@ public class EurekaBeatReactor {
             try {
                 for (Map.Entry<String, InstanceInfo> entry : eurekaBeat.entrySet()) {
                     InstanceInfo instanceInfo = entry.getValue();
-                    executorService.schedule(() -> {
-                        log.debug("[BEAT] adding beat: {} to beat map.", instanceInfo.getId());
-                        eurekaHttpClient.sendHeartBeat(instanceInfo.getAppName(), instanceInfo.getId(), instanceInfo, InstanceInfo.InstanceStatus.UP);
-                    }, 0, TimeUnit.MILLISECONDS);
+                    executorService.schedule(() -> beat(instanceInfo), 0, TimeUnit.MILLISECONDS);
                 }
             } catch (Exception e) {
                 log.error("[CLIENT-BEAT] Exception while scheduling beat.", e);

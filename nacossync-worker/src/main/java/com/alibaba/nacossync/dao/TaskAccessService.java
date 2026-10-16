@@ -55,18 +55,7 @@ public class TaskAccessService implements PageQueryService<TaskDO> {
     public void deleteTaskById(String taskId) {
         taskRepository.deleteByTaskId(taskId);
     }
-    
-    /**
-     * batch delete tasks by taskIds
-     *
-     * @param taskIds
-     * @author yongchao9
-     */
-    public void deleteTaskInBatch(List<String> taskIds) {
-        List<TaskDO> tds = taskRepository.findAllByTaskIdIn(taskIds);
-        taskRepository.deleteAllInBatch(tds);
-    }
-    
+
     public Iterable<TaskDO> findAll() {
         
         return taskRepository.findAll();

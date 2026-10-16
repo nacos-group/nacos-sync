@@ -14,8 +14,7 @@ package com.alibaba.nacossync.timer;
 
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.extension.event.SpecialSyncEvent;
-import com.alibaba.nacossync.extension.event.SpecialSyncEventBus;
-import com.google.common.eventbus.EventBus;
+import com.alibaba.nacossync.extension.event.SpecialSyncEventRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Service;
@@ -32,16 +31,13 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class SpecialSyncEventTimer implements CommandLineRunner {
 
-    private final SpecialSyncEventBus specialSyncEventBus;
-
-    private final EventBus eventBus;
+    private final SpecialSyncEventRegistry specialSyncEventRegistry;
 
     private final ScheduledExecutorService scheduledExecutorService;
     
-    public SpecialSyncEventTimer(SpecialSyncEventBus specialSyncEventBus, EventBus eventBus,
+    public SpecialSyncEventTimer(SpecialSyncEventRegistry specialSyncEventRegistry,
             ScheduledExecutorService scheduledExecutorService) {
-        this.specialSyncEventBus = specialSyncEventBus;
-        this.eventBus = eventBus;
+        this.specialSyncEventRegistry = specialSyncEventRegistry;
         this.scheduledExecutorService = scheduledExecutorService;
     }
     
@@ -58,11 +54,11 @@ public class SpecialSyncEventTimer implements CommandLineRunner {
         @Override
         public void run() {
             try {
-                Collection<SpecialSyncEvent> allSpecialSyncEvent = specialSyncEventBus.getAllSpecialSyncEvent();
+                Collection<SpecialSyncEvent> allSpecialSyncEvent = specialSyncEventRegistry.getAllSpecialSyncEvent();
                 allSpecialSyncEvent.stream()
                         .filter(specialSyncEvent -> TaskStatusEnum.SYNC.getCode()
                                 .equals(specialSyncEvent.getTaskDO().getTaskStatus()))
-                        .forEach(eventBus::post);
+                        .forEach(SpecialSyncEvent::sync);
             } catch (Exception e) {
                log.error("Exception occurred while processing special sync events", e);
 

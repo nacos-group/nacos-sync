@@ -23,7 +23,7 @@ import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.extension.SyncService;
 import com.alibaba.nacossync.extension.annotation.NacosSyncService;
 import com.alibaba.nacossync.extension.eureka.EurekaNamingService;
-import com.alibaba.nacossync.extension.event.SpecialSyncEventBus;
+import com.alibaba.nacossync.extension.event.SpecialSyncEventRegistry;
 import com.alibaba.nacossync.extension.holder.EurekaServerHolder;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
@@ -34,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.CollectionUtils;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,16 +57,16 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
     
     private final NacosServerHolder nacosServerHolder;
     
-    private final SpecialSyncEventBus specialSyncEventBus;
+    private final SpecialSyncEventRegistry specialSyncEventRegistry;
     
     @Autowired
     public EurekaSyncToNacosServiceImpl(EurekaServerHolder eurekaServerHolder,
             SkyWalkerCacheServices skyWalkerCacheServices, NacosServerHolder nacosServerHolder,
-            SpecialSyncEventBus specialSyncEventBus, MetricsManager metricsManager) {
+            SpecialSyncEventRegistry specialSyncEventRegistry, MetricsManager metricsManager) {
         this.eurekaServerHolder = eurekaServerHolder;
         this.skyWalkerCacheServices = skyWalkerCacheServices;
         this.nacosServerHolder = nacosServerHolder;
-        this.specialSyncEventBus = specialSyncEventBus;
+        this.specialSyncEventRegistry = specialSyncEventRegistry;
         this.metricsManager = metricsManager;
     }
     
@@ -73,7 +74,7 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
     public boolean delete(TaskDO taskDO) {
         
         try {
-            specialSyncEventBus.unsubscribe(taskDO);
+            specialSyncEventRegistry.unsubscribe(taskDO);
             
             EurekaNamingService eurekaNamingService = eurekaServerHolder.get(taskDO.getSourceClusterId());
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
@@ -91,12 +92,23 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
     
     @Override
     public boolean sync(TaskDO taskDO, Integer index) {
+        if (!syncInstances(taskDO)) {
+            return false;
+        }
+        // Poll from now on. A poll only re-syncs and never subscribes, so a poll that is still running when the
+        // task is deleted cannot subscribe the deleted task again.
+        specialSyncEventRegistry.subscribe(taskDO, this::syncInstances);
+        return true;
+    }
+    
+    private boolean syncInstances(TaskDO taskDO) {
         try {
             
             EurekaNamingService eurekaNamingService = eurekaServerHolder.get(taskDO.getSourceClusterId());
             NamingService destNamingService = nacosServerHolder.get(taskDO.getDestClusterId());
             
-            List<InstanceInfo> eurekaInstances = eurekaNamingService.getApplications(taskDO.getServiceName());
+            List<InstanceInfo> eurekaInstances = filterUpInstances(
+                    eurekaNamingService.getApplications(taskDO.getServiceName()));
             List<Instance> nacosInstances = destNamingService.getAllInstances(taskDO.getServiceName(),
                     NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()));
             
@@ -110,13 +122,24 @@ public class EurekaSyncToNacosServiceImpl implements SyncService {
                 }
                 addValidInstance(taskDO, destNamingService, eurekaInstances);
             }
-            specialSyncEventBus.subscribe(taskDO, t -> sync(t, index));
         } catch (Exception e) {
             log.error("sync task from eureka to nacos was failed, taskId:{}", taskDO.getTaskId(), e);
             metricsManager.recordError(MetricsStatisticsType.SYNC_ERROR);
             return false;
         }
         return true;
+    }
+    
+    /**
+     * Only UP instances receive traffic in Eureka. DOWN, OUT_OF_SERVICE, STARTING and UNKNOWN instances are treated
+     * as absent so they are removed from Nacos instead of being registered as healthy.
+     */
+    private List<InstanceInfo> filterUpInstances(List<InstanceInfo> eurekaInstances) {
+        if (CollectionUtils.isEmpty(eurekaInstances)) {
+            return Collections.emptyList();
+        }
+        return eurekaInstances.stream().filter(instance -> InstanceInfo.InstanceStatus.UP == instance.getStatus())
+                .toList();
     }
     
     private void addValidInstance(TaskDO taskDO, NamingService destNamingService, List<InstanceInfo> eurekaInstances)

@@ -93,7 +93,7 @@ public class NacosSyncToConsulServiceImpl extends AbstractNacosSync {
         for (HealthService healthService : healthServices) {
             
             if (needDelete(ConsulUtils.transferMetadata(healthService.getService().getTags()), taskDO)
-                    && !invalidInstanceKeys.contains(composeInstanceKey(healthService.getService().getAddress(),
+                    && invalidInstanceKeys.contains(composeInstanceKey(healthService.getService().getAddress(),
                     healthService.getService().getPort()))) {
                 consulClient.agentServiceDeregister(
                         URLEncoder.encode(healthService.getService().getId(), StandardCharsets.UTF_8));

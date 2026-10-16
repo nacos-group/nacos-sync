@@ -19,21 +19,22 @@ package com.alibaba.nacossync.timer;
 
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.ListView;
-import com.alibaba.nacos.client.naming.utils.CollectionUtils;
+import com.alibaba.nacos.common.utils.CollectionUtils;
+import com.alibaba.nacossync.cache.SkyWalkerCacheServices;
+import com.alibaba.nacossync.constant.ClusterTypeEnum;
 import com.alibaba.nacossync.constant.MetricsStatisticsType;
 import com.alibaba.nacossync.constant.TaskStatusEnum;
 import com.alibaba.nacossync.dao.TaskAccessService;
-import com.alibaba.nacossync.event.DeleteAllSubTaskEvent;
-import com.alibaba.nacossync.event.DeleteTaskEvent;
-import com.alibaba.nacossync.event.SyncTaskEvent;
+import com.alibaba.nacossync.extension.TaskDispatcher;
 import com.alibaba.nacossync.extension.holder.NacosServerHolder;
 import com.alibaba.nacossync.monitor.MetricsManager;
 import com.alibaba.nacossync.pojo.model.TaskDO;
-import com.alibaba.nacossync.util.BatchTaskExecutor;
+import com.alibaba.nacossync.util.NacosUtils;
 import com.alibaba.nacossync.util.SkyWalkerUtil;
-import com.google.common.eventbus.EventBus;
+import com.alibaba.nacossync.util.TaskLocks;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
@@ -47,9 +48,20 @@ import java.util.stream.Collectors;
  * task.
  */
 @Slf4j
+@Service
 public class CheckRunningStatusAllNacosThread implements Runnable {
     
     private final Map<String, Set<String>> subTaskService = new ConcurrentHashMap<>();
+    
+    /**
+     * The ALL tasks seen so far, so that their sub-tasks can still be built once the task row is gone.
+     */
+    private final Map<String, TaskDO> allTasks = new ConcurrentHashMap<>();
+    
+    /**
+     * ALL tasks skipped because their source is not Nacos, so that each is warned about once.
+     */
+    private final Set<String> skippedTasks = ConcurrentHashMap.newKeySet();
     
     private final MetricsManager metricsManager;
     
@@ -57,15 +69,19 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
     
     private final NacosServerHolder nacosServerHolder;
     
-    private final EventBus eventBus;
+    private final SkyWalkerCacheServices skyWalkerCacheServices;
+    
+    private final TaskDispatcher taskDispatcher;
     
     
     public CheckRunningStatusAllNacosThread(MetricsManager metricsManager, TaskAccessService taskAccessService,
-            NacosServerHolder nacosServerHolder, EventBus eventBus) {
+            NacosServerHolder nacosServerHolder, SkyWalkerCacheServices skyWalkerCacheServices,
+            TaskDispatcher taskDispatcher) {
         this.metricsManager = metricsManager;
         this.taskAccessService = taskAccessService;
         this.nacosServerHolder = nacosServerHolder;
-        this.eventBus = eventBus;
+        this.skyWalkerCacheServices = skyWalkerCacheServices;
+        this.taskDispatcher = taskDispatcher;
     }
     
     /**
@@ -76,54 +92,91 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
         
         try {
             List<TaskDO> tasks = taskAccessService.findAllByServiceNameEqualAll();
-            if (CollectionUtils.isEmpty(tasks)) {
-                return;
+            if (tasks == null) {
+                tasks = Collections.emptyList();
             }
             
-            // Get the set of all task IDs
+            // Get the set of all task IDs. The cleanup below must also run when no ALL task is left, which is
+            // exactly the case after the last one was deleted.
             Set<String> taskIdSet = tasks.stream().map(TaskDO::getTaskId).collect(Collectors.toSet());
             
             // Filter and handle sub-tasks that need to be deleted. This handles the case where tasks have been deleted
             // but sub-tasks still exist.
             subTaskService.entrySet().stream()
                     .filter(entry -> shouldDeleteSubTasks(entry, taskIdSet))
-                    .forEach(entry -> postDeleteAllSubTaskEvent(entry.getKey()));
+                    .forEach(entry -> deleteSubTasksOfRemovedTask(entry.getKey()));
             
-            // Handle regular tasks
-            tasks.forEach(this::processTask);
-        } catch (Exception e) {
+            // Handle regular tasks. The rows were read before: process a task only if it is still there. A delete
+            // removes the row and stops the sub-tasks under the same lock; a task whose lock is taken is left to the
+            // next round.
+            tasks.forEach(task -> {
+                boolean ran = TaskLocks.tryRunLocked(task.getTaskId(), () -> {
+                    TaskDO current = taskAccessService.findByTaskId(task.getTaskId());
+                    if (current != null && hasNacosSource(current)) {
+                        processTask(current);
+                    }
+                });
+                if (!ran) {
+                    log.debug("ALL task {} is locked, left to the next round", task.getTaskId());
+                }
+            });
+        } catch (Throwable e) {
+            // Throwable: the sub-tasks start on this thread, and anything escaping a run cancels the fixed-delay
+            // schedule of the scan for good, without a word.
             log.warn("CheckRunningStatusThread Exception", e);
             metricsManager.recordError(MetricsStatisticsType.DISPATCHER_TASK);
         }
     }
     
     /**
-     * Listens for the event of deleting all sub-tasks and handles the delete operation.
-     *
-     * @param deleteAllSubTaskEvent The event object containing the task information to be deleted.
+     * Only a Nacos source can list its services. ALL tasks from other sources are rejected when added, but older
+     * ones can still be in the database: skip them rather than treat the address of another registry as Nacos.
      */
-    public void listenerDeleteAllTaskEvent(DeleteAllSubTaskEvent deleteAllSubTaskEvent) {
-        // Retrieve the task object
-        TaskDO task = deleteAllSubTaskEvent.getTaskDO();
-        
-        // Retrieve the task ID
-        String taskId = task.getTaskId();
-        
-        // Remove the set of service names corresponding to the task ID from subTaskService
-        Set<String> serviceNameSet = subTaskService.remove(taskId);
-        
-        // If the set of service names is empty, return immediately
-        if (CollectionUtils.isEmpty(serviceNameSet)) {
-            return;
+    private boolean hasNacosSource(TaskDO task) {
+        ClusterTypeEnum sourceType = skyWalkerCacheServices.getClusterType(task.getSourceClusterId());
+        if (ClusterTypeEnum.NACOS == sourceType) {
+            return true;
         }
-        
-        // Build the list of sub-tasks pending removal
-        List<TaskDO> servicesPendingRemoval = serviceNameSet.stream()
-                .map(serviceName -> buildSubTaskDO(task, serviceName))
-                .toList();
-        
-        // Handle the removal of the pending sub-tasks
-        handleRemoval(servicesPendingRemoval, serviceNameSet);
+        if (skippedTasks.add(task.getTaskId())) {
+            log.warn("ALL task {} is skipped: its source cluster {} is {}, not Nacos. Delete the task.",
+                    task.getTaskId(), task.getSourceClusterId(), sourceType);
+        }
+        return false;
+    }
+    
+    /**
+     * Deletes all sub-tasks of an ALL task.
+     * <p>
+     * One call at a time, and a failure is logged rather than thrown, as when this ran as a Guava EventBus subscriber:
+     * the task row is already gone, and the delete request that called this must not fail, nor a batch delete stop.
+     *
+     * @param task The ALL task whose sub-tasks are deleted.
+     */
+    public synchronized void deleteAllSubTasks(TaskDO task) {
+        try {
+            // Retrieve the task ID
+            String taskId = task.getTaskId();
+            
+            // Remove the set of service names corresponding to the task ID from subTaskService
+            Set<String> serviceNameSet = subTaskService.remove(taskId);
+            allTasks.remove(taskId);
+            skippedTasks.remove(taskId);
+            
+            // If the set of service names is empty, return immediately
+            if (CollectionUtils.isEmpty(serviceNameSet)) {
+                return;
+            }
+            
+            // Build the list of sub-tasks pending removal
+            List<TaskDO> servicesPendingRemoval = serviceNameSet.stream()
+                    .map(serviceName -> buildSubTaskDO(task, serviceName))
+                    .toList();
+            
+            // Handle the removal of the pending sub-tasks
+            handleRemoval(servicesPendingRemoval, serviceNameSet);
+        } catch (Exception e) {
+            log.error("Failed to delete the sub-tasks of task {}", task.getTaskId(), e);
+        }
     }
     
     
@@ -131,10 +184,14 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
         return !taskIdSet.contains(entry.getKey()) && !entry.getValue().isEmpty();
     }
     
-    private void postDeleteAllSubTaskEvent(String taskId) {
-        TaskDO taskDO = new TaskDO();
-        taskDO.setTaskId(taskId);
-        eventBus.post(new DeleteAllSubTaskEvent(taskDO));
+    private void deleteSubTasksOfRemovedTask(String taskId) {
+        // The sub-tasks are built from the task's clusters and group, so the task id alone is not enough.
+        TaskDO taskDO = allTasks.remove(taskId);
+        if (taskDO == null) {
+            taskDO = new TaskDO();
+            taskDO.setTaskId(taskId);
+        }
+        deleteAllSubTasks(taskDO);
     }
     
     /**
@@ -144,12 +201,17 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
      * @param task The task object to be processed.
      */
     private void processTask(TaskDO task) {
+        allTasks.put(task.getTaskId(), task);
         // Retrieve the set of services for the task, creating a new set if it does not exist
         Set<String> serviceSet = subTaskService.computeIfAbsent(task.getTaskId(), k -> ConcurrentHashMap.newKeySet());
         
         // Get the list of all service names associated with the task
         List<String> serviceNameList = getAllServiceName(task);
-        
+        if (serviceNameList == null) {
+            // Not known this round: keep the sub-tasks as they are rather than taking every service as gone.
+            return;
+        }
+
         // Determine the services that need to be inserted (those not in the current service set)
         List<TaskDO> servicesPendingInsertion = serviceNameList.stream()
                 .filter(serviceName -> !serviceSet.contains(serviceName))
@@ -192,9 +254,14 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
      * @param serviceSet The set of services.
      */
     private void handleInsertion(List<TaskDO> servicesPendingInsertion, Set<String> serviceSet) {
-        BatchTaskExecutor.batchOperation(servicesPendingInsertion, t -> {
-            eventBus.post(new SyncTaskEvent(t));
-            serviceSet.add(t.getServiceName());
+        // One by one on this thread, so that every sub-task has started before the task lock is released: a start
+        // still running after that was unknown to a delete that came next, and outlived its parent. Running them in
+        // parallel would not be faster either, as TaskDispatcher handles one sync at a time. A sub-task that did not
+        // start is left out of the set, so that the next round tries again, as the timer does for any other task.
+        servicesPendingInsertion.forEach(t -> {
+            if (taskDispatcher.sync(t)) {
+                serviceSet.add(t.getServiceName());
+            }
         });
     }
     /**
@@ -204,9 +271,12 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
      * @param serviceSet The set of services.
      */
     private void handleRemoval(List<TaskDO> servicesPendingRemoval, Set<String> serviceSet) {
-        BatchTaskExecutor.batchOperation(servicesPendingRemoval, t -> {
-            eventBus.post(new DeleteTaskEvent(t));
-            serviceSet.remove(t.getServiceName());
+        // One by one on this thread, for the same reason as the insertion. A sub-task that did not stop stays in the
+        // set and is tried again in the next round while its service is gone from the source.
+        servicesPendingRemoval.forEach(t -> {
+            if (taskDispatcher.delete(t)) {
+                serviceSet.remove(t.getServiceName());
+            }
         });
     }
     /**
@@ -228,23 +298,24 @@ public class CheckRunningStatusAllNacosThread implements Runnable {
     /**
      * Retrieves all service names associated with the given task.
      *
-     * @return A list of service names.
+     * @return A list of service names, or null when the source could not be asked.
      */
     private List<String> getAllServiceName(TaskDO taskDO) {
         NamingService namingService = nacosServerHolder.get(taskDO.getSourceClusterId());
         if (namingService == null) {
             log.warn("naming service is null or not found, clusterId:{}", taskDO.getSourceClusterId());
-            return Collections.emptyList();
+            return null;
         }
         try {
+            // Nacos lists no service for an empty group; a task without a group means DEFAULT_GROUP, as elsewhere.
             ListView<String> servicesOfServer = namingService.getServicesOfServer(0, Integer.MAX_VALUE,
-                    taskDO.getGroupName());
+                    NacosUtils.getGroupNameOrDefault(taskDO.getGroupName()));
             return servicesOfServer.getData();
         } catch (Exception e) {
             log.error("query service list failure", e);
         }
-        
-        return Collections.emptyList();
+
+        return null;
     }
     
     

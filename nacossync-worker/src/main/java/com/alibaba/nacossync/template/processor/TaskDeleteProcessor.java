@@ -19,13 +19,14 @@ package com.alibaba.nacossync.template.processor;
 
 import com.alibaba.nacossync.constant.SkyWalkerConstants;
 import com.alibaba.nacossync.dao.TaskAccessService;
-import com.alibaba.nacossync.event.DeleteAllSubTaskEvent;
-import com.alibaba.nacossync.event.DeleteTaskEvent;
+import com.alibaba.nacossync.exception.SkyWalkerException;
+import com.alibaba.nacossync.extension.TaskDispatcher;
 import com.alibaba.nacossync.pojo.model.TaskDO;
 import com.alibaba.nacossync.pojo.request.TaskDeleteRequest;
 import com.alibaba.nacossync.pojo.result.BaseResult;
 import com.alibaba.nacossync.template.Processor;
-import com.google.common.eventbus.EventBus;
+import com.alibaba.nacossync.timer.CheckRunningStatusAllNacosThread;
+import com.alibaba.nacossync.util.TaskLocks;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -39,24 +40,34 @@ public class TaskDeleteProcessor implements Processor<TaskDeleteRequest, BaseRes
     
     private final TaskAccessService taskAccessService;
     
-    private final EventBus eventBus;
+    private final TaskDispatcher taskDispatcher;
     
-    public TaskDeleteProcessor(TaskAccessService taskAccessService, EventBus eventBus) {
+    private final CheckRunningStatusAllNacosThread checkRunningStatusAllNacosThread;
+    
+    public TaskDeleteProcessor(TaskAccessService taskAccessService, TaskDispatcher taskDispatcher,
+            CheckRunningStatusAllNacosThread checkRunningStatusAllNacosThread) {
         this.taskAccessService = taskAccessService;
-        this.eventBus = eventBus;
+        this.taskDispatcher = taskDispatcher;
+        this.checkRunningStatusAllNacosThread = checkRunningStatusAllNacosThread;
     }
     
     @Override
     public void process(TaskDeleteRequest taskDeleteRequest, BaseResult baseResult, Object... others) {
         TaskDO taskDO = taskAccessService.findByTaskId(taskDeleteRequest.getTaskId());
-        // delete all sub task when ServiceName is all
-        if (SkyWalkerConstants.NACOS_ALL_SERVICE_NAME.equalsIgnoreCase(taskDO.getServiceName())) {
-            eventBus.post(new DeleteAllSubTaskEvent(taskDO));
-        } else {
-            eventBus.post(new DeleteTaskEvent(taskDO));
+        if (null == taskDO) {
+            throw new SkyWalkerException("taskDo is null,taskId :" + taskDeleteRequest.getTaskId());
         }
-        log.info("删除同步任务数据之前，发出一个同步事件:{}", taskDO);
-        taskAccessService.deleteTaskById(taskDeleteRequest.getTaskId());
+        // Remove the row before stopping the task: the sync timer starts every task it finds in the database.
+        TaskLocks.runLocked(taskDO.getTaskId(), () -> {
+            taskAccessService.deleteTaskById(taskDeleteRequest.getTaskId());
+            // delete all sub task when ServiceName is all
+            if (SkyWalkerConstants.NACOS_ALL_SERVICE_NAME.equalsIgnoreCase(taskDO.getServiceName())) {
+                checkRunningStatusAllNacosThread.deleteAllSubTasks(taskDO);
+            } else {
+                taskDispatcher.delete(taskDO);
+            }
+            log.info("删除同步任务数据之后，停止同步:{}", taskDO);
+        });
     }
     
     

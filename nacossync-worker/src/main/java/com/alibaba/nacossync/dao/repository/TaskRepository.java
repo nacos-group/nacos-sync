@@ -35,8 +35,7 @@ public interface TaskRepository extends CrudRepository<TaskDO, Integer>, JpaRepo
 
     @Transactional
     void deleteByTaskId(String taskId);
-    
-    List<TaskDO> findAllByTaskIdIn(List<String> taskIds);
+
     /**
      * query service is all，use ns leven sync data
      */

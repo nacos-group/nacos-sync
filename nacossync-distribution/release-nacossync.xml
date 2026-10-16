@@ -60,7 +60,7 @@
             <destName>NOTICE</destName>
         </file>
         <file>
-            <source>../nacossync-worker/target/nacos-sync-server-${project.version}.jar</source>
+            <source>../nacossync-worker/target/nacos-sync-server-${project.version}-exec.jar</source>
             <outputDirectory></outputDirectory>
             <destName>nacos-sync-server.jar</destName>
         </file>

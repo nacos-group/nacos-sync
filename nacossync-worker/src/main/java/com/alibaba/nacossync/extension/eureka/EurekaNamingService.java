@@ -31,8 +31,12 @@ public class EurekaNamingService {
 
 
     public EurekaNamingService(EurekaHttpClient eurekaHttpClient) {
+        this(eurekaHttpClient, new EurekaBeatReactor(eurekaHttpClient));
+    }
+
+    EurekaNamingService(EurekaHttpClient eurekaHttpClient, EurekaBeatReactor beatReactor) {
         this.eurekaHttpClient = eurekaHttpClient;
-        beatReactor = new EurekaBeatReactor(eurekaHttpClient);
+        this.beatReactor = beatReactor;
     }
 
     public void registerInstance(InstanceInfo instanceInfo) {
@@ -43,10 +47,10 @@ public class EurekaNamingService {
     }
 
     public void deregisterInstance(InstanceInfo instanceInfo) {
-        EurekaHttpResponse<Void> response = eurekaHttpClient.cancel(instanceInfo.getAppName(), instanceInfo.getId());
-        if (Objects.requireNonNull(HttpStatus.resolve(response.getStatusCode())).is2xxSuccessful()) {
-            beatReactor.removeInstance(instanceInfo.getId());
-        }
+        // Stop the heartbeat first and whatever the cancel returns: a heartbeat that reaches a peer after the
+        // cancel makes it re-register the instance, and a failed cancel would otherwise be renewed forever.
+        beatReactor.removeInstance(instanceInfo.getId());
+        eurekaHttpClient.cancel(instanceInfo.getAppName(), instanceInfo.getId());
     }
 
     public List<InstanceInfo> getApplications(String serviceName) {
