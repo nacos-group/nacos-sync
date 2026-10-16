@@ -36,7 +36,7 @@ if [ -z "$JAVA_HOME" ]; then
     fi
   fi
   if [ -z "$JAVA_HOME" ]; then
-        error_exit "Please set the JAVA_HOME variable in your environment, We need java(x64)! jdk8 or later is better!"
+        error_exit "Please set the JAVA_HOME variable in your environment, We need java(x64)! JDK 17 or later!"
   fi
 fi
 
@@ -52,12 +52,8 @@ JAVA_OPT="${JAVA_OPT} -XX:-UseLargePages"
 JAVA_OPT="${JAVA_OPT} -Dspring.config.location=${BASE_DIR}/conf/application.properties"
 JAVA_OPT="${JAVA_OPT} -DnacosSync.home=${BASE_DIR}"
 
-JAVA_MAJOR_VERSION=$($JAVA -version 2>&1 | sed -E -n 's/.* version "([0-9]*).*$/\1/p')
-if [[ "$JAVA_MAJOR_VERSION" -ge "9" ]] ; then
-  JAVA_OPT="${JAVA_OPT} -Xlog:gc*:file=${BASE_DIR}/logs/nacos-sync-gc.log:time,tags:filecount=10,filesize=102400"
-else
-  JAVA_OPT="${JAVA_OPT} -Xloggc:${BASE_DIR}/logs/nacos-sync-gc.log -verbose:gc -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+PrintGCTimeStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=100M"
-fi
+# nacos-sync 2.0 needs JDK 17, which only takes the unified GC logging options.
+JAVA_OPT="${JAVA_OPT} -Xlog:gc*:file=${BASE_DIR}/logs/nacos-sync-gc.log:time,tags:filecount=10,filesize=102400"
 
 JAVA_OPT="${JAVA_OPT} -jar ${BASE_DIR}/nacos-sync-server.jar"
 JAVA_OPT="${JAVA_OPT} --logging.config=${BASE_DIR}/conf/logback-spring.xml"
